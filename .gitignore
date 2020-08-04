@@ -19,3 +19,10 @@ project.xcworkspace
 # Exclude Visual Studio stuff
 .vs*
 CMakeSettings.json
+
+
+# Eclipse workspace stuff
+.cproject
+.project
+.pydevproject
+.settings/
