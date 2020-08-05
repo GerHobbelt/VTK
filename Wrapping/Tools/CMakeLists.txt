@@ -53,6 +53,11 @@ if (NOT TARGET "${ns}::WrapHierarchy")
 endif ()
 
 if (NOT TARGET WrapPython)
+
+  #
+  # TODO - add pre-processor definitions here..
+  #
+
   vtk_module_add_executable(WrapPython
     DEVELOPMENT
     BASENAME vtkWrapPython

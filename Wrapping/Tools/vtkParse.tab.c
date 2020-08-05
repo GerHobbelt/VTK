@@ -170,6 +170,8 @@ to the more usual form y x; without parentheses.
 #include "vtkParsePreprocess.h"
 #include "vtkParseData.h"
 
+#include "vtkPrefixCheck.h"
+
 /* Define the kinds of [[attributes]] to collect */
 enum
 {
@@ -10429,7 +10431,8 @@ unsigned int guess_id_type(const char *cp)
     {
       t = VTK_PARSE_UNICODE_STRING;
     }
-    else if (strncmp(dp, "vtk", 3) == 0)
+    //else if (strncmp(dp, "vtk", 3) == 0)
+    else if (PREFIX_CHECK_MACRO(dp))
     {
       t = VTK_PARSE_OBJECT;
     }

@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "vtkPrefixCheck.h"
+
 /* skip over an expression in brackets */
 static size_t vtkparse_bracket_len(const char* text)
 {
@@ -597,6 +599,7 @@ size_t vtkParse_BasicTypeFromString(
       }
 
       /* check vtk typedefs */
+      //TODO - KC - edit here
       if (strncmp(cp, "vtk", 3) == 0)
       {
         for (i = 0; vtktypes[i].len != 0; i++)
@@ -650,7 +653,8 @@ size_t vtkParse_BasicTypeFromString(
         len = n;
 
         /* VTK classes all start with vtk */
-        if (strncmp(classname, "vtk", 3) == 0)
+        //if (strncmp(classname, "vtk", 3) == 0)
+        if (PREFIX_CHECK_MACRO(classname))
         {
           base_bits = VTK_PARSE_OBJECT;
           /* make sure the "vtk" isn't just part of the namespace */

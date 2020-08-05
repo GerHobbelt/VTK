@@ -24,6 +24,8 @@
 #include "vtkWrap.h"
 #include "vtkWrapText.h"
 
+#include "vtkPrefixCheck.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,7 +140,9 @@ const char* vtkWrapPython_HasWrappedSuperClass(
     {
       break;
     }
-    else if (strncmp(entry->Name, "vtk", 3) != 0)
+
+    //else if (strncmp(entry->Name, "vtk", 3) != 0)
+    else if (PREFIX_CHECK_MACRO(entry->Name))
     {
       break;
     }

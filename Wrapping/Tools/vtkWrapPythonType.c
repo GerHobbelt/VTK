@@ -25,6 +25,8 @@
 #include "vtkWrap.h"
 #include "vtkWrapText.h"
 
+#include "vtkPrefixCheck.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -624,7 +626,9 @@ int vtkWrapPython_IsSpecialTypeWrappable(ClassInfo* data)
   }
 
   /* restrict wrapping to classes that have a "vtk" prefix */
-  if (strncmp(data->Name, "vtk", 3) != 0)
+
+  //if (strncmp(data->Name, "vtk", 3) != 0)
+  if (PREFIX_CHECK_MACRO(data->Name))
   {
     return 0;
   }
