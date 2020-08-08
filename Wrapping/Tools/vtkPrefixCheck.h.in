@@ -1,5 +1,16 @@
 /*!
- * Macros for defining how VTK check the prefixes on class and file anmes etc.
+ * Macros for defining how VTK check the prefixes on class and file names etc.
+ * 
+ * The additional strings to match are given through the Cmake variables 
+ *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL
+ *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_UC
+ *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_NS
+ *   
+ * For example to allow wrapping of classes and methods started 'abc' as well as 'vtk' use
+ *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL="PREFIX_STRING_CHECK_ADDITIONAL(ss) || strncmp(ss, \"abc\", 3)"
+ *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_UC="PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, \"ABC\", 3)"
+ *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_NS="PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, \"abc::\", 5)"
+ *  
  */
 
 
@@ -11,17 +22,10 @@
 #define PREFIX_STRING_CHECK_BASE_UC(ss) strncmp(ss, "VTK", 3)
 #define PREFIX_STRING_CHECK_BASE_NS(ss) strncmp(ss, "vtk::", 5)
 
-/* Additional string check - these are meant to be overridden at compile time */
-#ifndef PREFIX_STRING_CHECK_ADDITIONAL
-	#define PREFIX_STRING_CHECK_ADDITIONAL(ss) || strncmp(ss, "msf", 3)
-#endif
-#ifndef PREFIX_STRING_CHECK_ADDITIONAL_UC
-	#define PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, "MSF", 3)
-#endif
-#ifndef PREFIX_STRING_CHECK_ADDITIONAL_NS
-	#define PREFIX_STRING_CHECK_ADDITIONAL_NS(ss) || strncmp(ss, "msf::", 5)
-#endif
-
+/* Additional string checks - these are set from cmake */
+#define @VTK_PREFIX_STRING_CHECK_ADDITIONAL@
+#define @VTK_PREFIX_STRING_CHECK_ADDITIONAL_UC@
+#define @VTK_PREFIX_STRING_CHECK_ADDITIONAL_NS@
 
 /* Build conditionals used in code */
 #define PREFIX_CHECK_STRINGS_MATCH(ss) \

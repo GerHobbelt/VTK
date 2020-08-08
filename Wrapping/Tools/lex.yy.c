@@ -2678,7 +2678,6 @@ YY_RULE_SETUP
         /* if no macro expansion occurred, return the ID */
         yylval.str = name;
         //if (yyleng > 3 && name[0] == 'v' && name[1] == 't' && name[2] == 'k')
-        //if (yyleng > 3 && ( (name[0] == 'v' && name[1] == 't' && name[2] == 'k') || (name[0] == 'm' && name[1] == 's' && name[2] == 'f') ) )
         if (PREFIX_CHECK_STRINGS_MATCH(name))
         {
           return(VTK_ID);

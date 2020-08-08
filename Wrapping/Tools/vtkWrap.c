@@ -91,7 +91,8 @@ int vtkWrap_IsStdVector(ValueInfo* val)
 int vtkWrap_IsVTKObject(ValueInfo* val)
 {
   unsigned int t = (val->Type & VTK_PARSE_UNQUALIFIED_TYPE);
-  return (t == VTK_PARSE_OBJECT_PTR && !val->IsEnum && val->Class[0] == 'v' &&
+  return (t == VTK_PARSE_OBJECT_PTR && !val->IsEnum &&
+		 //val->Class[0] == 'v' &&
     PREFIX_CHECK_STRINGS_MATCH(val->Class) );
   	//strncmp(val->Class, "vtk", 3) == 0);
 }

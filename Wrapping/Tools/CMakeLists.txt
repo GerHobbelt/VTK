@@ -54,9 +54,16 @@ endif ()
 
 if (NOT TARGET WrapPython)
 
-  #
-  # TODO - add pre-processor definitions here..
-  #
+  # Additional prefixes to match for methods
+  set(VTK_PREFIX_STRING_CHECK_ADDITIONAL "PREFIX_STRING_CHECK_ADDITIONAL(ss) || (0==0)" CACHE STRING 
+          "Additonal pre-procesor logic to allow wrapping of names not begining with vtk. See Wrapping/Tools/vtkPrefixCheck.in for details")
+  set(VTK_PREFIX_STRING_CHECK_ADDITIONAL_UC "PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || (0==0)" CACHE STRING 
+          "Additonal pre-procesor logic to allow wrapping of names not begining with vtk. See Wrapping/Tools/vtkPrefixCheck.in for details")
+  set(VTK_PREFIX_STRING_CHECK_ADDITIONAL_NS "PREFIX_STRING_CHECK_ADDITIONAL_NS(ss) || (0==0)" CACHE STRING 
+          "Additonal pre-procesor logic to allow wrapping of names not begining with vtk. See Wrapping/Tools/vtkPrefixCheck.in for details")
+
+  # Create the vtkPrefixCheck.h
+  configure_file(vtkPrefixCheck.h.in vtkPrefixCheck.h @ONLY)
 
   vtk_module_add_executable(WrapPython
     DEVELOPMENT
