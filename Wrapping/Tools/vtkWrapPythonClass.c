@@ -142,7 +142,7 @@ const char* vtkWrapPython_HasWrappedSuperClass(
     }
 
     //else if (strncmp(entry->Name, "vtk", 3) != 0)
-    else if (PREFIX_CHECK_MACRO(entry->Name))
+    else if (PREFIX_CHECK_STRINGS_DONT_MATCH(entry->Name))
     {
       break;
     }
@@ -602,6 +602,7 @@ void vtkWrapPython_GenerateObjectType(FILE* fp, const char* module, const char* 
 int vtkWrapPython_WrapOneClass(FILE* fp, const char* module, const char* classname, ClassInfo* data,
   FileInfo* finfo, HierarchyInfo* hinfo, int is_vtkobject)
 {
+
   int class_has_new = 0;
   int i;
 

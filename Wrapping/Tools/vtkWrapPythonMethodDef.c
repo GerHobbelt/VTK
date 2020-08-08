@@ -307,6 +307,7 @@ void vtkWrapPython_GenerateMethods(FILE* fp, const char* classname, ClassInfo* d
       !theFunc->Template && !vtkWrap_IsDestructor(data, theFunc) &&
       (!vtkWrap_IsConstructor(data, theFunc) == !do_constructors))
     {
+
       ccp = vtkWrapText_PythonSignature(theFunc);
       cp = (char*)malloc(strlen(ccp) + 1);
       strcpy(cp, ccp);
@@ -535,7 +536,7 @@ static int vtkWrapPython_IsValueWrappable(
   }
   else if (vtkWrap_IsArray(val) || vtkWrap_IsNArray(val))
   {
-    if (vtkWrap_IsNumeric(val))
+	if (vtkWrap_IsNumeric(val))
     {
       return 1;
     }
@@ -578,6 +579,7 @@ int vtkWrapPython_MethodCheck(ClassInfo* data, FunctionInfo* currentFunction, Hi
     return 0;
   }
 
+
   /* new and delete are meaningless in wrapped languages */
   if (currentFunction->Name == 0 || strcmp("Register", currentFunction->Name) == 0 ||
     strcmp("UnRegister", currentFunction->Name) == 0 ||
@@ -585,6 +587,7 @@ int vtkWrapPython_MethodCheck(ClassInfo* data, FunctionInfo* currentFunction, Hi
   {
     return 0;
   }
+
 
   /* function pointer arguments for callbacks */
   if (currentFunction->NumberOfParameters == 2 &&
@@ -595,6 +598,7 @@ int vtkWrapPython_MethodCheck(ClassInfo* data, FunctionInfo* currentFunction, Hi
   {
     return 1;
   }
+
 
   n = vtkWrap_CountWrappedParameters(currentFunction);
 
@@ -612,6 +616,7 @@ int vtkWrapPython_MethodCheck(ClassInfo* data, FunctionInfo* currentFunction, Hi
   {
     return 0;
   }
+
 
   return 1;
 }

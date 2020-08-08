@@ -425,8 +425,10 @@ int main(int argc, char* argv[])
   {
     data = contents->Classes[i];
 
+
     /* guess whether type is a vtkobject */
     is_vtkobject = (data == file_info->MainClass ? 1 : 0);
+
     if (hinfo)
     {
       is_vtkobject = vtkWrap_IsTypeOf(hinfo, data->Name, "vtkObjectBase");
@@ -454,7 +456,9 @@ int main(int argc, char* argv[])
   /* Wrap all of the classes in the file */
   for (i = 0; i < contents->NumberOfClasses; i++)
   {
+
     data = contents->Classes[i];
+
     if (data->IsExcluded)
     {
       continue;

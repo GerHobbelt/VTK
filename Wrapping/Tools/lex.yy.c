@@ -2677,7 +2677,9 @@ YY_RULE_SETUP
       {
         /* if no macro expansion occurred, return the ID */
         yylval.str = name;
-        if (yyleng > 3 && name[0] == 'v' && name[1] == 't' && name[2] == 'k')
+        //if (yyleng > 3 && name[0] == 'v' && name[1] == 't' && name[2] == 'k')
+        //if (yyleng > 3 && ( (name[0] == 'v' && name[1] == 't' && name[2] == 'k') || (name[0] == 'm' && name[1] == 's' && name[2] == 'f') ) )
+        if (PREFIX_CHECK_STRINGS_MATCH(name))
         {
           return(VTK_ID);
         }
@@ -5119,7 +5121,8 @@ void preprocessor_directive(const char *text, size_t l)
   else if (n == 6 && strncmp(directive, "define", n) == 0)
   {
     closeComment();
-    if (ep - cp > 4 && strncmp(cp, "VTK", 3) == 0)
+    //if (ep - cp > 4 && strncmp(cp, "VTK", 3) == 0)
+    if (ep - cp > 4 && PREFIX_CHECK_STRINGS_MATCH_UC(cp))
     {
       /* macros that start with "VTK" */
       MacroInfo *macro;

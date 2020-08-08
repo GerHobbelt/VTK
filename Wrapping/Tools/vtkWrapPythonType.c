@@ -628,7 +628,7 @@ int vtkWrapPython_IsSpecialTypeWrappable(ClassInfo* data)
   /* restrict wrapping to classes that have a "vtk" prefix */
 
   //if (strncmp(data->Name, "vtk", 3) != 0)
-  if (PREFIX_CHECK_MACRO(data->Name))
+  if (PREFIX_CHECK_STRINGS_DONT_MATCH(data->Name))
   {
     return 0;
   }

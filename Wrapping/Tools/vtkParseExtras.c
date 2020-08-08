@@ -599,8 +599,8 @@ size_t vtkParse_BasicTypeFromString(
       }
 
       /* check vtk typedefs */
-      //TODO - KC - edit here
-      if (strncmp(cp, "vtk", 3) == 0)
+      //if (strncmp(cp, "vtk", 3) == 0)
+      if (PREFIX_CHECK_STRINGS_MATCH(cp))
       {
         for (i = 0; vtktypes[i].len != 0; i++)
         {
@@ -648,13 +648,14 @@ size_t vtkParse_BasicTypeFromString(
       /* anything else is assumed to be a class, enum, or who knows */
       if (base_bits == 0)
       {
+
         base_bits = VTK_PARSE_UNKNOWN;
         classname = cp;
         len = n;
 
         /* VTK classes all start with vtk */
         //if (strncmp(classname, "vtk", 3) == 0)
-        if (PREFIX_CHECK_MACRO(classname))
+        if (PREFIX_CHECK_STRINGS_MATCH(classname))
         {
           base_bits = VTK_PARSE_OBJECT;
           /* make sure the "vtk" isn't just part of the namespace */

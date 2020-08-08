@@ -90,20 +90,17 @@ int vtkWrap_IsStdVector(ValueInfo* val)
 
 int vtkWrap_IsVTKObject(ValueInfo* val)
 {
-	//TODO - KC - edit here
-
   unsigned int t = (val->Type & VTK_PARSE_UNQUALIFIED_TYPE);
   return (t == VTK_PARSE_OBJECT_PTR && !val->IsEnum && val->Class[0] == 'v' &&
-    strncmp(val->Class, "vtk", 3) == 0);
+    PREFIX_CHECK_STRINGS_MATCH(val->Class) );
+  	//strncmp(val->Class, "vtk", 3) == 0);
 }
 
 int vtkWrap_IsSpecialObject(ValueInfo* val)
 {
-	//TODO - KC - edit here
-
   unsigned int t = (val->Type & VTK_PARSE_UNQUALIFIED_TYPE);
   return ((t == VTK_PARSE_OBJECT || t == VTK_PARSE_OBJECT_REF) && !val->IsEnum &&
-    val->Class[0] == 'v' && strncmp(val->Class, "vtk", 3) == 0);
+	  PREFIX_CHECK_STRINGS_MATCH(val->Class) );
 }
 
 int vtkWrap_IsPythonObject(ValueInfo* val)
@@ -467,9 +464,9 @@ int vtkWrap_IsVTKObjectBaseType(HierarchyInfo* hinfo, const char* classname)
 
   /* fallback if no HierarchyInfo, but skip smart pointers */
 
-  //TODO - KC - edit here
-
-  if (strncmp("vtk", classname, 3) == 0 && strncmp("vtkSmartPointer", classname, 15) != 0)
+  //if (strncmp("vtk", classname, 3) == 0 && strncmp("vtkSmartPointer", classname, 15) != 0)
+  //if (PREFIX_CHECK_STRINGS_MATCH(classname) && strncmp("vtkSmartPointer", classname, 15) != 0)
+  if (strncmp("vtkSmartPointer", classname, 15) != 0)
   {
     return 1;
   }
@@ -499,7 +496,7 @@ int vtkWrap_IsSpecialType(HierarchyInfo* hinfo, const char* classname)
 
   /* fallback if no HierarchyInfo */
   //if (strncmp("vtk", classname, 3) == 0)
-  if (PREFIX_CHECK_MACRO(classname))
+  if (PREFIX_CHECK_STRINGS_MATCH(classname))
   {
     return -1;
   }
@@ -546,10 +543,8 @@ int vtkWrap_IsClassWrapped(HierarchyInfo* hinfo, const char* classname)
       return 1;
     }
   }
-
-  //TODO - KC - edit here
-
-  else if (strncmp("vtk", classname, 3) == 0)
+  //else if (strncmp("vtk", classname, 3) == 0)
+  else if (PREFIX_CHECK_STRINGS_MATCH(classname))
   {
     return 1;
   }

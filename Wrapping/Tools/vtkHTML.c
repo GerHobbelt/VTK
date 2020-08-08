@@ -54,7 +54,8 @@ void vtkParseOutput(FILE* fp, FileInfo* data)
     tok = strtok(dup, " ");
     while (tok)
     {
-      if (!strncmp("vtk", tok, 3))
+      //if (!strncmp("vtk", tok, 3))
+      if (PREFIX_CHECK_STRINGS_MATCH(tok) )
       {
         fprintf(fp, "<a href=\"%s.html\">%s</a> ", tok, tok);
       }

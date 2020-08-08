@@ -4128,7 +4128,7 @@ unsigned int guess_id_type(const char *cp)
       t = VTK_PARSE_UNICODE_STRING;
     }
     //else if (strncmp(dp, "vtk", 3) == 0)
-    else if (PREFIX_CHECK_MACRO(dp))
+    else if (PREFIX_CHECK_STRINGS_MATCH(dp))
     {
       t = VTK_PARSE_OBJECT;
     }
@@ -4358,7 +4358,8 @@ void handle_attribute(const char *att, int pack)
   }
 
   /* check for namespace */
-  if (strncmp(att, "vtk::", 5) == 0)
+  //if (strncmp(att, "vtk::", 5) == 0)
+  if (PREFIX_CHECK_STRINGS_MATCH_NS(att))
   {
     if (pack)
     {
