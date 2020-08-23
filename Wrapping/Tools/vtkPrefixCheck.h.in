@@ -2,14 +2,14 @@
  * Macros for defining how VTK check the prefixes on class and file names etc.
  * 
  * The additional strings to match are given through the Cmake variables 
- *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL
- *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_UC
- *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_NS
+ *   VTK_PREFIX_STRING_CHECK_ADDITIONAL		- macro function for matching standard / lower case
+ *   VTK_PREFIX_STRING_CHECK_ADDITIONAL_UC	- macro function for matching upper case
+ *   VTK_PREFIX_STRING_CHECK_ADDITIONAL_NS	-  macro function for matching name spaces
  *   
  * For example to allow wrapping of classes and methods started 'abc' as well as 'vtk' use
- *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL="PREFIX_STRING_CHECK_ADDITIONAL(ss) || strncmp(ss, \"abc\", 3)"
- *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_UC="PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, \"ABC\", 3)"
- *   CMAKE_PREFIX_STRING_CHECK_ADDITIONAL_NS="PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, \"abc::\", 5)"
+ *   VTK_PREFIX_STRING_CHECK_ADDITIONAL="PREFIX_STRING_CHECK_ADDITIONAL(ss) || strncmp(ss, \"abc\", 3)"
+ *   VTK_PREFIX_STRING_CHECK_ADDITIONAL_UC="PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, \"ABC\", 3)"
+ *   VTK_PREFIX_STRING_CHECK_ADDITIONAL_NS="PREFIX_STRING_CHECK_ADDITIONAL_UC(ss) || strncmp(ss, \"abc::\", 5)"
  *  
  */
 
