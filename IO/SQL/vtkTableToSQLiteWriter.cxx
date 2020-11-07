@@ -108,7 +108,6 @@ void vtkTableToSQLiteWriter::WriteData()
   vtkSQLiteQuery* query = static_cast<vtkSQLiteQuery*>(this->Database->GetQueryInstance());
 
   query->SetQuery(createTableQuery.c_str());
-  cout << "creating the table" << endl;
   if (!query->Execute())
   {
     vtkErrorMacro(<< "Error performing 'create table' query");
