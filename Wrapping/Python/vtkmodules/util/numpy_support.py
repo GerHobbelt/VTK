@@ -72,7 +72,8 @@ def get_vtk_array_type(numpy_array_type):
 
 def get_vtk_to_numpy_typemap():
     """Returns the VTK array type to numpy array type mapping."""
-    _vtk_np = {vtkConstants.VTK_BIT:numpy.bool,
+    _vtk_np = {#vtkConstants.VTK_BIT:numpy.bool,
+               vtkConstants.VTK_BIT:numpy.bool_,
                 vtkConstants.VTK_CHAR:numpy.int8,
                 vtkConstants.VTK_SIGNED_CHAR:numpy.int8,
                 vtkConstants.VTK_UNSIGNED_CHAR:numpy.uint8,
