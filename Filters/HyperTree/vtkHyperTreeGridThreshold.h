@@ -43,6 +43,8 @@
 #include "vtkFiltersHyperTreeModule.h" // For export macro
 #include "vtkHyperTreeGridAlgorithm.h"
 
+#include <limits>
+
 class vtkBitArray;
 class vtkHyperTreeGrid;
 

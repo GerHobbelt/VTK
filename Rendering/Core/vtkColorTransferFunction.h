@@ -39,6 +39,8 @@
 #include "vtkRenderingCoreModule.h" // For export macro
 #include "vtkScalarsToColors.h"
 
+#include <limits>
+
 class vtkColorTransferFunctionInternals;
 
 #define VTK_CTF_RGB 0

@@ -74,6 +74,7 @@
 #include "vtkTypeTraits.h"
 
 #include <cassert>
+#include <limits>
 
 template <class DerivedT, class ValueTypeT>
 class vtkGenericDataArray : public vtkDataArray
