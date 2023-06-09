@@ -24,6 +24,8 @@
 #include "vtkIOCityGMLModule.h" // For export macro
 #include "vtkMultiBlockDataSetAlgorithm.h"
 
+#include <limits>
+
 /**
  * @class   vtkCityGMLReader
  * @brief   reads CityGML files

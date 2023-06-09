@@ -40,6 +40,9 @@
 #include "vtkCommonDataModelModule.h" // For export macro
 #include "vtkDataObject.h"
 
+#include <limits>
+
+
 class vtkPiecewiseFunctionInternals;
 
 class VTKCOMMONDATAMODEL_EXPORT vtkPiecewiseFunction : public vtkDataObject
