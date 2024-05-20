@@ -1,6 +1,6 @@
 # Lists of paths for artifacts of various stages.
 
-.cmake_annotations_artifacts:
+.cdash_annotations_artifacts:
     artifacts:
         expire_in: 1d
         # Because build logs are in here, we should always upload artifacts.
@@ -12,7 +12,6 @@
             - build/cdash-build-id
 
 .cmake_build_artifacts:
-    extends: .cmake_annotations_artifacts
     artifacts:
         expire_in: 1d
         # Because build logs are in here, we should always upload artifacts.
@@ -32,6 +31,8 @@
             - build/lib/
             - build/Utilities/KWIML/vtkkwiml/test/kwiml_test
             - build/Utilities/KWIML/vtkkwiml/test/kwiml_test.exe
+            - build/Utilities/KWIML/vtkkwiml/test/kwiml_test.js
+            - build/Utilities/KWIML/vtkkwiml/test/kwiml_test.wasm
 
             # Python packages go here
             - build/lib64/
@@ -73,24 +74,27 @@
             - build/**/*.spdx
 
 .cmake_junit_artifacts:
-    extends: .cmake_annotations_artifacts
     artifacts:
         expire_in: 1d
         # Tests failing should still upload the artifact for further testing.
         when: always
         reports:
+            annotations:
+                - build/annotations.json
             junit:
                 - build/junit.xml
         paths:
             - compile_output.log
+            - build/cdash-build-id
 
 .cmake_test_artifacts:
-    extends: .cmake_annotations_artifacts
     artifacts:
         expire_in: 1d
         # Tests failing should still upload the artifact for further testing.
         when: always
         reports:
+            annotations:
+                - build/annotations.json
             junit:
                 - build/junit.xml
         paths:
@@ -102,50 +106,73 @@
 
             # Debugging logs
             - build/Testing/Temporary/Last*.log
+            - build/cdash-build-id
 
 .cmake_tidy_artifacts:
-    extends: .cmake_annotations_artifacts
     artifacts:
         expire_in: 1d
         when: always
+        reports:
+            annotations:
+                - build/annotations.json
         paths:
             - compile_output.log
+            - build/cdash-build-id
 
 .cmake_doxygen_artifacts:
-    extends: .cmake_annotations_artifacts
     artifacts:
         expire_in: 1d
         when: always
+        reports:
+            annotations:
+                - build/annotations.json
         paths:
             - compile_output.log
             - doxygen_output.log
 
             - build/install/
+            - build/cdash-build-id
 
 .cmake_wheel_artifacts:
-    extends: .cmake_annotations_artifacts
     artifacts:
         expire_in: 1d
         when: always
+        reports:
+            annotations:
+                - build/annotations.json
         paths:
             - compile_output.log
             - wheel_output.log
 
             - build/dist/*.whl
             - build/*-wheel-sdk-*.tar.xz
+            - build/cdash-build-id
 
-.cmake_release_artifacts:
-    extends: .cmake_annotations_artifacts
+.cmake_webassembly_artifacts:
     artifacts:
         expire_in: 1d
         when: always
         paths:
+            - build/bin/vtk-wasm*.tar.gz
+
+.cmake_release_artifacts:
+    artifacts:
+        expire_in: 1d
+        when: always
+        reports:
+            annotations:
+                - build/annotations.json
+        paths:
             - release/
+            - build/cdash-build-id
 
 .sphinx_artifacts:
     artifacts:
         expire_in: 1d
         when: always
+        reports:
+            annotations:
+                - build/annotations.json
         paths:
           - sphinx_output.log
           - Documentation/docs/_build/

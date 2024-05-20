@@ -141,10 +141,7 @@ vtkSmartPointer<vtkFloatArray> vtkPolyDataNormals::GetPointNormals(
   {
     data->BuildCells();
   }
-  if (!data->GetLinks())
-  {
-    data->BuildLinks();
-  }
+  data->BuildLinks();
 
   auto pointNormals = vtkSmartPointer<vtkFloatArray>::New();
   pointNormals->SetName("Normals");
@@ -214,8 +211,8 @@ int vtkPolyDataNormals::RequestData(vtkInformation* vtkNotUsed(request),
   const bool hasPointNormals = this->ComputePointNormals ? inputPointNormals != nullptr : true;
   auto inputCellNormals = vtkFloatArray::FastDownCast(input->GetCellData()->GetNormals());
   const bool hasCellNormals = this->ComputeCellNormals ? inputCellNormals != nullptr : true;
-  if (hasPointNormals && hasCellNormals && !this->Splitting && !this->Consistency &&
-    !this->AutoOrientNormals)
+  if (hasPointNormals && hasCellNormals && (!this->Splitting || !this->ComputePointNormals) &&
+    !this->Consistency && !this->AutoOrientNormals)
   {
     // don't do anything! pass data through
     output->CopyStructure(input);
@@ -249,7 +246,8 @@ int vtkPolyDataNormals::RequestData(vtkInformation* vtkNotUsed(request),
     fixPolyDataPipeline = orientPolyData->GetOutputPort();
   }
   vtkNew<vtkSplitSharpEdgesPolyData> splitSharpEdgesPolyData;
-  if (this->Splitting)
+  // splitting is only required if we are computing point normals
+  if (this->Splitting && this->ComputePointNormals)
   {
     splitSharpEdgesPolyData->SetContainerAlgorithm(this);
     splitSharpEdgesPolyData->AddObserver(vtkCommand::ProgressEvent, progressForwarder);
@@ -267,10 +265,6 @@ int vtkPolyDataNormals::RequestData(vtkInformation* vtkNotUsed(request),
   {
     output->GetCellData()->SetNormals(cellNormals);
   }
-  else if (!input->GetCellData()->GetNormals())
-  {
-    output->GetCellData()->SetNormals(nullptr);
-  }
   this->UpdateProgress(0.5);
   if (this->CheckAbort())
   {
@@ -283,10 +277,18 @@ int vtkPolyDataNormals::RequestData(vtkInformation* vtkNotUsed(request),
       vtkPolyDataNormals::GetPointNormals(output, cellNormals, flipDirection);
     output->GetPointData()->SetNormals(pointNormals);
   }
-  else if (!input->GetPointData()->GetNormals())
+  // if normals were not requested, they were not part of the input, but are part of the output.
+  // remove them
+  if (!this->ComputeCellNormals && !input->GetCellData()->GetNormals())
+  {
+    output->GetCellData()->SetNormals(nullptr);
+  }
+  if (!this->ComputePointNormals && !input->GetPointData()->GetNormals())
   {
     output->GetPointData()->SetNormals(nullptr);
   }
+  // No longer need the links, so free them
+  output->SetLinks(nullptr);
   this->UpdateProgress(1.0);
 
   return 1;
