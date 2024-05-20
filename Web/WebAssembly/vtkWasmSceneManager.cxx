@@ -8,6 +8,21 @@
 
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
+#include "vtkRenderer.h"
+
+// Init factories.
+#ifdef VTK_MODULE_ENABLE_VTK_RenderingContextOpenGL2
+#include "vtkRenderingContextOpenGL2Module.h"
+#endif
+#ifdef VTK_MODULE_ENABLE_VTK_RenderingOpenGL2
+#include "vtkOpenGLPolyDataMapper.h" // needed to remove unused mapper, also includes vtkRenderingOpenGL2Module.h
+#endif
+#ifdef VTK_MODULE_ENABLE_VTK_RenderingUI
+#include "vtkRenderingUIModule.h"
+#endif
+#ifdef VTK_MODULE_ENABLE_VTK_RenderingVolumeOpenGL2
+#include "vtkRenderingVolumeOpenGL2Module.h"
+#endif
 
 VTK_ABI_NAMESPACE_BEGIN
 //-------------------------------------------------------------------------------
@@ -18,6 +33,22 @@ vtkWasmSceneManager::vtkWasmSceneManager() = default;
 
 //-------------------------------------------------------------------------------
 vtkWasmSceneManager::~vtkWasmSceneManager() = default;
+
+//-------------------------------------------------------------------------------
+bool vtkWasmSceneManager::Initialize()
+{
+  bool result = this->Superclass::Initialize();
+#ifdef VTK_MODULE_ENABLE_VTK_RenderingOpenGL2
+  // Remove the default vtkOpenGLPolyDataMapper as it is not used with wasm build.
+  /// get rid of serialization handler
+  this->Serializer->UnRegisterHandler(typeid(vtkOpenGLPolyDataMapper));
+  /// get rid of de-serialization handler
+  this->Deserializer->UnRegisterHandler(typeid(vtkOpenGLPolyDataMapper));
+  /// get rid of constructor
+  this->Deserializer->UnRegisterConstructor("vtkOpenGLPolyDataMapper");
+#endif
+  return result;
+}
 
 //-------------------------------------------------------------------------------
 void vtkWasmSceneManager::PrintSelf(ostream& os, vtkIndent indent)
@@ -47,6 +78,18 @@ bool vtkWasmSceneManager::Render(vtkTypeUInt32 identifier)
   if (auto renderWindow = vtkRenderWindow::SafeDownCast(object))
   {
     renderWindow->Render();
+    return true;
+  }
+  return false;
+}
+
+//-------------------------------------------------------------------------------
+bool vtkWasmSceneManager::ResetCamera(vtkTypeUInt32 identifier)
+{
+  auto object = this->GetObjectAtId(identifier);
+  if (auto renderer = vtkRenderer::SafeDownCast(object))
+  {
+    renderer->ResetCamera();
     return true;
   }
   return false;

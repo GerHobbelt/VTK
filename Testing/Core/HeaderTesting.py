@@ -129,6 +129,7 @@ class TestVTKFiles:
 
     def CheckExclude(self):
         self.ExcludeNamespaceCheck = False
+        self.ExcludeTypeMacro = False
         prefix = '// VTK-HeaderTest-Exclude:'
         prefix_c = '/* VTK-HeaderTest-Exclude:'
         suffix_c = ' */'
@@ -154,6 +155,9 @@ class TestVTKFiles:
                     if "CLASSES" in e:
                         hasExclusions = True
                         self.HasClass = False
+                    if "TYPEMACRO" in e:
+                        hasExclusions = True
+                        self.ExludeTypeMacro = True
                     if not hasExclusions:
                         self.Error("Wrong exclusion: "+l.rstrip())
         if exclude > 1:
@@ -345,7 +349,7 @@ class TestVTKFiles:
         self.ParentName = pname
 
     def CheckTypeMacro(self):
-        if not self.HasClass:
+        if not self.HasClass or not self.ExcludeTypeMacro:
             return
 
         count = 0
@@ -571,7 +575,7 @@ if not args.root:
 
 # Make sure the root exists
 if not os.path.exists(args.root):
-    print("Root path does not exists: %s" % (args.root))
+    print("Root path does not exist: %s" % (args.root))
     sys.exit(1)
 
 test = TestVTKFiles()
