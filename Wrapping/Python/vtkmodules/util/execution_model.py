@@ -1,10 +1,11 @@
 """Utility classes to help with the simpler Python interface
 for connecting and executing pipelines."""
 
+__all__ = ['select_ports', 'Pipeline', 'Output']
+
 def _call(first, last, inp=None, port=0):
     """Set the input of the first filter, update the pipeline
     and return the output."""
-    print("Port:" , port)
     if inp and not first.GetNumberOfInputPorts():
         raise ValueError(f"{first.GetClassName()} does not have input ports yet an input was passed to the pipeline.")
     in_cons = []
@@ -95,10 +96,19 @@ class select_ports(object):
             self.output_port = 0
 
     def SetInputConnection(self, inp):
+        "Forwards to underlying algorithm and port."
         self.algorithm.SetInputConnection(self.input_port, inp)
 
+    def AddInputConnection(self, inp):
+        "Forwards to underlying algorithm and port."
+        self.algorithm.AddInputConnection(self.input_port, inp)
+
     def GetOutputPort(self):
+        "Returns the output port of the underlying algorithm."
         return self.algorithm.GetOutputPort(self.output_port)
+
+    def GetInputPortInformation(self, port):
+        return self.algorithm.GetInputPortInformation(self.input_port)
 
     def update(self):
         """Execute the algorithm and return the output from the selected
@@ -106,9 +116,23 @@ class select_ports(object):
         return self.algorithm.update()
 
     def __rshift__(self, rhs):
+        "Creates a pipeline between the underlying port and an algorithm."
         return Pipeline(self, rhs)
 
+    def __rrshift__(self, lhs):
+        """Creates a pipeline between the underlying port and an algorithm.
+        This is to handle sequence >> select_ports where the port can
+        accept multiple connections."""
+        from collections.abc import Sequence
+        if lhs is None or (isinstance(lhs, Sequence) and len(lhs == 0)):
+            self.algorithm.RemoveAllInputConnections(self.input_port)
+            return self
+        return Pipeline(lhs, self)
+
     def __call__(self, inp=None):
+        """Executes the underlying algorithm by passing input data to
+        the selected input port. Returns a single output or a tuple
+        if there are multiple outputs."""
         return _call(self.algorithm, self.algorithm, inp, self.input_port)
 
 class Pipeline(object):
@@ -126,42 +150,64 @@ class Pipeline(object):
     def __init__(self, lhs, rhs):
         """Create a pipeline object that connects two objects of the
         following type: data object, pipeline object, algorithm object."""
+        left_type = self._determine_type(lhs)
+        right_type = self._determine_type(rhs)
+        if right_type == Pipeline.ALGORITHM:
+            rhs_alg = rhs
+        elif right_type == Pipeline.PIPELINE:
+            rhs_alg = rhs.first
+        else:
+            raise TypeError(
+              f"unsupported operand type(s) for >>: {type(lhs).__name__} and {type(rhs).__name__}")
+
+        from collections.abc import Sequence
+        if isinstance(lhs, Sequence):
+            for inp in lhs:
+                self._connect(inp, rhs, rhs_alg, "AddInputConnection")
+        else:
+            self._connect(lhs, rhs, rhs_alg, "SetInputConnection")
+
+    def _connect(self, lhs, rhs, rhs_alg, connect_method):
+        from vtkmodules.vtkCommonExecutionModel import vtkAlgorithm
+        inInfo = rhs_alg.GetInputPortInformation(0)
+        if inInfo.Has(vtkAlgorithm.INPUT_IS_REPEATABLE()):
+            connect_method = 'AddInputConnection'
 
         left_type = self._determine_type(lhs)
         right_type = self._determine_type(rhs)
-        if left_type == Pipeline.UNKNOWN or right_type == Pipeline.UNKNOWN:
+        if left_type == Pipeline.UNKNOWN:
             raise TypeError(
-                    f"unsupported operand type(s) for >>: {type(lhs).__name__} and {type(rhs).__name__}")
+              f"unsupported operand type(s) for >>: {type(lhs).__name__} and {type(rhs).__name__}")
         if right_type == Pipeline.ALGORITHM:
             if left_type == Pipeline.ALGORITHM:
-                rhs.SetInputConnection(lhs.GetOutputPort())
+                getattr(rhs_alg, connect_method)(lhs.GetOutputPort())
                 self.first = lhs
                 self.last = rhs
             elif left_type == Pipeline.PIPELINE:
-                rhs.SetInputConnection(lhs.last.GetOutputPort())
+                getattr(rhs_alg, connect_method)(lhs.last.GetOutputPort())
                 self.first = lhs.first
                 self.last = rhs
             elif left_type == Pipeline.DATA:
                 from vtkmodules.vtkCommonExecutionModel import vtkTrivialProducer
                 source = vtkTrivialProducer()
                 source.SetOutput(lhs)
-                rhs.SetInputConnection(source.GetOutputPort())
+                getattr(rhs_alg, connect_method)(source.GetOutputPort())
                 self.first = source
                 self.last = rhs
         elif right_type == Pipeline.PIPELINE:
             if left_type == Pipeline.ALGORITHM:
                 self.first = lhs
                 self.last = rhs.last
-                rhs.first.SetInputConnection(lhs.GetOutputPort())
+                getattr(rhs_alg, connect_method)(lhs.GetOutputPort())
             elif left_type == Pipeline.PIPELINE:
-                rhs.first.SetInputConnection(lhs.last.GetOutputPort())
+                getattr(rhs_alg, connect_method)(lhs.last.GetOutputPort())
                 self.first = lhs.first
                 self.last = rhs.last
             elif left_type == Pipeline.DATA:
                 from vtkmodules.vtkCommonExecutionModel import vtkTrivialProducer
                 source = vtkTrivialProducer()
                 source.SetOutput(lhs)
-                rhs.first.SetInputConnection(source.GetOutputPort())
+                getattr(rhs_alg, connect_method)(source.GetOutputPort())
                 self.first = source
                 self.last = rhs.last
 
@@ -180,20 +226,38 @@ class Pipeline(object):
         return self.last.update()
 
     def __call__(self, inp=None):
-        """Set the input of the first filter, update the pipeline
-        and return the output."""
+        """Sets the input of the first filter, update the pipeline
+        and returns the output. A single data object or a tuple
+        of data objects (when there are multiple outputs) are
+        returned."""
         return _call(self.first, self.last, inp)
 
     def __rshift__(self, rhs):
+        """Used to connect two pipeline items. The left side can
+        be a data object, an algorithm or a pipeline. The right
+        side can be an algorithm or a pipeline."""
         return Pipeline(self, rhs)
 
+    def __rrshift__(self, lhs):
+        """Creates a pipeline between a sequence input and a pipeline."""
+        from collections.abc import Sequence
+        if lhs is None or (isinstance(lhs, Sequence) and len(lhs) == 0):
+            self.first.RemoveAllInputConnections(0)
+            return self
+        return Pipeline(lhs, self)
+
 class Output(object):
+    """Helper object to represent the output of an algorithms as
+    returned by the update() method. Implements the output property
+    enabling calling update().output."""
     def __init__(self, algorithm, **kwargs):
         self.algorithm = algorithm
         self.algorithm.Update()
 
     @property
     def output(self):
+        """Returns a single data object or a tuple of data objects
+        if there are multiple outputs."""
         if self.algorithm.GetNumberOfOutputPorts() == 1:
             return self.algorithm.GetOutputDataObject(0)
         else:

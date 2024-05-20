@@ -43,6 +43,8 @@ public:
 
   // Specify the required D3D version
   D3D_FEATURE_LEVEL MinFeatureLevel = D3D_FEATURE_LEVEL_11_1;
+
+  UINT ColorTextureFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
 };
 
 vtkStandardNewMacro(vtkWin32OpenGLDXRenderWindow);
@@ -134,7 +136,7 @@ void vtkWin32OpenGLDXRenderWindow::InitializeDX()
   this->Impl->DeviceHandle = wglDXOpenDeviceNV(this->Impl->Device.Get());
 
   // Create D3D Texture2D
-  this->CreateTexture(DXGI_FORMAT_R8G8B8A8_UNORM,
+  this->CreateTexture(this->Impl->ColorTextureFormat,
     D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE, &this->Impl->D3DSharedColorTexture);
   this->CreateTexture(
     DXGI_FORMAT_D32_FLOAT, D3D11_BIND_DEPTH_STENCIL, &this->Impl->D3DSharedDepthTexture);
@@ -195,7 +197,7 @@ void vtkWin32OpenGLDXRenderWindow::UpdateTextures()
 
   this->UnregisterSharedTexture();
 
-  this->CreateTexture(DXGI_FORMAT_R8G8B8A8_UNORM,
+  this->CreateTexture(this->Impl->ColorTextureFormat,
     D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE,
     this->Impl->D3DSharedColorTexture.ReleaseAndGetAddressOf());
 
@@ -347,13 +349,27 @@ void vtkWin32OpenGLDXRenderWindow::BlitToTexture(ID3D11Texture2D* color, ID3D11T
   {
     return;
   }
+  D3D11_TEXTURE2D_DESC desc;
+  color->GetDesc(&desc);
 
-  this->Impl->D3DDeviceContext->CopySubresourceRegion(color, // destination
-    0,                                                       // destination subresource id
-    0, 0, 0,                                                 // destination origin x,y,z
-    this->Impl->D3DSharedColorTexture.Get(),                 // source
-    0,                                                       // source subresource id
-    nullptr); // source clip box (nullptr == full extent)
+  // Resolve texture if needed
+  if (this->MultiSamples > 1 && desc.SampleDesc.Count <= 1)
+  {
+    this->Impl->D3DDeviceContext->ResolveSubresource(color, // destination
+      0,                                                    // destination subresource id
+      this->Impl->D3DSharedColorTexture.Get(),              // source
+      0,                                                    // source subresource id
+      static_cast<DXGI_FORMAT>(this->Impl->ColorTextureFormat));
+  }
+  else
+  {
+    this->Impl->D3DDeviceContext->CopySubresourceRegion(color, // destination
+      0,                                                       // destination subresource id
+      0, 0, 0,                                                 // destination origin x,y,z
+      this->Impl->D3DSharedColorTexture.Get(),                 // source
+      0,                                                       // source subresource id
+      nullptr); // source clip box (nullptr == full extent)
+  }
 
   if (depth)
   {
@@ -393,6 +409,16 @@ ID3D11Texture2D* vtkWin32OpenGLDXRenderWindow::GetD3DSharedDepthTexture()
 void vtkWin32OpenGLDXRenderWindow::SetAdapterId(LUID uid)
 {
   this->Impl->AdapterId = uid;
+}
+
+//------------------------------------------------------------------------------
+void vtkWin32OpenGLDXRenderWindow::SetColorTextureFormat(UINT format)
+{
+  if (format != this->Impl->ColorTextureFormat)
+  {
+    this->Impl->ColorTextureFormat = format;
+    this->UpdateTextures();
+  }
 }
 
 //------------------------------------------------------------------------------

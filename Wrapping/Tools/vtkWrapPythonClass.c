@@ -273,6 +273,26 @@ void vtkWrapPython_ClassDoc(
       fprintf(
         fp, "  \"%s%s", vtkWrapText_QuoteString(temp, 500), ccp[i] == '\0' ? "\\n\"" : "\"\n");
     }
+    if (data->Name && strcmp(data->Name, "vtkAlgorithm") == 0)
+    {
+      fprintf(fp, "\n  \"vtkAlgorithm defines two additional methods in Python: \\n\\n\"\n");
+      fprintf(
+        fp, "  \"update(): This method updates the pipeline connected to this algorithm\\n\"\n");
+      fprintf(fp, "  \"and returns an Output object with an output property. This property\\n\"\n");
+      fprintf(
+        fp, "  \"provides either a single data object (for algorithms with single output\\n\"\n");
+      fprintf(fp, "  \"or a tuple (for algorithms with multiple outputs).\\n\\n\"\n");
+      fprintf(
+        fp, "  \"__call__() (or just ()): This method takes a data object as input (or\\n\"\n");
+      fprintf(fp, "  \"a tuple for repeatable inputs for algorithms such as append)\\n\"\n");
+      fprintf(fp, "  \"and returns the output the same way as update()\\n\\n\"\n");
+      fprintf(fp, "  \"vtkAlgorithm also implements the >> operator which can be used to\\n\"\n");
+      fprintf(
+        fp, "  \"connect algorithms to form pipelines. The >> operator returns a Pipeline\\n\"\n");
+      fprintf(
+        fp, "  \"object which can be used to execute the pipeline with the update() and\\n\"\n");
+      fprintf(fp, "  \"__call__() methods.\\n\"");
+    }
   }
 }
 
@@ -497,10 +517,17 @@ void vtkWrapPython_GenerateObjectType(
       "nargs, (nargs == 1 ? \"\" "
       ": \"s\"));\n"
       "      PyErr_SetString(PyExc_TypeError, text);\n"
+      "      return nullptr;\n"
       "    }\n"
       "    vtkPythonArgs ap(self, args, \"__call__\");\n"
       "    vtkObjectBase *vp = ap.GetSelfPointer(self, args);\n"
-      "    vtkAlgorithm *op = static_cast<vtkAlgorithm *>(vp);\n"
+      "    vtkAlgorithm *op = vtkAlgorithm::SafeDownCast(vp);\n"
+      "    if (op == nullptr)\n"
+      "    {\n"
+      "      PyErr_SetString(PyExc_TypeError, \"The call operator must be invoked on a "
+      "vtkAlgorithm\");\n"
+      "      return nullptr;\n"
+      "    }\n"
       "    vtkDataObject *input = nullptr;\n"
       "    PyObject* output = nullptr;\n"
       "    if(op)\n"
@@ -556,7 +583,8 @@ void vtkWrapPython_GenerateObjectType(
       "single data object as input.\");\n"
       "          return nullptr;\n"
       "        }\n"
-      "\n"
+      "\n");
+    fprintf(fp,
       "        int nConns = op->GetNumberOfInputConnections(0);\n"
       "        for(int i=0; i<nConns; i++)\n"
       "        {\n"
