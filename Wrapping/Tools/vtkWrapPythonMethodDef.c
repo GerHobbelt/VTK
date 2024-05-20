@@ -425,6 +425,56 @@ static void vtkWrapPython_ClassMethodDef(FILE* fp, const char* classname, const 
       classname, classname);
   }
 
+  /* Adds a new 'execute' method on vtkAlgorithm */
+  else if (strcmp("vtkAlgorithm", data->Name) == 0)
+  {
+    fprintf(fp,
+      "  {\n"
+      "  \"update\",(PyCFunction)(void*)static_cast<PyCFunctionWithKeywords>(\n"
+      "  [](PyObject* self, PyObject* args, PyObject* kwargs) -> PyObject*\n"
+      "  {\n"
+      "    vtkPythonArgs ap(self, args, \"update\");\n"
+      "    PyObject *output = nullptr;\n"
+      "    if (ap.CheckArgCount(0))\n"
+      "    {\n"
+      "      PyObject *moduleName = "
+      "PyUnicode_DecodeFSDefault(\"vtkmodules.util.execution_model\");\n"
+      "      PyObject *internalModule = PyImport_Import(moduleName);\n"
+      "      Py_DECREF(moduleName);\n"
+      "      if (internalModule != nullptr)\n"
+      "      {\n"
+      "        // Get the class from the module\n"
+      "        PyObject *outputClass = PyObject_GetAttrString(internalModule, \"Output\");\n"
+      "        if (outputClass != nullptr)\n"
+      "        {\n"
+      "          // Create an instance of the class\n"
+      "          auto self_arg = PyTuple_Pack(1, self);\n"
+      "          output = PyObject_Call(outputClass, self_arg, kwargs);\n"
+      "          Py_XDECREF(self_arg);\n"
+      "          if (output == nullptr)\n"
+      "          {\n"
+      "            return nullptr;\n"
+      "          }\n"
+      "          Py_DECREF(outputClass);\n"
+      "        }\n"
+      "        else\n"
+      "        {\n"
+      "           return nullptr;\n"
+      "        }\n"
+      "        Py_DECREF(internalModule);\n"
+      "      }\n"
+      "      else\n"
+      "      {\n"
+      "        return nullptr;\n"
+      "      }\n"
+      "    }\n"
+      "    return output;\n"
+      "  }),\n"
+      "  METH_VARARGS|METH_KEYWORDS,\n"
+      "  \"update(self, **kwargs)\\n\"\n"
+      "  },\n");
+  }
+
   /* python expects the method table to end with a "nullptr" entry */
   fprintf(fp,
     "  {nullptr, nullptr, 0, nullptr}\n"

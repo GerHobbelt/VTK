@@ -5,9 +5,6 @@
 #define GLTFSampler_h
 
 #include "vtkIOGeometryModule.h" // For export macro
-#include "vtkObjectBase.h"
-#include "vtkSetGet.h"
-#include "vtkSmartPointer.h"
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -36,7 +33,6 @@ struct VTKIOGEOMETRY_EXPORT GLTFSampler
   FilterType MinFilter;
   WrapType WrapS;
   WrapType WrapT;
-  std::string Name;
 };
 
 VTK_ABI_NAMESPACE_END

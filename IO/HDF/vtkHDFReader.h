@@ -43,7 +43,7 @@ class vtkUnstructuredGrid;
  * vtkDataSet types (image data, poly data, unstructured grid, overlapping AMR, partitioned dataset
  * collection and multiblock are currently implemented) and serial as well as parallel processing.
  *
- * Can also read transient data with directions and offsets present
+ * Can also read temporal data with directions and offsets present
  * in a supplemental 'VTKHDF/Steps' group for vtkUnstructuredGrid
  * vtkPolyData, and vtkImageData.
  *
@@ -116,14 +116,16 @@ public:
 
   ///@{
   /**
-   * Getters and setters for transient data
-   * - HasTransientData is a boolean that flags whether the file has temporal data
+   * Getters and setters for temporal data
+   * - HasTemporalData is a boolean that flags whether the file has temporal data
    * - NumberOfSteps is the number of time steps contained in the file
    * - Step is the time step to be read or last read by the reader
    * - TimeValue is the value corresponding to the Step property
    * - TimeRange is an array with the {min, max} values of time for the data
    */
-  vtkGetMacro(HasTransientData, bool);
+  VTK_DEPRECATED_IN_9_4_0("Please use GetTemporalData method instead.")
+  virtual bool GetHasTransientData();
+  bool GetHasTemporalData();
   vtkGetMacro(NumberOfSteps, vtkIdType);
   vtkGetMacro(Step, vtkIdType);
   vtkSetMacro(Step, vtkIdType);
@@ -135,8 +137,11 @@ public:
   /**
    * Boolean property determining whether to use the internal cache or not (default is false).
    *
-   * Internal cache is useful when reading transient data to never re-read something that has
+   * Internal cache is useful when reading temporal data to never re-read something that has
    * already been cached.
+   *
+   * @note Incompatible with MergeParts as vtkAppendDataSet which is used internally doesn't
+   * support static mesh.
    */
   vtkGetMacro(UseCache, bool);
   vtkSetMacro(UseCache, bool);
@@ -154,6 +159,9 @@ public:
    * effectively double the memory constraints.
    *
    * Default is true
+   *
+   * @note Incompatible with UseCache as vtkAppendDataSet which is used internally doesn't
+   * support static mesh.
    */
   vtkGetMacro(MergeParts, bool);
   vtkSetMacro(MergeParts, bool);
@@ -239,51 +247,6 @@ protected:
    */
   int SetupInformation(vtkInformation* outInfo);
 
-private:
-  vtkHDFReader(const vtkHDFReader&) = delete;
-  void operator=(const vtkHDFReader&) = delete;
-
-  bool MeshGeometryChangedFromPreviousTimeStep = true;
-
-  vtkNew<vtkDataObjectMeshCache> MeshCache;
-  std::map<vtkIdType, std::string> AttributesOriginalIdName{
-    { vtkDataObject::POINT, "__pointsOriginalIds__" },
-    { vtkDataObject::CELL, "__cellOriginalIds__" }, { vtkDataObject::FIELD, "__fieldOriginalIds__" }
-  };
-
-  /**
-   * Generate the vtkDataAssembly used for vtkPartitionedDataSetCollection and store it in Assembly.
-   */
-  void GenerateAssembly();
-
-  /**
-   * Retrieve the number of steps in each composite element of the dataset.
-   * Return false if the number of steps is inconsistent across components, true otherwise.
-   */
-  bool RetrieveStepsFromAssembly();
-
-  /**
-   * Add array names from all composite elements to DataArraySelection array.
-   */
-  void RetrieveDataArraysFromAssembly();
-
-  /**
-   * Helper function to add Ids in the attribute arrays of a dataset.
-   * Those ids are used in the DataObjectMeshCache to restore the
-   * corresponding attributes when copying the content of the cache.
-   * It returns a boolean indicating if the array was correctly added.
-   * Also returns false if the array already exists.
-   */
-  bool AddOriginalIds(vtkDataSetAttributes* attributes, vtkIdType size, const std::string& name);
-
-  /**
-   * Removes the arrays from the object given in parameter containing
-   * the original ids use in the static mesh cache. It allows to avoid
-   * passing those arrays to subsequent pipeline elements.
-   */
-  void CleanOriginalIds(vtkDataObject* output);
-
-protected:
   /**
    * The input file's name.
    */
@@ -316,8 +279,9 @@ protected:
 
   ///@{
   /**
-   * Transient data properties
+   * Temporal data properties
    */
+  VTK_DEPRECATED_IN_9_4_0("Use Get/Set TemporalData methods instead.")
   bool HasTransientData = false;
   vtkIdType Step = 0;
   vtkIdType NumberOfSteps = 1;
@@ -338,6 +302,63 @@ protected:
   bool UseCache = false;
   struct DataCache;
   std::shared_ptr<DataCache> Cache;
+
+private:
+  vtkHDFReader(const vtkHDFReader&) = delete;
+  void operator=(const vtkHDFReader&) = delete;
+
+  /**
+   * Setter for UseTemporalData.
+   *
+   * Useful to set privatly the deprecate UseTransientData variable to true when it's needed.
+   */
+  VTK_DEPRECATED_IN_9_4_0("Use directly UseTemporalData, the purpose of this setter was to set"
+                          "the deprecate value HasTransientData.")
+  void SetHasTemporalData(bool useTemporalData);
+
+  /**
+   * Generate the vtkDataAssembly used for vtkPartitionedDataSetCollection and store it in Assembly.
+   */
+  void GenerateAssembly();
+
+  /**
+   * Retrieve the number of steps in each composite element of the dataset.
+   * Return false if the number of steps is inconsistent across components, true otherwise.
+   */
+  bool RetrieveStepsFromAssembly();
+
+  /**
+   * Add array names from all composite elements to DataArraySelection array.
+   */
+  void RetrieveDataArraysFromAssembly();
+
+  /**
+   * Helper function to add Ids in the attribute arrays of a dataset.
+   * Those ids are used in the DataObjectMeshCache to restore the
+   * corresponding attributes when copying the content of the cache.
+   * It returns a boolean indicating if the array was correctly added.
+   * Also returns false if the array already exists.
+   */
+  bool AddOriginalIds(vtkDataSetAttributes* attributes, vtkIdType size, const std::string& name);
+
+  /**
+   * Removes the arrays for each partition from the object given in
+   * parameter containing the original ids use in the static mesh cache.
+   * It allows to avoid passing those arrays to subsequent pipeline
+   * elements.
+   */
+  void CleanOriginalIds(vtkPartitionedDataSet* output);
+
+  bool MeshGeometryChangedFromPreviousTimeStep = true;
+
+  vtkNew<vtkDataObjectMeshCache> MeshCache;
+
+  std::map<vtkIdType, std::string> AttributesOriginalIdName{
+    { vtkDataObject::POINT, "__pointsOriginalIds__" },
+    { vtkDataObject::CELL, "__cellOriginalIds__" }, { vtkDataObject::FIELD, "__fieldOriginalIds__" }
+  };
+
+  bool HasTemporalData = false;
 };
 
 VTK_ABI_NAMESPACE_END

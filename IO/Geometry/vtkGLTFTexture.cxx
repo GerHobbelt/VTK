@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
+
 #include "vtkGLTFTexture.h"
 
 #include "vtkGLTFDocumentLoader.h"
@@ -5,6 +8,7 @@
 #include "vtkObjectFactory.h"
 #include "vtkTexture.h"
 
+VTK_ABI_NAMESPACE_BEGIN
 //------------------------------------------------------------------------------
 vtkStandardNewMacro(vtkGLTFTexture);
 
@@ -56,3 +60,16 @@ vtkSmartPointer<vtkTexture> vtkGLTFTexture::GetVTKTexture()
   texture->SetInputData(this->Image);
   return texture;
 }
+
+//------------------------------------------------------------------------------
+void vtkGLTFTexture::PrintSelf(ostream& os, vtkIndent indent)
+{
+  this->Superclass::PrintSelf(os, indent);
+  os << indent << "MagFilter: " << this->Sampler.MagFilter << "\n"
+     << indent << "MinFilter: " << this->Sampler.MinFilter << "\n"
+     << indent << "WrapS: " << this->Sampler.WrapS << "\n"
+     << indent << "WrapT: " << this->Sampler.WrapT << "\n"
+     << indent << "Image: " << this->Image << "\n";
+}
+
+VTK_ABI_NAMESPACE_END
