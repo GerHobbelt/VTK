@@ -71,12 +71,6 @@ public:
    */
   int* GetPosition() VTK_SIZEHINT(2) override;
 
-  /**
-   * Set the name of the window. This appears at the top of the window
-   * normally.
-   */
-  void SetWindowName(const char*) override;
-
   void* GetGenericWindowId() override { return (void*)this->WindowId; }
   void* GetGenericDrawable() override { return (void*)this->WindowId; }
 
@@ -118,15 +112,15 @@ public:
   /**
    * Specify the selector of the canvas element in the DOM.
    */
-  vtkGetStringMacro(CanvasId);
-  vtkSetStringMacro(CanvasId);
+  vtkGetStringMacro(CanvasSelector);
+  vtkSetStringMacro(CanvasSelector);
 
 protected:
   vtkWebAssemblyWebGPURenderWindow();
   ~vtkWebAssemblyWebGPURenderWindow() override;
 
   void* WindowId = nullptr;
-  char* CanvasId;
+  char* CanvasSelector = nullptr;
 
   std::string MakeDefaultWindowNameWithBackend() override;
   void CleanUpRenderers();

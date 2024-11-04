@@ -1,6 +1,6 @@
 set(test_exclusions
-  # Leaks static thread_local instances, being worked in !11452 
-  "^VTK::FiltersCellGridPython-TestCellGridRange$"
+  # Flaky when run with threads enabled. See #19471.
+  "^VTK::FiltersCellGridCxx-TestCellGridEvaluator$"
   # https://gitlab.kitware.com/vtk/vtk/-/issues/19427
   "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperPickability$")
 
@@ -128,7 +128,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39" AND "$ENV{CMAKE_CONFIGURATION
     # MPI initialization failures from inside of IOSS. Needs investigation.
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19314
     "^VTK::DomainsParallelChemistryCxx-MPI-TestPSimpleBondPerceiver$"
-    "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
     "^VTK::FiltersCoreCxx-TestAppendSelection$"
     "^VTK::FiltersCoreCxx-TestDecimatePolylineFilter$"
     "^VTK::FiltersCoreCxx-TestFeatureEdges$"
@@ -247,7 +246,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39" AND "$ENV{CMAKE_CONFIGURATION
     "^VTK::IOIossCxx-TestIossTri6$"
     "^VTK::IOIossCxx-TestIossUnsupported$"
     "^VTK::IOIOSSCxx-TestIOSSWedge21$"
-    "^VTK::IOIOSSPython-TestIOSSCellGridReader$"
     "^VTK::IOMPIParallelPython-MPI-Plot3DMPIIO$"
     "^VTK::IOParallelCxx-MPI-TestPOpenFOAMReaderLagrangianUncollated$"
     "^VTK::ParallelDIYCxx-MPI-TestDIYDataExchanger$"
@@ -322,9 +320,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
 
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19183
     "^VTK::RenderingCellGridPython-TestCellGridRendering$"
-    # Thread-local objects are not destroyed at program exit.
-    # https://stackoverflow.com/questions/50897768/in-visual-studio-thread-local-variables-destructor-not-called-when-used-with
-    "^VTK::FiltersCellGridPython-TestCellGridPointProbe$"
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
 
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19400
@@ -340,6 +335,19 @@ endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_arm64")
   list(APPEND test_exclusions
+    # floating point precision issues (fma optimizations change results)
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19418
+    "^VTK::CommonDataModelCxx-TestHyperTreeGridGeometricLocator$"
+    "^VTK::FiltersCoreCxx-TestImplicitPolyDataDistanceCube$"
+    "^VTK::FiltersCorePython-TestSphereTreeFilter$"
+    "^VTK::FiltersFlowPathsCxx-TestEvenlySpacedStreamlines2D$"
+    "^VTK::FiltersFlowPathsCxx-TestParticleTracers$"
+    "^VTK::FiltersModelingPython-Hyper$"
+    "^VTK::RenderingAnnotationPython-xyPlot$"
+    "^VTK::RenderingAnnotationPython-xyPlot2$"
+    "^VTK::RenderingAnnotationPython-xyPlot4$"
+    "^VTK::RenderingCorePython-pickImageData$"
+
     # Crowded geometry?
     # https://gitlab.kitware.com/vtk/vtk/-/issues/18230
     "^VTK::ViewsInfovisCxx-TestTreeMapView$"
@@ -349,6 +357,19 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_arm64")
     "^VTK::FiltersHyperTreeCxx-TestHyperTreeGridBinaryClipPlanes$"
     "^VTK::RenderingAnnotationCxx-TestCubeAxes3$"
     "^VTK::RenderingAnnotationCxx-TestCubeAxesWithYLines$")
+endif ()
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "wheel_macos" AND
+    "$ENV{CMAKE_CONFIGURATION}" MATCHES "arm64")
+  list(APPEND test_exclusions
+    # floating point precision issues (fma optimizations change results)
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19418
+    "^VTK::FiltersCorePython-TestSphereTreeFilter$"
+    "^VTK::FiltersModelingPython-Hyper$"
+    "^VTK::RenderingAnnotationPython-xyPlot$"
+    "^VTK::RenderingAnnotationPython-xyPlot2$"
+    "^VTK::RenderingAnnotationPython-xyPlot4$"
+    "^VTK::RenderingCorePython-pickImageData$")
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_x86_64")
@@ -365,6 +386,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_x86_64")
     "^VTK::FiltersCellGridPython-TestCellGridToUnstructuredGrid$"
     "^VTK::FiltersCellGridPython-TestCellGridTransform$"
     "^VTK::FiltersCellGridPython-TestCellGridCellCenters$"
+    "^VTK::RenderingOpenGL2Python-TestArrayRenderer$"
   )
 endif ()
 
@@ -398,17 +420,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "stdthread")
     # Test is flaky with STDThread
     # See #18555
     "^VTK::FiltersFlowPathsCxx-TestEvenlySpacedStreamlines2D$"
-
-    # See #19471
-    "^VTK::FiltersCellGridCxx-TestCellGridEvaluator$"
-    )
-endif ()
-
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "tbb")
-  list(APPEND test_exclusions
-    # Test is flaky with TBB backend for vtkSMPTools
-    # See #19471
-    "^VTK::FiltersCellGridCxx-TestCellGridEvaluator$"
     )
 endif ()
 
@@ -438,10 +449,14 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "wheel")
   endif ()
   if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos.*_x86_64")
     list(APPEND test_exclusions
-      # MacOS OpenGL issue (intermittent)
+      # MacOS OpenGL issue (intermittent). See #19372.
+      "^VTK::FiltersCellGridPython-TestCellGridCellCenters$"
+      "^VTK::FiltersCellGridPython-TestCellGridToUnstructuredGrid$"
+      "^VTK::FiltersCellGridPython-TestCellGridTransform$"
       "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
       "^VTK::IOIOSSPython-TestIOSSCellGridReader$"
       "^VTK::RenderingCellGridPython-TestCellGridRendering$"
+      "^VTK::RenderingOpenGL2Python-TestArrayRenderer$"
     )
   endif()
   if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
@@ -501,6 +516,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)")
     "^VTK::RenderingCoreCxx-TestResizingWindowToImageFilter$"
     "^VTK::RenderingCoreCxx-TestTextureWrap$"
     "^VTK::RenderingOpenGL2Cxx-TestCoincident$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositeDataOverlappingCells$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositeDataPointGaussian$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositeDataPointGaussianSelection$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2CellScalars$"

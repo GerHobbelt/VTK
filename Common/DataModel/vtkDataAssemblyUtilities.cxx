@@ -150,10 +150,12 @@ bool vtkDataAssemblyUtilities::GenerateHierarchyInternal(
 
     const auto numDataSets = amr->GetNumberOfDataSets(level);
     // Add the composite index for each dataset in the AMR level.
+    std::vector<unsigned int> datasetIndices(numDataSets);
     for (unsigned int cc = 0; cc < numDataSets; ++cc)
     {
-      hierarchy->AddDataSetIndex(node, amr->GetCompositeIndex(level, cc));
+      datasetIndices[cc] = amr->GetCompositeIndex(level, cc);
     }
+    hierarchy->AddDataSetIndices(node, datasetIndices);
     hierarchy->SetAttribute(node, "number_of_datasets", numDataSets);
     if (output)
     {
@@ -196,7 +198,8 @@ bool vtkDataAssemblyUtilities::GenerateHierarchyInternal(
 
   std::map<int, unsigned int> output_node2dataset_map;
 
-  auto appendToOutput = [&](vtkDataObject* dobj, vtkInformation* metadata, int nodeid) {
+  auto appendToOutput = [&](vtkDataObject* dobj, vtkInformation* metadata, int nodeid)
+  {
     if (!output)
     {
       return;
@@ -229,7 +232,8 @@ bool vtkDataAssemblyUtilities::GenerateHierarchyInternal(
 
   unsigned int cid = 0;
   std::function<void(vtkDataObject*, int, vtkInformation*)> f;
-  f = [&](vtkDataObject* dobj, int nodeid, vtkInformation* dobjMetaData) {
+  f = [&](vtkDataObject* dobj, int nodeid, vtkInformation* dobjMetaData)
+  {
     // in a hierarchy, the dataset-index corresponds to the composite index;
     // we add the "cid" attribute, however, to enable users to build selectors
     // using cid.

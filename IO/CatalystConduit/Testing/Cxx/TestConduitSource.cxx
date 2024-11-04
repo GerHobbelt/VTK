@@ -40,6 +40,7 @@
 namespace
 {
 
+//----------------------------------------------------------------------------
 vtkSmartPointer<vtkDataObject> Convert(const conduit_cpp::Node& node)
 {
   vtkNew<vtkConduitSource> source;
@@ -48,6 +49,7 @@ vtkSmartPointer<vtkDataObject> Convert(const conduit_cpp::Node& node)
   return source->GetOutputDataObject(0);
 }
 
+//----------------------------------------------------------------------------
 void CreateUniformMesh(
   unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
 {
@@ -89,6 +91,7 @@ void CreateUniformMesh(
   res["topologies/mesh/coordset"] = "coords";
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeUniform()
 {
   conduit_cpp::Node mesh;
@@ -111,17 +114,12 @@ bool ValidateMeshTypeUniform()
   return true;
 }
 
-void CreateRectilinearMesh(
-  unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
+//----------------------------------------------------------------------------
+void GenerateValues(unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ,
+  std::vector<double>& x, std::vector<double>& y, std::vector<double>& z)
 {
-  conduit_cpp::Node coords = res["coordsets/coords"];
-  coords["type"] = "rectilinear";
-
-  std::vector<double> x;
   x.resize(nptsX);
-  std::vector<double> y;
   y.resize(nptsY);
-  std::vector<double> z;
 
   if (nptsZ > 1)
   {
@@ -154,6 +152,19 @@ void CreateRectilinearMesh(
       z[k] = -10.0 + k * dz;
     }
   }
+}
+
+//----------------------------------------------------------------------------
+void CreateRectilinearMesh(
+  unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
+{
+  conduit_cpp::Node coords = res["coordsets/coords"];
+  coords["type"] = "rectilinear";
+
+  std::vector<double> x;
+  std::vector<double> y;
+  std::vector<double> z;
+  GenerateValues(nptsX, nptsY, nptsZ, x, y, z);
 
   conduit_cpp::Node coordVals = coords["values"];
   coordVals["x"].set(x);
@@ -168,6 +179,7 @@ void CreateRectilinearMesh(
   res["topologies/mesh/coordset"] = "coords";
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeRectilinear()
 {
   conduit_cpp::Node mesh;
@@ -186,9 +198,28 @@ bool ValidateMeshTypeRectilinear()
   VERIFY(dims[1] == 3, "incorrect y dimension expected=3, got=%d", dims[1]);
   VERIFY(dims[2] == 3, "incorrect z dimension expected=3, got=%d", dims[2]);
 
+  // Expected values
+  std::vector<double> x;
+  std::vector<double> y;
+  std::vector<double> z;
+  GenerateValues(3, 3, 3, x, y, z);
+  for (unsigned int i = 0; i < 3; i++)
+  {
+    VERIFY(x[i] == rg->GetXCoordinates()->GetComponent(i, 0),
+      "incorrect x value at %d: expected=%g, got=%g", i, x[i],
+      rg->GetXCoordinates()->GetComponent(i, 0));
+    VERIFY(y[i] == rg->GetYCoordinates()->GetComponent(i, 0),
+      "incorrect y value at %d: expected=%g, got=%g", i, y[i],
+      rg->GetYCoordinates()->GetComponent(i, 0));
+    VERIFY(z[i] == rg->GetZCoordinates()->GetComponent(i, 0),
+      "incorrect z value at %d: expected=%g, got=%g", i, z[i],
+      rg->GetZCoordinates()->GetComponent(i, 0));
+  }
+
   return true;
 }
 
+//----------------------------------------------------------------------------
 void CreateCoords(
   unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
 {
@@ -262,6 +293,7 @@ void CreateCoords(
   }
 }
 
+//----------------------------------------------------------------------------
 void CreateStructuredMesh(
   unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
 {
@@ -277,6 +309,7 @@ void CreateStructuredMesh(
   }
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeStructured()
 {
   conduit_cpp::Node mesh;
@@ -298,6 +331,36 @@ bool ValidateMeshTypeStructured()
   return true;
 }
 
+//----------------------------------------------------------------------------
+void CreatePointSet(
+  unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
+{
+  CreateCoords(nptsX, nptsY, nptsZ, res);
+
+  res["topologies/mesh/type"] = "points";
+  res["topologies/mesh/coordset"] = "coords";
+}
+
+//----------------------------------------------------------------------------
+bool ValidateMeshTypePoints()
+{
+  conduit_cpp::Node mesh;
+  CreatePointSet(3, 3, 3, mesh);
+  auto data = Convert(mesh);
+  VERIFY(vtkPartitionedDataSet::SafeDownCast(data) != nullptr,
+    "incorrect data type, expected vtkPartitionedDataSet, got %s", vtkLogIdentifier(data));
+  auto pds = vtkPartitionedDataSet::SafeDownCast(data);
+  VERIFY(pds->GetNumberOfPartitions() == 1, "incorrect number of partitions, expected 1, got %d",
+    pds->GetNumberOfPartitions());
+  auto ps = vtkPointSet::SafeDownCast(pds->GetPartition(0));
+  VERIFY(ps != nullptr, "missing partition 0");
+
+  VERIFY(ps->GetNumberOfPoints() == 27, "incorrect number of points, expected 27, got %lld",
+    ps->GetNumberOfPoints());
+  return true;
+}
+
+//----------------------------------------------------------------------------
 void CreateTrisMesh(unsigned int nptsX, unsigned int nptsY, conduit_cpp::Node& res)
 {
   CreateStructuredMesh(nptsX, nptsY, 1, res);
@@ -351,6 +414,7 @@ void CreateTrisMesh(unsigned int nptsX, unsigned int nptsY, conduit_cpp::Node& r
   resFields["values"].set(values);
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeUnstructured()
 {
   conduit_cpp::Node mesh;
@@ -374,6 +438,7 @@ bool ValidateMeshTypeUnstructured()
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool CheckFieldData(vtkDataObject* data, int expected_number_of_arrays,
   const std::string& expected_array_name, int expected_number_of_components,
   std::vector<vtkVariant> expected_values)
@@ -402,6 +467,7 @@ bool CheckFieldData(vtkDataObject* data, int expected_number_of_arrays,
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool CheckFieldDataMeshConversion(conduit_cpp::Node& mesh_node, int expected_number_of_arrays,
   const std::string& expected_array_name, int expected_number_of_components,
   std::vector<vtkVariant> expected_values)
@@ -421,6 +487,7 @@ bool CheckFieldDataMeshConversion(conduit_cpp::Node& mesh_node, int expected_num
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeAMR(const std::string& file)
 {
   conduit_cpp::Node mesh;
@@ -486,6 +553,7 @@ bool ValidateMeshTypeAMR(const std::string& file)
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool ValidateFieldData()
 {
   auto controller = vtkMultiProcessController::GetGlobalController();
@@ -543,6 +611,7 @@ bool ValidateFieldData()
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool ValidateAscentGhostCellData()
 {
   conduit_cpp::Node mesh;
@@ -572,6 +641,7 @@ bool ValidateAscentGhostCellData()
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool ValidateAscentGhostPointData()
 {
   conduit_cpp::Node mesh;
@@ -600,6 +670,7 @@ bool ValidateAscentGhostPointData()
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool ValidateRectilinearGridWithDifferentDimensions()
 {
   conduit_cpp::Node mesh;
@@ -621,6 +692,7 @@ bool ValidateRectilinearGridWithDifferentDimensions()
   return true;
 }
 
+//----------------------------------------------------------------------------
 bool Validate1DRectilinearGrid()
 {
   conduit_cpp::Node mesh;
@@ -653,12 +725,14 @@ bool Validate1DRectilinearGrid()
   return true;
 }
 
+//----------------------------------------------------------------------------
 inline unsigned int calc(unsigned int i, unsigned int j, unsigned int k, unsigned int I,
   unsigned int J, unsigned int K, unsigned int nx, unsigned int ny)
 {
   return (i + I) + (j + J) * nx + (k + K) * (nx * ny);
 }
 
+//----------------------------------------------------------------------------
 void CreateMixedUnstructuredMesh2D(unsigned int npts_x, unsigned int npts_y, conduit_cpp::Node& res)
 {
   conduit_cpp::Node mesh;
@@ -750,6 +824,7 @@ void CreateMixedUnstructuredMesh2D(unsigned int npts_x, unsigned int npts_y, con
   elements["connectivity"].set(connectivity);
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeMixed2D()
 {
   conduit_cpp::Node mesh;
@@ -796,6 +871,7 @@ bool ValidateMeshTypeMixed2D()
   return true;
 }
 
+//----------------------------------------------------------------------------
 void CreateMixedUnstructuredMesh(
   unsigned int nptsX, unsigned int nptsY, unsigned int nptsZ, conduit_cpp::Node& res)
 {
@@ -994,6 +1070,7 @@ void CreateMixedUnstructuredMesh(
   subelements["connectivity"].set(subelem_connectivity);
 }
 
+//----------------------------------------------------------------------------
 bool ValidateMeshTypeMixed()
 {
   conduit_cpp::Node mesh;
@@ -1062,6 +1139,7 @@ bool ValidateMeshTypeMixed()
 
 } // end namespace
 
+//----------------------------------------------------------------------------
 int TestConduitSource(int argc, char** argv)
 {
 #if VTK_MODULE_ENABLE_VTK_ParallelMPI
@@ -1079,7 +1157,7 @@ int TestConduitSource(int argc, char** argv)
       ValidateMeshTypeStructured() && ValidateMeshTypeUnstructured() && ValidateFieldData() &&
       ValidateRectilinearGridWithDifferentDimensions() && Validate1DRectilinearGrid() &&
       ValidateMeshTypeMixed() && ValidateMeshTypeMixed2D() && ValidateMeshTypeAMR(amrFile) &&
-      ValidateAscentGhostCellData() && ValidateAscentGhostPointData()
+      ValidateAscentGhostCellData() && ValidateAscentGhostPointData() && ValidateMeshTypePoints()
 
     ? EXIT_SUCCESS
     : EXIT_FAILURE;

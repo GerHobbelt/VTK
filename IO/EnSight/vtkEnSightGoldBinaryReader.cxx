@@ -79,14 +79,16 @@ public:
       self->ReadIntArray(&buffer.front(), count);
 
       partialIndices->SetNumberOfIds(count);
-      std::transform(
-        buffer.begin(), buffer.end(), partialIndices->GetPointer(0), [](vtkIdType val) {
+      std::transform(buffer.begin(), buffer.end(), partialIndices->GetPointer(0),
+        [](vtkIdType val)
+        {
           return val - 1; /* since ensight indices start with 1*/
         });
     }
 
     // replace undefined values with "internal undef" which in ParaView is NaN
-    auto replaceUndef = [&](vtkFloatArray* farray) {
+    auto replaceUndef = [&](vtkFloatArray* farray)
+    {
       if (hasUndef)
       {
         const float nanfloat = std::nanf("1");
@@ -100,7 +102,8 @@ public:
       }
     };
 
-    auto readComponent = [&](vtkIdType count) {
+    auto readComponent = [&](vtkIdType count)
+    {
       vtkNew<vtkFloatArray> buffer;
       buffer->SetNumberOfTuples(count);
       if (hasPartial)
@@ -804,7 +807,7 @@ int vtkEnSightGoldBinaryReader::SkipUnstructuredGrid(char line[256])
     {
       vtkDebugMacro("nsided");
       int* numNodesPerElement;
-      int numNodes = 0;
+      vtkIdType numNodes = 0;
 
       // cellType = vtkEnSightReader::NSIDED;
       this->ReadInt(&numElements);
@@ -1560,7 +1563,8 @@ bool vtkEnSightGoldBinaryReader::ReadVariableArray(const char* description,
   // read description.
   this->ReadLine(line);
 
-  auto advance = [&line, this]() {
+  auto advance = [&line, this]()
+  {
     this->GoldIFile->peek();
     return this->GoldIFile->eof() ? 0 : this->ReadLine(line);
   };
@@ -2095,8 +2099,8 @@ int vtkEnSightGoldBinaryReader::CreateUnstructuredGridOutput(
     {
       vtkDebugMacro("nsided");
       int* numNodesPerElement;
-      int numNodes = 0;
-      int nodeCount = 0;
+      vtkIdType numNodes = 0;
+      vtkIdType nodeCount = 0;
 
       cellType = vtkEnSightReader::NSIDED;
       this->ReadInt(&numElements);
@@ -2143,7 +2147,7 @@ int vtkEnSightGoldBinaryReader::CreateUnstructuredGridOutput(
       // skipping ghost cells
       vtkDebugMacro("g_nsided");
       int* numNodesPerElement;
-      int numNodes = 0;
+      vtkIdType numNodes = 0;
 
       // cellType = vtkEnSightReader::NSIDED;
       this->ReadInt(&numElements);
@@ -2373,12 +2377,12 @@ int vtkEnSightGoldBinaryReader::CreateUnstructuredGridOutput(
       int* numNodesPerFace;
       int* numNodesPerElement;
       int* nodeMarker;
-      int numPts = 0;
-      int numFaces = 0;
-      int numNodes = 0;
-      int faceCount = 0;
-      int nodeCount = 0;
-      int elementNodeCount = 0;
+      vtkIdType numPts = 0;
+      vtkIdType numFaces = 0;
+      vtkIdType numNodes = 0;
+      vtkIdType faceCount = 0;
+      vtkIdType nodeCount = 0;
+      vtkIdType elementNodeCount = 0;
 
       cellType = vtkEnSightReader::NFACED;
       this->ReadInt(&numElements);
@@ -2447,8 +2451,8 @@ int vtkEnSightGoldBinaryReader::CreateUnstructuredGridOutput(
 
       // yyy begin
       int k;                      // indexing each node Id of a face
-      int faceIdx = 0;            // indexing faces throughout all polyhedra
-      int nodeIdx = 0;            // indexing nodes throughout all polyhedra
+      vtkIdType faceIdx = 0;      // indexing faces throughout all polyhedra
+      vtkIdType nodeIdx = 0;      // indexing nodes throughout all polyhedra
       vtkNew<vtkCellArray> faces; // cell array describing a vtkPolyhedron
       // yyy end
 
@@ -3388,7 +3392,7 @@ int vtkEnSightGoldBinaryReader::ReadFloat(float* result)
 
 // Internal function to read an integer array.
 // Returns zero if there was an error.
-int vtkEnSightGoldBinaryReader::ReadIntArray(int* result, int numInts)
+int vtkEnSightGoldBinaryReader::ReadIntArray(int* result, vtkIdType numInts)
 {
   if (numInts <= 0)
   {
