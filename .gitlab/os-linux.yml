@@ -8,10 +8,10 @@
         GIT_SUBMODULE_STRATEGY: none
 
 .readthedocs:
+    extends: .linux
+
     image: "readthedocs/build:ubuntu-20.04-2023.05.03"
     variables:
-        GIT_CLONE_PATH: $CI_BUILDS_DIR/gitlab-kitware-sciviz-ci
-        GIT_SUBMODULE_STRATEGY: none
         PYTHON_VERSION: 3.11.6
 
 .manylinux2014_x86_64:
@@ -399,6 +399,7 @@
 
     variables:
         CMAKE_CONFIGURATION: wasm32_emscripten_linux_chrome
+        WASM_WORDSIZE: 32
 
 .wasm64_emscripten_linux_chrome:
     extends:
@@ -406,6 +407,7 @@
 
     variables:
         CMAKE_CONFIGURATION: wasm64_emscripten_linux_chrome
+        WASM_WORDSIZE: 64
 
 .linux_builder_tags:
     tags:
@@ -647,6 +649,7 @@
         - python -m pip install --exists-action=w --no-cache-dir -r Documentation/docs/requirements.txt
         - cd Documentation/docs
         - make html |& tee $GIT_CLONE_PATH/sphinx_output.log
+    interruptible: true
 
 
 .before_script_linux_emscripten: &before_script_linux_emscripten
@@ -688,7 +691,7 @@
 
     interruptible: true
 
-.cmake_package_wasm32_emscripten_linux:
+.cmake_package_wasm_emscripten_linux:
     stage: package
 
     script:
@@ -698,21 +701,7 @@
         - .gitlab/ci/node.sh
         - export PATH=$PWD/.gitlab/node/bin:$PATH
         - node --version
-        - .gitlab/ci/create_webassembly_archive.sh 32
-
-    interruptible: true
-
-.cmake_package_wasm64_emscripten_linux:
-    stage: package
-
-    script:
-        - .gitlab/ci/cmake.sh latest
-        - export PATH=$PWD/.gitlab/cmake/bin:$PATH
-        - cmake --version
-        - .gitlab/ci/node.sh
-        - export PATH=$PWD/.gitlab/node/bin:$PATH
-        - node --version
-        - .gitlab/ci/create_webassembly_archive.sh 64
+        - .gitlab/ci/create_webassembly_archive.sh $WASM_WORDSIZE
 
     interruptible: true
 
