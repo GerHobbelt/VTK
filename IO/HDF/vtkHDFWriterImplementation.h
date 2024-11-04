@@ -40,13 +40,18 @@ public:
    * Returns true if the operation was successful
    * If the operation fails, the file may have been created
    */
-  bool CreateFile(bool overwrite = true);
+  bool CreateFile(bool overwrite, const std::string& file);
 
   /**
    * Open existing VTKHDF file and set Root and File members.
    * This file is closed on object destruction.
    */
   bool OpenFile();
+
+  /**
+   * Close currently handled file, open using CreateFile or OpenFile.
+   */
+  void CloseFile();
 
   /**
    * Open subfile where data has already been written, and needs to be referenced by the main file
@@ -174,6 +179,11 @@ public:
    */
   vtkHDF::ScopedH5DHandle CreateVirtualDataset(
     hid_t group, const char* name, hid_t type, int numComp);
+
+  /**
+   *
+   */
+  hsize_t GetSubfileNumberOf(const std::string& qualifier, std::size_t subfileId, int part);
 
   /**
    * Create a chunked dataset in the given group from a dataspace.

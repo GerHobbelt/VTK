@@ -13,6 +13,7 @@
 #include "vtkWebGPUComputePass.h"
 #include "vtkWebGPUComputePipeline.h"
 #include "vtkWebGPUComputeTexture.h"
+#include "vtkWebGPUComputeTextureView.h"
 #include "vtkWebGPUTexture.h"
 
 #include <vector>
@@ -29,7 +30,7 @@ struct CallbackData
 };
 } // namespace
 
-int TestComputeTexture(int argc, char** argv)
+int TestComputeTexture(int, char*[])
 {
   // * 4 for RGBA
   std::vector<unsigned char> referenceOutput(TEXTURE_WIDTH * TEXTURE_HEIGHT * 4);

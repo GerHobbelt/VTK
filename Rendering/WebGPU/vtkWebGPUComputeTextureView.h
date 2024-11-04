@@ -16,7 +16,7 @@ public:
   vtkTypeMacro(vtkWebGPUComputeTextureView, vtkObject);
   static vtkWebGPUComputeTextureView* New();
 
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
 protected:
   vtkWebGPUComputeTextureView();
@@ -26,7 +26,7 @@ protected:
 
 private:
   friend class vtkWebGPUComputePass;
-  friend class vtkWebGPUInternalsComputePassTextureStorage;
+  friend class vtkWebGPUComputePassTextureStorageInternals;
 
   ///@{
   /**

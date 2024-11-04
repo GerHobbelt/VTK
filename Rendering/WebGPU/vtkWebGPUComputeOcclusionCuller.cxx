@@ -9,6 +9,7 @@
 #include "vtkMatrix4x4.h"                    // for the view projection matrix
 #include "vtkObjectFactory.h"                // for vtk standard new macro
 #include "vtkRendererCollection.h"
+#include "vtkWebGPUComputeBuffer.h"
 #include "vtkWebGPUComputePipeline.h"      // for the occlusion culling pipeline
 #include "vtkWebGPUComputeRenderTexture.h" // for using the depth buffer of the render pipeline
 #include "vtkWebGPUComputeTextureView.h"   // for texture views
@@ -68,11 +69,10 @@ void vtkWebGPUComputeOcclusionCuller::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "HierarchicalZ buffer mipmap count: " << this->HierarchicalZBufferMipmapCount
      << std::endl;
   os << indent << "HierarchicalZ Buffer mimaps [widths, heights]: " << std::endl;
-  for (int index = 0; index < this->MipmapWidths.size(); index++)
+  for (std::size_t index = 0; index < this->MipmapWidths.size(); index++)
   {
     os << indent << "\t [" << this->MipmapWidths[index] << ", " << this->MipmapHeights[index] << "]"
        << std::endl;
-    ;
   }
 
   os << indent << "Depth mipmap pass: ";
@@ -107,6 +107,25 @@ void vtkWebGPUComputeOcclusionCuller::PrintSelf(ostream& os, vtkIndent indent)
 void vtkWebGPUComputeOcclusionCuller::SetRenderWindow(vtkWebGPURenderWindow* renderWindow)
 {
   this->WebGPURenderWindow = renderWindow;
+  if (this->WebGPURenderWindow == nullptr)
+  {
+    vtkLog(ERROR,
+      "Calling vtkWebGPUComputeOcclusionCuller::SetRenderWindow with a nullptr renderWindow "
+      "parameter.");
+
+    return;
+  }
+
+  if (!renderWindow->GetInitialized())
+  {
+    // Check for the user in case they forgot to call RenderWindow::Initialize before setting up the
+    // render window on the occlusion culler
+    vtkLog(ERROR,
+      "You must call RenderWindow::Initialize() before setting the RenderWindow on the "
+      "vtkWebGPUOcclusionCuller.");
+
+    return;
+  }
 
   this->WindowResizedCallbackCommand = vtkSmartPointer<vtkCallbackCommand>::New();
   this->WindowResizedCallbackCommand->SetCallback(
@@ -114,6 +133,9 @@ void vtkWebGPUComputeOcclusionCuller::SetRenderWindow(vtkWebGPURenderWindow* ren
   this->WindowResizedCallbackCommand->SetClientData(this);
   this->WebGPURenderWindow->AddObserver(
     vtkCommand::WindowResizeEvent, this->WindowResizedCallbackCommand);
+
+  this->OcclusionCullingPipeline->SetWGPUConfiguration(
+    this->WebGPURenderWindow->GetWGPUConfiguration());
 
   // Setting everything up so that everything is ready when Cull() will be called
   this->SetupDepthBufferCopyPass();
@@ -124,13 +146,29 @@ void vtkWebGPUComputeOcclusionCuller::SetRenderWindow(vtkWebGPURenderWindow* ren
 //------------------------------------------------------------------------------
 void vtkWebGPUComputeOcclusionCuller::SetupDepthBufferCopyPass()
 {
+  if (this->WebGPURenderWindow == nullptr)
+  {
+    return;
+  }
+
   vtkSmartPointer<vtkWebGPUComputeRenderTexture> depthTexture;
-  depthTexture = this->WebGPURenderWindow->AcquireDepthBufferRenderTexture(0, 0);
+  depthTexture = this->WebGPURenderWindow->AcquireDepthBufferRenderTexture();
   depthTexture->SetLabel("Depth buffer texture for depth buffer copy pass");
 
   this->DepthBufferCopyPass->SetShaderSource(OcclusionCullingCopyDepthBuffer);
   this->DepthBufferCopyPass->SetShaderEntryPoint("computeMain");
-  this->DepthBufferCopyPass->AddRenderTexture(depthTexture);
+
+  const int index = this->DepthBufferCopyPass->AddRenderTexture(depthTexture);
+
+  auto depthTextureView = this->DepthBufferCopyPass->CreateTextureView(index);
+  depthTextureView->SetGroup(0);
+  depthTextureView->SetBinding(0);
+  depthTextureView->SetLabel("Depth buffer texture depth buffer copy pass");
+  depthTextureView->SetMode(vtkWebGPUTextureView::TextureViewMode::READ_ONLY);
+  depthTextureView->SetAspect(vtkWebGPUTextureView::TextureViewAspect::ASPECT_DEPTH);
+  depthTextureView->SetFormat(vtkWebGPUTexture::TextureFormat::DEPTH_24_PLUS);
+  this->DepthBufferCopyPass->AddTextureView(depthTextureView);
+
   this->DepthBufferCopyPass->SetLabel("Depth buffer copy compute pass");
 }
 
@@ -196,6 +234,8 @@ double vtkWebGPUComputeOcclusionCuller::Cull(
   this->OcclusionCullingPipeline->Update();
   this->FirstFrame = false;
 
+  initialized = this->Initialized;
+
   return listLength;
 }
 
@@ -213,18 +253,16 @@ void vtkWebGPUComputeOcclusionCuller::AddOcclusionCullingPipelineToRenderer(vtkR
   }
 
   wgpuRenderer->AddComputePipeline(this->OcclusionCullingPipeline);
-  // We're manually configuring the compute pipelines here because otherwise, it would only be
-  // done when Render() is called on the renderer. However, we need the pipeline to be configured
-  // right now because we're going to create a bunch of textures / buffers for the pipeline in the
-  // initialization stuff that follows and we want all of that to be created with the device of
-  // the vtkWebGPURenderWindow of the renderer (which is setup when 'ConfigureComputePipelines' is
-  // called)
-  wgpuRenderer->ConfigureComputePipelines();
 }
 
 //------------------------------------------------------------------------------
 void vtkWebGPUComputeOcclusionCuller::CreateHierarchicalZBuffer()
 {
+  if (this->WebGPURenderWindow == nullptr)
+  {
+    return;
+  }
+
   int* renderWindowSize = this->WebGPURenderWindow->GetSize();
   int width = renderWindowSize[0];
   int height = renderWindowSize[1];
@@ -262,12 +300,16 @@ int vtkWebGPUComputeOcclusionCuller::ComputeMipLevelsSizes(int width, int height
   int mipWidth = width;
   int mipHeight = height;
   // We're going to stop when the X or Y dimension (whichever is the smallest) reaches 2 pixel
-  while (mipWidth >= 2 && mipHeight >= 2)
+  while (mipWidth > 0 || mipHeight > 0)
   {
+    // Clamping at 1 to avoid zero dimension mips (will happen if the texture isn't square)
+    mipWidth = std::max(1, mipWidth);
+    mipHeight = std::max(1, mipHeight);
+
     this->MipmapWidths.push_back(mipWidth);
     this->MipmapHeights.push_back(mipHeight);
-
     numMipLevels++;
+
     mipWidth = std::floor(mipWidth / 2.0f);
     mipHeight = std::floor(mipHeight / 2.0f);
   }
@@ -281,20 +323,27 @@ void vtkWebGPUComputeOcclusionCuller::ResizeHierarchicalZBuffer(
 {
   this->HierarchicalZBufferMipmapCount = this->ComputeMipLevelsSizes(newWidth, newHeight);
 
+  // Updating the extents and the number of mip levels of the texture
   vtkSmartPointer<vtkWebGPUComputeTexture> texture =
     this->CullingPass->GetComputeTexture(this->HierarchicalZBufferTextureIndexCullingPass);
   texture->SetWidth(newWidth);
   texture->SetHeight(newHeight);
   texture->SetMipLevelCount(this->HierarchicalZBufferMipmapCount);
 
+  // Update the number of mip levels of the texture view of the hierarchical z buffer
+  vtkSmartPointer<vtkWebGPUComputeTextureView> hierarchicalZBufferView =
+    this->CullingPass->GetTextureView(this->CullingPassHierarchicalZBufferView);
+  hierarchicalZBufferView->SetMipLevelCount(this->HierarchicalZBufferMipmapCount);
+
   this->CullingPass->RecreateComputeTexture(this->HierarchicalZBufferTextureIndexCullingPass);
+  this->CullingPass->RecreateTextureView(this->CullingPassHierarchicalZBufferView);
   // Because the size of the window has changed, we may have more or less mipmaps
   this->ResizeHierarchicalZBufferMipmapsChain(newWidth, newHeight);
 }
 
 //------------------------------------------------------------------------------
 void vtkWebGPUComputeOcclusionCuller::ResizeHierarchicalZBufferMipmapsChain(
-  uint32_t newWidth, uint32_t newHeight)
+  uint32_t vtkNotUsed(newWidth), uint32_t vtkNotUsed(newHeight))
 {
   this->DepthMipmapsPass->DeleteTextureViews(this->HierarchicalZBufferTextureIndexMipmapsPass);
   this->FinishSetupMipmapsPass();
@@ -436,7 +485,7 @@ void vtkWebGPUComputeOcclusionCuller::FinishSetupCullingPass()
   this->CullingPassOutputIndicesCulledCountBufferIndex =
     this->CullingPass->AddBuffer(outputIndicesCulledCountBuffer);
   this->CullingPassBoundsCountBufferIndex = this->CullingPass->AddBuffer(boundsCountBuffer);
-  this->CullingPass->AddTextureView(hiZBufferView);
+  this->CullingPassHierarchicalZBufferView = this->CullingPass->AddTextureView(hiZBufferView);
 }
 
 //------------------------------------------------------------------------------
@@ -449,6 +498,16 @@ void vtkWebGPUComputeOcclusionCuller::FirstPassRender(
     vtkErrorWithObjectMacro(
       this, << "Could not get the vtkWebGPURenderer. Is this occlusion culler used outside of a "
                "vtkWebGPURenderer?");
+
+    return;
+  }
+
+  vtkWebGPURenderWindow* wgpuRenderWindow;
+  wgpuRenderWindow = vtkWebGPURenderWindow::SafeDownCast(wgpuRenderer->GetRenderWindow());
+  if (wgpuRenderWindow == nullptr)
+  {
+    vtkErrorWithObjectMacro(
+      this, << "The render window of the renderer used by this occlusion culler is null.");
 
     return;
   }
@@ -483,17 +542,20 @@ void vtkWebGPUComputeOcclusionCuller::FirstPassRender(
   // Creating and submitting the draw command to the render window so that the props of the last
   // frame are rendered and the depth buffer is filled
   wgpu::CommandBuffer commandBuffer;
-  vtkWebGPURenderWindow* wgpuRenderWindow;
 
   commandBuffer = wgpuRenderer->EncodePropListRenderCommand(
     propsToRenderFirstPass.data(), propsToRenderFirstPass.size());
-  wgpuRenderWindow = vtkWebGPURenderWindow::SafeDownCast(wgpuRenderer->GetRenderWindow());
   wgpuRenderWindow->SubmitCommandBuffer(1, &commandBuffer);
 }
 
 //------------------------------------------------------------------------------
 void vtkWebGPUComputeOcclusionCuller::CopyDepthBuffer()
 {
+  if (this->WebGPURenderWindow == nullptr)
+  {
+    return;
+  }
+
   int* renderWindowSize = this->WebGPURenderWindow->GetSize();
   int nbGroupsX = std::ceil(renderWindowSize[0] / 8.0f);
   int nbGroupsY = std::ceil(renderWindowSize[1] / 8.0f);
@@ -602,7 +664,7 @@ void vtkWebGPUComputeOcclusionCuller::FillObjectsToDrawCallback(const void* mapp
   // are rendered after the occlusion culling pipeline
   int propListIndex = 0;
   std::unordered_set<vtkProp*>& propsRenderedLastFrame = mapData->renderer->PropsRendered;
-  for (int i = 0; i < passedProps.size(); i++)
+  for (std::size_t i = 0; i < passedProps.size(); i++)
   {
     vtkProp* prop = passedProps[i];
     if (propsRenderedLastFrame.find(prop) == propsRenderedLastFrame.end())
@@ -654,7 +716,7 @@ void vtkWebGPUComputeOcclusionCuller::OutputIndicesCulledCallback(
 
 //------------------------------------------------------------------------------
 void vtkWebGPUComputeOcclusionCuller::WindowResizedCallback(
-  vtkObject* caller, unsigned long eid, void* clientdata, void* calldata)
+  vtkObject* caller, unsigned long vtkNotUsed(eid), void* clientdata, void* vtkNotUsed(calldata))
 {
   vtkWebGPUComputeOcclusionCuller* occlusionCuller =
     static_cast<vtkWebGPUComputeOcclusionCuller*>(clientdata);

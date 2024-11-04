@@ -143,7 +143,7 @@
 
 .fedora39:
     extends: .linux
-    image: "kitware/vtk:ci-fedora39-20240529"
+    image: "kitware/vtk:ci-fedora39-20240731"
 
 .el7_mindeps:
     extends: .linux
@@ -304,6 +304,15 @@
     variables:
         CMAKE_CONFIGURATION: fedora39_mpi_ospray_python_qt_tbb
 
+.fedora39_helide_mpi_python_qt_tbb:
+    extends:
+        - .fedora39
+        - .fedora_mpich_addon
+
+    variables:
+        CMAKE_CONFIGURATION: fedora39_helide_mpi_python_qt_tbb
+        ANARI_LIBRARY: helide
+
 .fedora39_mpi_python_qt_stdthread:
     extends:
         - .fedora39
@@ -386,6 +395,13 @@
         # issues with tests using external executables when testing UBSan
         # around ASan not being first in the initial library list.
         CMAKE_CONFIGURATION: fedora39_mpi_python_qt_tbb_ubsan
+
+.fedora39_webgpu:
+    extends:
+        - .fedora39
+
+    variables:
+        CMAKE_CONFIGURATION: fedora39_webgpu
 
 .linux_fast_builder_tags:
     tags:
@@ -503,12 +519,16 @@
     # Enable the Intel compiler if required.
     - '[ "$CC" = "icx" ] && source /opt/intel/oneapi/setvars.sh || true'
 
+.before_script_linux_deps: &before_script_linux_deps
+    - '[[ "$CMAKE_CONFIGURATION" =~ "webgpu" ]] && cmake -P "$PWD/.gitlab/ci/download_dawn.cmake"'
+
 .cmake_build_linux:
     stage: build
     extends: .warning_policy
 
     script:
         - *before_script_linux
+        - *before_script_linux_deps
         - .gitlab/ci/clang-tidy-cache.sh
         - .gitlab/ci/sccache.sh
         - sccache --start-server
@@ -525,6 +545,7 @@
 
     script:
         - *before_script_linux
+        - *before_script_linux_deps
         - ctest -V --output-on-failure -S .gitlab/ci/ctest_test.cmake
 
     interruptible: true
@@ -678,14 +699,12 @@
 .before_script_linux_emscripten: &before_script_linux_emscripten
     - *before_script_linux
     # Fetch node
-    - .gitlab/ci/node.sh
+    - cmake -P .gitlab/ci/download_node.cmake
     - export NODE_DIR=$PWD/.gitlab/node
     - export PATH=$PWD/.gitlab/node/bin:$PATH
     - node --version
     - $PWD/.gitlab/ci/emsdk.sh
     # Fetches clang, wasm link tools and emscripten
-    # need `xz` to extract `wasm_binaries.tar.xz` downloaded by `emsdk install`
-    - dnf install -y --setopt=install_weak_deps=False xz
     - $PWD/.gitlab/emsdk/emsdk install latest
     - export PATH=$PWD/.gitlab/emsdk/upstream/bin:$PWD/.gitlab/emsdk/upstream/emscripten:$PATH
     - clang --version
@@ -721,7 +740,7 @@
         - .gitlab/ci/cmake.sh latest
         - export PATH=$PWD/.gitlab/cmake/bin:$PATH
         - cmake --version
-        - .gitlab/ci/node.sh
+        - cmake -P .gitlab/ci/download_node.cmake
         - export PATH=$PWD/.gitlab/node/bin:$PATH
         - node --version
         - .gitlab/ci/create_webassembly_archive.sh $WASM_WORDSIZE

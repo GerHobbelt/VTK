@@ -6,12 +6,11 @@
 
 #include "vtkRenderingWebGPUModule.h" // For export macro
 #include "vtkWeakPointer.h"           // for weak pointer on the associated compute pass
+#include "vtkWebGPUComputePass.h"     // For compute pass
 #include "vtkWebGPUComputeTexture.h"
 #include "vtkWebGPUComputeTextureView.h" // For the texture view aspect attribute
 
 VTK_ABI_NAMESPACE_BEGIN
-
-class vtkWebGPUComputePass;
 
 /**
  * Render textures are returned by calls to
@@ -24,7 +23,7 @@ public:
   vtkTypeMacro(vtkWebGPUComputeRenderTexture, vtkWebGPUComputeTexture);
   static vtkWebGPUComputeRenderTexture* New();
 
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /**
    * What type of texture of the vtk render pipeline is this ComputeRenderTexture refering to.
@@ -58,22 +57,6 @@ public:
 
   ///@{
   /**
-   * Get/set the bind group index of the texture
-   */
-  vtkGetMacro(Group, vtkIdType);
-  vtkSetMacro(Group, vtkIdType);
-  ///@}
-
-  ///@{
-  /**
-   * Get/set the binding index of the texture
-   */
-  vtkGetMacro(Binding, vtkIdType);
-  vtkSetMacro(Binding, vtkIdType);
-  ///@}
-
-  ///@{
-  /**
    * Get/set the WebGPU texture (used when this ComputeTexture points to an already existing device
    * buffer)
    */
@@ -84,6 +67,10 @@ public:
   ///@{
   /**
    * Get/set the associated compute pass
+   *
+   * The associated compute pass is going to be needed if we want to resize the render texture after
+   * a render window resize (for example). This is because after a resize, we'll have to recreate
+   * the texture views which means that we'll need access to the compute pass.
    */
   vtkWeakPointer<vtkWebGPUComputePass> GetAssociatedComputePass();
   void SetAssociatedComputePass(vtkWeakPointer<vtkWebGPUComputePass> computePass);
@@ -100,12 +87,6 @@ private:
   vtkWebGPUComputeTextureView::TextureViewAspect Aspect =
     vtkWebGPUComputeTextureView::TextureViewAspect::ASPECT_ALL;
 
-  // Bind group of the texture view
-  vtkIdType Group = -1;
-
-  // Binding of the texture view.
-  vtkIdType Binding = -1;
-
   // We may want vtkWebGPUComputePipeline::AddTexture() not to create a new device texture for this
   // vtkWebGPUComputeBuffer but rather use an exisiting one that has been created elsewhere (by a
   // webGPUPolyDataMapper for example). This is the attribute that points to this 'already existing'
@@ -114,6 +95,10 @@ private:
 
   /**
    * The ComputePipeline this render texture is associated with.
+   *
+   * The associated compute pass is going to be needed if we want to resize the render texture after
+   * a render window resize (for example). This is because after a resize, we'll have to recreate
+   * the texture views which means that we'll need access to the compute pass.
    */
   vtkWeakPointer<vtkWebGPUComputePass> AssociatedComputePass = nullptr;
 

@@ -5,21 +5,23 @@
 #define vtkWebGPUComputePass_h
 
 #include "vtkObject.h"
-#include "vtkWebGPUComputeRenderBuffer.h"      // for compute render buffers used by the pipeline
-#include "vtkWebGPUComputeRenderTexture.h"     // for compute render textures used by the pipeline
-#include "vtkWebGPUComputeTextureView.h"       // for texture view management
-#include "vtkWebGPUInternalsBindGroup.h"       // for bind group utilitary methods
-#include "vtkWebGPUInternalsBindGroupLayout.h" // for bind group layouts utilitary methods
-#include "vtkWebGPUInternalsBuffer.h"          // for internal buffer utils
-#include "vtkWebGPUInternalsComputePass.h"     // for the internals
-#include "vtkWebGPUInternalsComputePassBufferStorage.h"  // for buffer storage management
-#include "vtkWebGPUInternalsComputePassTextureStorage.h" // for texture storage management
-#include "vtk_wgpu.h"                                    // for webgpu
 
-#include <unordered_map>
-#include <unordered_set>
+#include "vtkRenderingWebGPUModule.h" // For export macro
+#include "vtkSmartPointer.h"          // for arg
+#include "vtk_wgpu.h"                 // for webgpu
 
+#include <type_traits> // for enable_if_t
+
+class vtkDataArray;
+class vtkWebGPUComputeBuffer;
 class vtkWebGPUComputePipeline;
+class vtkWebGPUComputeRenderBuffer;
+class vtkWebGPUComputeRenderTexture;
+class vtkWebGPUComputeTexture;
+class vtkWebGPUComputeTextureView;
+class vtkWebGPUComputePassInternals;
+class vtkWebGPUComputePassBufferStorageInternals;
+class vtkWebGPUComputePassTextureStorageInternals;
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -56,7 +58,7 @@ public:
   static vtkWebGPUComputePass* New();
   vtkTypeMacro(vtkWebGPUComputePass, vtkObject);
 
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   ///@{
   /**
@@ -104,7 +106,7 @@ public:
    * Adds a render texture to the pass. A render texture can be obtained from
    * vtkWebGPURenderWindow::AcquireDepthBufferRenderTexture() and analogous methods.
    */
-  void AddRenderTexture(vtkSmartPointer<vtkWebGPUComputeRenderTexture> renderTexture);
+  int AddRenderTexture(vtkSmartPointer<vtkWebGPUComputeRenderTexture> renderTexture);
 
   /**
    * Adds a texture to the pass and upload its data to the device
@@ -162,16 +164,44 @@ public:
   /**
    * Retrieves the compute texture associated with the given texture index
    *
-   * @warning The texture will need to be recreated by calling RecreateComputeTexture for all the
+   * @warning The texture will need to be recreated by calling RecreateComputeTexture() for all the
    * changes done to this compute texture to take effect
    */
   vtkSmartPointer<vtkWebGPUComputeTexture> GetComputeTexture(int textureIndex);
 
   /**
    * Recreates a compute texture. Must be called if the compute texture has been modified (after a
-   * call to GetComputeTexure for example) for the  changes to take effect.
+   * call to GetComputeTexure() + modifications of the parameters for example) for the  changes to
+   * take effect.
+   * Retrieves the texture view associated with the given texture view index
+   *
+   * @warning The texture view will need to be recreated by calling RecreateTextureView() for all
+   * the changes done to this texture view to take effect
+   */
+  vtkSmartPointer<vtkWebGPUComputeTextureView> GetTextureView(int textureViewIndex);
+
+  /**
+   * Recreates a compute texture. Must be called if the compute texture has been modified (after
+   * a call to GetComputeTexture for example) for the  changes to take effect.
    */
   void RecreateComputeTexture(int textureIndex);
+
+  /**
+   * Recreates a compute texture view. Must be called if the texture view has been modified (after a
+   * call to GetComputeTextureView for example) for the  changes to take effect.
+   */
+  void RecreateTextureView(int textureViewIndex);
+
+  /*
+   * Callback called when the asynchronous mapping of a buffer is done
+   * and data is ready to be copied.
+   * This callback takes three parameters:
+   *
+   * - A first void pointer to the data mapped from the GPU ready to be copied
+   * - A second void pointer pointing to user data, which can essentially be anything
+   *      needed by the callback to copy the data to the CPU
+   */
+  using BufferMapAsyncCallback = std::function<void(const void*, void*)>;
 
   /*
    * This function maps the buffer, making it accessible to the CPU. This is
@@ -181,8 +211,28 @@ public:
    * The buffer data can then be read from the callback and stored
    * in a buffer (std::vector<>, vtkDataArray, ...) passed in via the userdata pointer for example
    */
-  void ReadBufferFromGPU(int bufferIndex,
-    vtkWebGPUInternalsComputePassBufferStorage::BufferMapAsyncCallback callback, void* userdata);
+  void ReadBufferFromGPU(int bufferIndex, BufferMapAsyncCallback callback, void* userdata);
+
+  /*
+   * Callback called when the asynchronous mapping of a texture is done
+   * and data is ready to be copied.
+   * This callback takes three parameters:
+   *
+   * - A void pointer to the data mapped from the GPU ready to be copied.
+   *
+   * - An integer representing how many bytes per row the mapped data contains. This is
+   * useful because some padding has probably be done on the buffer to satisfy WebGPU size
+   * constraints. At the time of writing, buffers for texture mapping need a number of bytes per row
+   * that is a multiple of 256 bytes. This means that for a texture of 300x300 RGBA (300 * 4 = 1200
+   * bytes per row), there will be 80 bytes of additional padding to achieve 1280 bytes per row
+   * which is a multiple of 256. In this case, the integer argument of the callback will contain the
+   * value '1280' and it is then the responsibility of the user to only read relevant data (i.e. the
+   * 1200 first bytes of each row since the 80 last bytes are irrelevant padding).
+   *
+   * - A second void pointer pointing to user data, which can essentially be anything
+   *      needed by the callback to copy the data to the CPU
+   */
+  using TextureMapAsyncCallback = std::function<void(const void*, int, void*)>;
 
   /**
    *
@@ -193,8 +243,8 @@ public:
    * The texture data can then be read from the callback and stored
    * in a buffer (std::vector<>, vtkDataArray, ...) passed in via the userdata pointer for example
    */
-  void ReadTextureFromGPU(int textureIndex, int mipLevel,
-    vtkWebGPUInternalsComputePassTextureStorage::TextureMapAsyncCallback callback, void* userdata);
+  void ReadTextureFromGPU(
+    int textureIndex, int mipLevel, TextureMapAsyncCallback callback, void* userdata);
 
   /**
    * Updates the data of a buffer.
@@ -208,10 +258,10 @@ public:
    * data and the given data can safely be destroyed directly after calling this function.
    *
    */
-  template <typename T>
+  template <typename T, std::enable_if_t<std::is_arithmetic<T>::value, bool> = true>
   void UpdateBufferData(int bufferIndex, const std::vector<T>& newData)
   {
-    this->Internals->BufferStorage->UpdateBufferData(bufferIndex, newData);
+    this->WriteBufferData(bufferIndex, 0, newData.data(), newData.size() * sizeof(T));
   }
 
   /**
@@ -219,10 +269,10 @@ public:
    * The offset is used to determine where in the buffer to reupload data.
    * Useful when only a portion of the buffer needs to be reuploaded.
    */
-  template <typename T>
+  template <typename T, std::enable_if_t<std::is_arithmetic<T>::value, bool> = true>
   void UpdateBufferData(int bufferIndex, vtkIdType byteOffset, const std::vector<T>& data)
   {
-    this->Internals->BufferStorage->UpdateBufferData(bufferIndex, byteOffset, data);
+    this->WriteBufferData(bufferIndex, byteOffset, data.data(), data.size() * sizeof(T));
   }
 
   /**
@@ -248,10 +298,10 @@ public:
   /**
    * Uploads the given data to the texture starting at pixel (0, 0)
    */
-  template <typename T>
+  template <typename T, std::enable_if_t<std::is_arithmetic<T>::value, bool> = true>
   void UpdateTextureData(int textureIndex, const std::vector<T>& data)
   {
-    this->Internals->TextureStorage->UpdateTextureData(textureIndex, data);
+    this->WriteTextureData(textureIndex, data.data(), data.size() * sizeof(T));
   }
 
   ///@{
@@ -268,16 +318,22 @@ public:
 
 protected:
   vtkWebGPUComputePass();
-  ~vtkWebGPUComputePass();
+  ~vtkWebGPUComputePass() override;
+
+private:
   vtkWebGPUComputePass(const vtkWebGPUComputePass&) = delete;
   void operator=(const vtkWebGPUComputePass&) = delete;
 
-private:
+  void WriteBufferData(
+    int bufferIndex, vtkIdType byteOffset, const void* data, std::size_t numBytes);
+
+  void WriteTextureData(int textureIndex, const void* data, std::size_t numBytes);
+
   friend class vtkWebGPUComputePipeline;
   friend class vtkWebGPUHelpers;
-  friend class vtkWebGPUInternalsComputePass;
-  friend class vtkWebGPUInternalsComputePassTextureStorage;
-  friend class vtkWebGPUInternalsComputePassBufferStorage;
+  friend class vtkWebGPUComputePassInternals;
+  friend class vtkWebGPUComputePassTextureStorageInternals;
+  friend class vtkWebGPUComputePassBufferStorageInternals;
   friend class vtkWebGPURenderWindow;
   friend class vtkWebGPURenderer;
 
@@ -295,7 +351,7 @@ private:
   std::string WGPUComputePipelineLabel = "WebGPU pipeline \"" + this->Label + "\"";
 
   // Internal implementation of the compute pass
-  vtkSmartPointer<vtkWebGPUInternalsComputePass> Internals;
+  vtkSmartPointer<vtkWebGPUComputePassInternals> Internals;
 };
 
 VTK_ABI_NAMESPACE_END

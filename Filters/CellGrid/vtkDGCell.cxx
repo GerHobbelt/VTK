@@ -5,7 +5,6 @@
 #include "vtkCellAttribute.h"
 #include "vtkCellGrid.h"
 #include "vtkDGOperatorEntry.h"
-#include "vtkDataSetAttributes.h"
 #include "vtkStringToken.h"
 #include "vtkTypeFloat32Array.h"
 #include "vtkTypeInt32Array.h"
@@ -25,7 +24,7 @@ namespace
 
 ostream& PrintSource(ostream& os, const vtkDGCell::Source& src, bool isCellSpec)
 {
-  os << "Connectivity: " << src.Connectivity;
+  os << src << '\n';
   if (src.Connectivity)
   {
     if (isCellSpec)
@@ -38,12 +37,6 @@ ostream& PrintSource(ostream& os, const vtkDGCell::Source& src, bool isCellSpec)
       os << " (sides: " << src.Connectivity->GetNumberOfTuples() << ")";
     }
   }
-  if (src.NodalGhostMarks)
-  {
-    os << ", NodalGhostMarks " << src.NodalGhostMarks;
-  }
-  os << ", Offset: " << src.Offset << ", Blanked: " << (src.Blanked ? "T" : "F")
-     << ", Shape: " << src.SourceShape << ", SideType: " << src.SideType;
   return os;
 }
 
@@ -68,6 +61,12 @@ vtkDGCell::Source::Source(vtkDataArray* conn, vtkIdType off, bool blank, Shape s
   , SideType(sideType)
   , SelectionType(selnType)
 {
+}
+
+ostream& operator<<(ostream& os, const vtkDGCell::Shape& shape)
+{
+  os << vtkDGCell::GetShapeName(shape).Data();
+  return os;
 }
 
 vtkDGCell::vtkDGCell()
@@ -111,6 +110,55 @@ void vtkDGCell::PrintSelf(ostream& os, vtkIndent indent)
     os << "\n";
     ++ii;
   }
+}
+
+const vtkDGCell::Source& vtkDGCell::GetCellSource(int sideType) const
+{
+  if (sideType < 0)
+  {
+    return this->CellSpec;
+  }
+  else if (sideType < static_cast<int>(this->SideSpecs.size()))
+  {
+    return this->SideSpecs[sideType];
+  }
+  static Source dummy;
+  return dummy;
+}
+
+vtkDataArray* vtkDGCell::GetCellSourceConnectivity(int sideType) const
+{
+  return this->GetCellSource(sideType).Connectivity;
+}
+
+vtkDataArray* vtkDGCell::GetCellSourceNodalGhostMarks(int sideType) const
+{
+  return this->GetCellSource(sideType).NodalGhostMarks;
+}
+
+vtkIdType vtkDGCell::GetCellSourceOffset(int sideType) const
+{
+  return this->GetCellSource(sideType).Offset;
+}
+
+bool vtkDGCell::GetCellSourceIsBlanked(int sideType) const
+{
+  return this->GetCellSource(sideType).Blanked;
+}
+
+vtkDGCell::Shape vtkDGCell::GetCellSourceShape(int sideType) const
+{
+  return this->GetCellSource(sideType).SourceShape;
+}
+
+int vtkDGCell::GetCellSourceSideType(int sideType) const
+{
+  return this->GetCellSource(sideType).SideType;
+}
+
+int vtkDGCell::GetCellSourceSelectionType(int sideType) const
+{
+  return this->GetCellSource(sideType).SelectionType;
 }
 
 vtkIdType vtkDGCell::GetNumberOfCells()

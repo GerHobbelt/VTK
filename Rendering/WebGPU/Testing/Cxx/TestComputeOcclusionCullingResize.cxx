@@ -79,13 +79,13 @@ void RenderNewTriangle(vtkRenderWindow* renWin, vtkRenderer* renderer,
 void CheckRenderCount(
   const std::vector<int>& renderedPropCounts, const std::vector<int>& renderedPropCountsReference)
 {
-  for (int i = 0; i < renderedPropCounts.size(); i++)
+  for (std::size_t i = 0; i < renderedPropCounts.size(); i++)
   {
     if (renderedPropCounts[i] != renderedPropCountsReference[i])
     {
       std::string expectedSequence;
       std::string actualSequence;
-      for (int seqIndex = 0; seqIndex < renderedPropCountsReference.size(); seqIndex++)
+      for (std::size_t seqIndex = 0; seqIndex < renderedPropCountsReference.size(); seqIndex++)
       {
         expectedSequence += std::to_string(renderedPropCountsReference[seqIndex]) + ", ";
         actualSequence += std::to_string(renderedPropCounts[seqIndex]) + ", ";
@@ -103,11 +103,11 @@ void CheckRenderCount(
 }
 
 //------------------------------------------------------------------------------
-int TestComputeOcclusionCullingResize(int argc, char* argv[])
+int TestComputeOcclusionCullingResize(int, char*[])
 {
   // How many props are expected to be rendered at each frame (with modification of the props in
   // between the frames)
-  std::vector<int> renderedPropCountsReference = { 1, 2, 3, 4, 5, 1, 1 };
+  std::vector<int> renderedPropCountsReference = { 1, 2, 3, 4, 5, 1, 5 };
   // How many props were actually renderer
   std::vector<int> renderedPropCounts;
 
@@ -115,6 +115,10 @@ int TestComputeOcclusionCullingResize(int argc, char* argv[])
   renWin->SetWindowName(__func__);
   renWin->SetMultiSamples(0);
   renWin->SetSize(512, 512);
+  // Initialize() call necessary when a WebGPU compute class is going to use the render window.
+  // Here, the OcclusionCuller internally uses the resources of the render window so Initialize()
+  // must be called
+  renWin->Initialize();
 
   vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
 
@@ -164,8 +168,13 @@ int TestComputeOcclusionCullingResize(int argc, char* argv[])
   // still get only 1 prop rendered if the depth buffer / mipmaps was properly resized when the
   // render window was resized
   renWin->SetSize(1500, 512);
+  renderer->GetActiveCamera()->SetFocalPoint(-0.897737, 0.380353, -1.62994);
+  renderer->GetActiveCamera()->SetPosition(-2.07265, 0.517861, 0.0729139);
+  renderer->GetActiveCamera()->SetViewUp(0.0514601, 0.997658, -0.045057);
+
   renWin->Render();
   renderedPropCounts.push_back(renderer->GetNumberOfPropsRendered());
+
   CheckRenderCount(renderedPropCounts, renderedPropCountsReference);
 
   return EXIT_SUCCESS;

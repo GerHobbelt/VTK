@@ -45,12 +45,13 @@ if(TARGET VTK::ParallelMPI)
    set(vtkFiltersSourcesCxxTests-MPI_NUMPROCS 2)
    vtk_add_test_mpi(vtkFiltersSourcesCxxTests-MPI tests_mpi_2
      TESTING_DATA
-     TestSpatioTemporalHarmonicsSourceDistributed.cxx
+     TestSpatioTemporalHarmonicsSourceDistributed.cxx,
    )
    set(vtkFiltersSourcesCxxTests-MPI_NUMPROCS 3)
    vtk_add_test_mpi(vtkFiltersSourcesCxxTests-MPI tests_mpi_3
      TESTING_DATA
      TestRandomHyperTreeGridSourceMPI3,TestRandomHyperTreeGridSourceDistributed.cxx
+     TestHyperTreeGridSourceDistributed.cxx,NO_VALID
    )
    set(tests_mpi
      ${tests_mpi_2}

@@ -7,7 +7,6 @@
 #include "vtkDataArray.h"             // for vtkDataArray used in SetData
 #include "vtkLogger.h"                // for the logger
 #include "vtkRenderingWebGPUModule.h" // For export macro
-#include "vtkSetGet.h"                // for get/set macro
 #include "vtkWebGPUTexture.h"
 #include "vtk_wgpu.h" // for dawn classes
 
@@ -32,7 +31,7 @@ public:
   vtkTypeMacro(vtkWebGPUComputeTexture, vtkObject);
   static vtkWebGPUComputeTexture* New();
 
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   ///@{
   /**

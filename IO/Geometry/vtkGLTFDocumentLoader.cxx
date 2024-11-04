@@ -7,6 +7,7 @@
 #include "vtkAssume.h"
 #include "vtkBase64Utilities.h"
 #include "vtkCommand.h"
+#include "vtkExecutive.h"
 #include "vtkFileResourceStream.h"
 #include "vtkFloatArray.h"
 #include "vtkGLTFDocumentLoaderInternals.h"
@@ -819,6 +820,15 @@ bool vtkGLTFDocumentLoader::LoadImageData()
     {
       reader = vtkSmartPointer<vtkPNGReader>::New();
     }
+    else
+    {
+      // Extensions allow other image types.
+      // It is perfectly valid to declare other extension-supported image types
+      // so long as they are never required by the scene. Therefore, the possible
+      // error is deferred until later.
+      image.ImageData = nullptr;
+      continue;
+    }
 
     // If image is defined via bufferview index
     if (image.BufferView >= 0 &&
@@ -877,14 +887,22 @@ bool vtkGLTFDocumentLoader::LoadImageData()
       if (stream->Read(buffer.data(), buffer.size()) != buffer.size())
       {
         vtkErrorMacro("Failed to read image file data");
+        return false;
       }
 
       reader->SetMemoryBufferLength(buffer.size());
       reader->SetMemoryBuffer(buffer.data());
     }
 
-    reader->Update();
+    bool status = reader->GetExecutive()->Update();
     image.ImageData = reader->GetOutput();
+
+    if (!status || !image.ImageData)
+    {
+      vtkErrorMacro("Failed to read an image");
+      return false;
+    }
+
     double progress =
       (i + numberOfMeshes + 1) / static_cast<double>(numberOfMeshes + numberOfImages);
     this->InvokeEvent(vtkCommand::ProgressEvent, &progress);

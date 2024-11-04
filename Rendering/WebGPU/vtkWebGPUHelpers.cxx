@@ -2,8 +2,12 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "vtkWebGPUHelpers.h"
+
+#include "Private/vtkWebGPUComputePassInternals.h"
 #include "vtkImageData.h"
 #include "vtkPNGWriter.h"
+#include "vtkWebGPUComputeBuffer.h"
+#include "vtkWebGPUComputePass.h"
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -27,7 +31,7 @@ void vtkWebGPUHelpers::WriteComputeTextureToDisk(const std::string& filepath,
   };
 
   // Callback for the data is mapped to copy the texture data in the std::vector
-  vtkWebGPUInternalsComputePassTextureStorage::TextureMapAsyncCallback writeTextureToDiskCallback =
+  vtkWebGPUComputePass::TextureMapAsyncCallback writeTextureToDiskCallback =
     [](const void* mappedTexture, int bytesPerRow, void* userdata) {
       MapTextureData* mapData = reinterpret_cast<MapTextureData*>(userdata);
 
@@ -143,6 +147,7 @@ int vtkWebGPUHelpers::ComputeTextureFormatToVTKDataType(
       return VTK_UNSIGNED_CHAR;
 
     case vtkWebGPUComputeTexture::TextureFormat::R32_FLOAT:
+    case vtkWebGPUComputeTexture::TextureFormat::DEPTH_24_PLUS:
       return VTK_FLOAT;
 
     default:

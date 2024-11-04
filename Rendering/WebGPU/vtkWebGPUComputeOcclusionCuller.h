@@ -11,6 +11,7 @@
 #include "vtkSmartPointer.h"          // for the pipeline smart pointer
 #include "vtkWebGPUComputePass.h"     // for compute passes
 #include "vtkWebGPUComputePipeline.h" // for the member compute pipeline
+#include "vtkWebGPURenderWindow.h"    // for the render window weak pointer member
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -39,15 +40,15 @@ VTK_ABI_NAMESPACE_BEGIN
  * Resource for non-power of two mipmap calculation:
  * https://miketuritzin.com/post/hierarchical-depth-buffers/
  *
- * To use this culler, simply instantiate it:
+ * To use this culler, simply instantiate it and set its RenderWindow (after Initialize() has been
+ * called on the RenderWindow()):
  *
  * vtkNew<vtkWebGPUComputeOcclusionCuller> webgpuOcclusionCuller;
  *
- * set its vtkWebGPURenderWindow:
+ * renWin->Initialize();
+ * webgpuOcclusionCuller->SetRenderWindow(renWin)
  *
- * webgpuOcclusionCuller->SetRenderWindow(...)
- *
- * and add it to the cullers of your renderer:
+ * Then add it to the cullers of your renderer:
  *
  * renderer->GetCullers()->AddItem(webgpuOcclusionCuller);
  *
@@ -70,7 +71,7 @@ public:
   vtkTypeMacro(vtkWebGPUComputeOcclusionCuller, vtkCuller);
   static vtkWebGPUComputeOcclusionCuller* New();
 
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /**
    * Sets which render window this occlusion culler is going to work on
@@ -80,7 +81,7 @@ public:
   /**
    * Culls props and returns the number of props that still need to be rendered after the culling
    */
-  virtual double Cull(vtkRenderer* ren, vtkProp** propList, int& listLength, int& initialized);
+  double Cull(vtkRenderer* ren, vtkProp** propList, int& listLength, int& initialized) override;
 
 protected:
   vtkWebGPUComputeOcclusionCuller();
@@ -249,6 +250,8 @@ private:
   // Pass that does the culling of the actors against the hierarchial z-buffer
   vtkSmartPointer<vtkWebGPUComputePass> CullingPass;
 
+  // Index of the hierarchical z buffer texture view in the culling pass
+  int CullingPassHierarchicalZBufferView = -1;
   // Index of the bounds buffer in the culling pass
   int CullingPassBoundsBufferIndex = -1;
   // Index of the buffer that contains the indices of the props that passed the culling test in the
@@ -300,7 +303,7 @@ private:
   // Whether or not we're done initializing the compute passes of this culler
   bool Initialized = false;
   // Render window whose depth buffer we're going to use for the culling
-  vtkWebGPURenderWindow* WebGPURenderWindow = nullptr;
+  vtkWeakPointer<vtkWebGPURenderWindow> WebGPURenderWindow = nullptr;
 
   // Callback command for when the render window that this occlusion culler is attached to is
   // resized

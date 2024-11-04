@@ -33,6 +33,9 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "offscreen")
   set(VTK_USE_X OFF CACHE BOOL "")
 endif ()
 
+# webgpu
+configuration_flag(VTK_ENABLE_WEBGPU "webgpu")
+
 # cuda
 configuration_flag(VTK_USE_CUDA "cuda")
 
@@ -89,6 +92,13 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "ospray")
   set(VTK_MODULE_ENABLE_VTK_RenderingRayTracing YES CACHE STRING "")
 else ()
   set(VTK_MODULE_ENABLE_VTK_RenderingRayTracing NO CACHE STRING "")
+endif ()
+
+# anari/helide
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "helide")
+  set(VTK_MODULE_ENABLE_VTK_RenderingAnari YES CACHE STRING "")
+else ()
+  set(VTK_MODULE_ENABLE_VTK_RenderingAnari NO CACHE STRING "")
 endif ()
 
 # Mangling

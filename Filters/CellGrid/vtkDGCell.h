@@ -22,6 +22,7 @@
 #include "vtkCellGridResponders.h" // For vtkCellGridResponders::TagSet.
 #include "vtkCellMetadata.h"
 #include "vtkDGOperatorEntry.h" // For GetOperatorEntry API.
+#include "vtkDataArray.h"       // for vtkDataArray::PrintValues
 #include "vtkStringToken.h"     // For vtkStringToken::Hash.
 #include "vtkVector.h"          // For IsInside, GetParametricCenterOfSide APIs.
 
@@ -93,6 +94,20 @@ public:
     /// Override the destructor to de-reference Connectivity, NodalGhostMarks.
     virtual ~Source() = default;
 
+    friend ostream& operator<<(ostream& os, const Source& source)
+    {
+      os << "vtkDGCell::Source(" << &source << ")\n";
+      source.Connectivity->PrintValues(os);
+      os << "Connectivity: " << source.Connectivity << '\n';
+      os << "NodalGhostMarks: " << source.NodalGhostMarks << '\n';
+      os << "Offset: " << source.Offset << '\n';
+      os << "Blanked: " << (source.Blanked ? "T\n" : "F\n");
+      os << "SourceShape: " << source.SourceShape << '\n';
+      os << "SideType: " << source.SideType << '\n';
+      os << "SelectionType: " << source.SelectionType << '\n';
+      return os;
+    }
+
     /// An array holding cell connectivity or (cell-id, side-id) tuples.
     ///
     /// If the array is cell connectivity, then each component is a point ID
@@ -138,6 +153,23 @@ public:
 
   /// Provide access to the (cellId,sideId)-arrays used to define side-cells of this type.
   std::vector<Source>& GetSideSpecs() { return this->SideSpecs; }
+
+  /// Provide access to cell specifications in a uniform way (for both cells and sides).
+  const Source& GetCellSource(int sideType = -1) const;
+
+  /// Python-accessible method to identify number of cell sources.
+  std::size_t GetNumberOfCellSources() const { return this->SideSpecs.size(); }
+
+  /// Python-accessible methods to fetch cell source information.
+  ///
+  /// In C++, you should simply call GetCellSource(\a sideType) and access the ivar.
+  vtkDataArray* GetCellSourceConnectivity(int sideType = -1) const;
+  vtkDataArray* GetCellSourceNodalGhostMarks(int sideType = -1) const;
+  vtkIdType GetCellSourceOffset(int sideType = -1) const;
+  bool GetCellSourceIsBlanked(int sideType = -1) const;
+  Shape GetCellSourceShape(int sideType = -1) const;
+  int GetCellSourceSideType(int sideType = -1) const;
+  int GetCellSourceSelectionType(int sideType = -1) const;
 
   /// Return the number of cells (and sides) of this type present in this cell grid.
   vtkIdType GetNumberOfCells() override;

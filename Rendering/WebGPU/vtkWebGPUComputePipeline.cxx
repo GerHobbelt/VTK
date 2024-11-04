@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "vtkWebGPUComputePipeline.h"
+#include "Private/vtkWebGPUComputePassInternals.h"
 #include "vtkObjectFactory.h"
-#include "vtkWebGPUInternalsCallbacks.h"
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -12,25 +12,35 @@ vtkStandardNewMacro(vtkWebGPUComputePipeline);
 //------------------------------------------------------------------------------
 vtkWebGPUComputePipeline::vtkWebGPUComputePipeline()
 {
-  this->CreateAdapter();
-  this->CreateDevice();
+  this->WGPUConfiguration = vtk::TakeSmartPointer(vtkWebGPUConfiguration::New());
+  this->WGPUConfiguration->Initialize();
 }
+
+//------------------------------------------------------------------------------
+vtkWebGPUComputePipeline::~vtkWebGPUComputePipeline() = default;
 
 //------------------------------------------------------------------------------
 void vtkWebGPUComputePipeline::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
 
-  os << indent << "Adapter: " << this->Adapter.Get() << std::endl;
-  os << indent << "Device: " << this->Device.Get() << std::endl;
-  os << indent << "Label: " << this->Label << std::endl;
+  os << indent << "Label: " << this->Label << '\n';
+  os << indent << "WGPUConfiguration: " << this->WGPUConfiguration->GetObjectDescription();
+  if (this->WGPUConfiguration)
+  {
+    this->WGPUConfiguration->PrintSelf(os, indent.GetNextIndent());
+  }
+  else
+  {
+    os << indent << "(nullptr)\n";
+  }
 }
 
 //------------------------------------------------------------------------------
 vtkSmartPointer<vtkWebGPUComputePass> vtkWebGPUComputePipeline::CreateComputePass()
 {
   vtkSmartPointer<vtkWebGPUComputePass> computePass = vtkSmartPointer<vtkWebGPUComputePass>::New();
-  computePass->Internals->SetDevice(this->Device);
+  computePass->Internals->SetWGPUConfiguration(this->WGPUConfiguration);
   computePass->Internals->SetAssociatedPipeline(this);
 
   this->ComputePasses.push_back(computePass);
@@ -57,8 +67,6 @@ void vtkWebGPUComputePipeline::RegisterBuffer(
 
     for (vtkSmartPointer<vtkWebGPUComputePass> computePass : this->ComputePasses)
     {
-      int computePassBufferIndex = 0;
-
       computePass->Internals->UpdateWebGPUBuffer(buffer, wgpuBuffer);
     }
   }
@@ -130,7 +138,7 @@ void vtkWebGPUComputePipeline::Update()
   bool workDone = false;
 
   // clang-format off
-  this->Device.GetQueue().OnSubmittedWorkDone([](WGPUQueueWorkDoneStatus, void* userdata)
+  this->WGPUConfiguration->GetDevice().GetQueue().OnSubmittedWorkDone([](WGPUQueueWorkDoneStatus, void* userdata)
   { 
     *static_cast<bool*>(userdata) = true; 
   }, &workDone);
@@ -140,59 +148,17 @@ void vtkWebGPUComputePipeline::Update()
   // to true will be called when all the work has been dispatched to the GPU and completed.
   while (!workDone)
   {
-    vtkWGPUContext::WaitABit();
+    this->WGPUConfiguration->ProcessEvents();
   }
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPUComputePipeline::CreateAdapter()
+void vtkWebGPUComputePipeline::SetWGPUConfiguration(vtkWebGPUConfiguration* config)
 {
-  if (this->Adapter != nullptr)
+  vtkSetSmartPointerBodyMacro(WGPUConfiguration, vtkWebGPUConfiguration, config);
+  for (const auto& computePass : this->ComputePasses)
   {
-    // The adapter already exists, it must have been given by SetAdapter()
-    return;
-  }
-
-#if defined(__APPLE__)
-  wgpu::BackendType backendType = wgpu::BackendType::Metal;
-#elif defined(_WIN32)
-  wgpu::BackendType backendType = wgpu::BackendType::D3D12;
-#else
-  wgpu::BackendType backendType = wgpu::BackendType::Vulkan;
-#endif
-
-  wgpu::RequestAdapterOptions adapterOptions;
-  adapterOptions.backendType = backendType;
-  adapterOptions.powerPreference = wgpu::PowerPreference::HighPerformance;
-  this->Adapter = vtkWGPUContext::RequestAdapter(adapterOptions);
-}
-
-//------------------------------------------------------------------------------
-void vtkWebGPUComputePipeline::CreateDevice()
-{
-  if (this->Device != nullptr)
-  {
-    // The device already exists, it must have been given by SetDevice()
-    return;
-  }
-
-  wgpu::DeviceDescriptor deviceDescriptor;
-  deviceDescriptor.nextInChain = nullptr;
-  deviceDescriptor.deviceLostCallback = &vtkWebGPUInternalsCallbacks::DeviceLostCallback;
-  deviceDescriptor.label = this->Label.c_str();
-  this->Device = vtkWGPUContext::RequestDevice(this->Adapter, deviceDescriptor);
-  this->Device.SetUncapturedErrorCallback(
-    &vtkWebGPUInternalsCallbacks::UncapturedErrorCallback, nullptr);
-}
-
-//------------------------------------------------------------------------------
-void vtkWebGPUComputePipeline::SetDevice(wgpu::Device device)
-{
-  this->Device = device;
-
-  for (vtkWebGPUComputePass* computePass : this->ComputePasses)
-  {
-    computePass->Internals->SetDevice(device);
+    computePass->Internals->SetWGPUConfiguration(config);
   }
 }
 

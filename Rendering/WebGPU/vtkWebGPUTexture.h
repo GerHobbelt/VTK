@@ -19,7 +19,7 @@ public:
   vtkTypeMacro(vtkWebGPUTexture, vtkObject);
   static vtkWebGPUTexture* New();
 
-  void PrintSelf(ostream& os, vtkIndent indent);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   /**
    * RGBA: Uses RGB + alpha. Default.
@@ -28,7 +28,8 @@ public:
   enum TextureFormat
   {
     RGBA8_UNORM = 0,
-    R32_FLOAT
+    R32_FLOAT,
+    DEPTH_24_PLUS
   };
 
   /**
