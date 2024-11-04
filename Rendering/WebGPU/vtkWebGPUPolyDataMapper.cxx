@@ -50,6 +50,18 @@ vtkWebGPUPolyDataMapper::~vtkWebGPUPolyDataMapper() = default;
 void vtkWebGPUPolyDataMapper::PrintSelf(ostream& os, vtkIndent indent)
 {
   this->Superclass::PrintSelf(os, indent);
+  os << indent << "InitializedPipeline: " << (this->InitializedPipeline ? "On\n" : "Off\n");
+  os << indent << "UpdatedPrimitiveSizes: " << (this->UpdatedPrimitiveSizes ? "On\n" : "Off\n");
+  os << indent << "UpdatedGeometryBuffers: " << (this->UpdatedGeometryBuffers ? "On\n" : "Off\n");
+  os << indent << "UpdatedPrimitiveBuffers: " << (this->UpdatedPrimitiveBuffers ? "On\n" : "Off\n");
+  os << indent << "HasPointColors: " << (this->HasPointColors ? "On\n" : "Off\n");
+  os << indent << "HasPointNormals: " << (this->HasPointNormals ? "On\n" : "Off\n");
+  os << indent << "HasPointTangents: " << (this->HasPointTangents ? "On\n" : "Off\n");
+  os << indent << "HasPointUVs: " << (this->HasPointUVs ? "On\n" : "Off\n");
+  os << indent << "HasCellColors: " << (this->HasCellColors ? "On\n" : "Off\n");
+  os << indent << "HasCellNormals: " << (this->HasCellNormals ? "On\n" : "Off\n");
+  os << indent << "LastScalarVisibility: " << (this->LastScalarVisibility ? "On\n" : "Off\n");
+  os << indent << "LastScalarMode: " << this->LastScalarMode << '\n';
 }
 
 //------------------------------------------------------------------------------
@@ -630,7 +642,6 @@ unsigned long vtkWebGPUPolyDataMapper::GetExactCellBufferSize()
 //------------------------------------------------------------------------------
 std::vector<unsigned long> vtkWebGPUPolyDataMapper::GetExactConnecitivityBufferSizes()
 {
-  unsigned long result = 0;
   std::vector<unsigned long> results;
   this->PointPrimitiveBGInfo.VertexCount = 0;
   this->LinePrimitiveBGInfo.VertexCount = 0;
@@ -638,55 +649,45 @@ std::vector<unsigned long> vtkWebGPUPolyDataMapper::GetExactConnecitivityBufferS
 
   const vtkIdType* pts = nullptr;
   vtkIdType npts = 0;
+  // loop over verts as there may be some VTK_POLY_VERTEX cells.
   {
-    result = 0;
     auto vertsIter = vtk::TakeSmartPointer(this->CurrentInput->GetVerts()->NewIterator());
     for (vertsIter->GoToFirstCell(); !vertsIter->IsDoneWithTraversal(); vertsIter->GoToNextCell())
     {
       vertsIter->GetCurrentCell(npts, pts);
       this->PointPrimitiveBGInfo.VertexCount += npts;
-      // the first '2' is to count these twice. once for cell_ids and once more for point_ids
-      result += (2 * npts * sizeof(vtkTypeUInt32));
     }
-    results.emplace_back(result);
+    // the first '2' is to count these twice. once for cell_ids and once more for point_ids
+    results.emplace_back(2 * this->PointPrimitiveBGInfo.VertexCount * sizeof(vtkTypeUInt32));
   }
 
   {
-    result = 0;
     auto linesIter = vtk::TakeSmartPointer(this->CurrentInput->GetLines()->NewIterator());
     for (linesIter->GoToFirstCell(); !linesIter->IsDoneWithTraversal(); linesIter->GoToNextCell())
     {
       linesIter->GetCurrentCell(npts, pts);
-      const int numSubLines = npts - 1;
-      this->LinePrimitiveBGInfo.VertexCount += numSubLines * 2;
-      // the first '2' is to count these twice. once for cell_ids and once more for point_ids
-      result += (2 * numSubLines * 2 * sizeof(vtkTypeUInt32));
+      this->LinePrimitiveBGInfo.VertexCount += (npts - 1) * 2; // 2 points per line segment.
     }
-    results.emplace_back(result);
+    // the first '2' is to count these twice. once for cell_ids and once more for point_ids
+    results.emplace_back(2 * this->LinePrimitiveBGInfo.VertexCount * sizeof(vtkTypeUInt32));
   }
 
   {
-    result = 0;
     auto polysIter = vtk::TakeSmartPointer(this->CurrentInput->GetPolys()->NewIterator());
     for (polysIter->GoToFirstCell(); !polysIter->IsDoneWithTraversal(); polysIter->GoToNextCell())
     {
       polysIter->GetCurrentCell(npts, pts);
-      const int numSubTriangles = npts - 2;
-      this->TrianglePrimitiveBGInfo.VertexCount += numSubTriangles * 3;
-      // the first '2' is to count these twice. once for cell_ids and once more for point_ids
-      result += (2 * numSubTriangles * 3 * sizeof(vtkTypeUInt32));
+      this->TrianglePrimitiveBGInfo.VertexCount += (npts - 2) * 3; // 3 points per triangle.
     }
     auto stripsIter = vtk::TakeSmartPointer(this->CurrentInput->GetStrips()->NewIterator());
     for (stripsIter->GoToFirstCell(); !stripsIter->IsDoneWithTraversal();
          stripsIter->GoToNextCell())
     {
       stripsIter->GetCurrentCell(npts, pts);
-      const int numSubTriangles = npts - 1;
-      this->TrianglePrimitiveBGInfo.VertexCount += numSubTriangles * 3;
-      // the first '2' is to count these twice. once for cell_ids and once more for point_ids
-      result += (2 * numSubTriangles * 3 * sizeof(vtkTypeUInt32));
+      this->TrianglePrimitiveBGInfo.VertexCount += (npts - 1) * 3; // 3 points per triangle.
     }
-    results.emplace_back(result);
+    // the first '2' is to count these twice. once for cell_ids and once more for point_ids
+    results.emplace_back(2 * this->TrianglePrimitiveBGInfo.VertexCount * sizeof(vtkTypeUInt32));
   }
 
   vtkDebugMacro(<< __func__ << "[verts]=" << this->PointPrimitiveBGInfo.VertexCount);
@@ -1033,13 +1034,9 @@ bool vtkWebGPUPolyDataMapper::UpdateMeshGeometryBuffers(
 
     using DMEnum = vtkWebGPUActor::DirectionalMaskEnum;
     vtkTypeUInt32 dirMask = DMEnum::NoNormals;
-    dirMask = this->HasPointNormals ? DMEnum::PointNormals : 0;
+    dirMask |= this->HasPointNormals ? DMEnum::PointNormals : dirMask;
     dirMask |= this->HasPointTangents ? DMEnum::PointTangents : dirMask;
     dirMask |= this->HasCellNormals ? DMEnum::CellNormals : dirMask;
-    if (dirMask == 0)
-    {
-      dirMask = DMEnum::NoNormals;
-    }
     wgpuActor->SetDirectionalMaskType(dirMask);
 
     this->PointCellAttributesBuildTimestamp.Modified();

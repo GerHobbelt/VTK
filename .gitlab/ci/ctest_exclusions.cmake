@@ -1,7 +1,6 @@
 set(test_exclusions
-  # Random Memory Leak #18599
-  "^VTK::FiltersCorePython-probe$"
-  
+  # Leaks static thread_local instances, being worked in !11452 
+  "^VTK::FiltersCellGridPython-TestCellGridRange$"
   # https://gitlab.kitware.com/vtk/vtk/-/issues/19427
   "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperPickability$")
 
@@ -271,8 +270,18 @@ endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "offscreen")
   list(APPEND test_exclusions
-    # Failed to open the display
-    "^VTK::RenderingExternalCxx-TestGLUTRenderWindow$")
+    # Failed to open the display.
+    # After (https://gitlab.kitware.com/vtk/vtk/-/issues/19453) is resolved,
+    # these tests could be smarter by skipping when there is no display.
+    "^VTK::FiltersSourcesPython-squadViewer$"
+    "^VTK::GUISupportQtCxx"
+    "^VTK::GUISupportQtQuickCxx"
+    "^VTK::GUISupportQtSQLCxx-TestQtSQLDatabase$"
+    "^VTK::RenderingCoreCxx-TestInteractorTimers$"
+    "^VTK::RenderingExternalCxx-TestGLUTRenderWindow$"
+    "^VTK::RenderingQtCxx-TestQtInitialization$"
+    "^VTK::RenderingTkPython"
+    "^VTK::ViewsQtCxx-TestVtkQtTableView$")
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
@@ -316,7 +325,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
     # Thread-local objects are not destroyed at program exit.
     # https://stackoverflow.com/questions/50897768/in-visual-studio-thread-local-variables-destructor-not-called-when-used-with
     "^VTK::FiltersCellGridPython-TestCellGridPointProbe$"
-    "^VTK::FiltersCellGridPython-TestCellGridRange$"
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
 
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19400
@@ -351,9 +359,12 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_x86_64")
     # MacOS OpenGL issue (intermittent)
     "^VTK::RenderingCellGridPython-TestCellGridRendering$"
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
-    
+
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19372
     "^VTK::IOIOSSPython-TestIOSSCellGridReader$"
+    "^VTK::FiltersCellGridPython-TestCellGridToUnstructuredGrid$"
+    "^VTK::FiltersCellGridPython-TestCellGridTransform$"
+    "^VTK::FiltersCellGridPython-TestCellGridCellCenters$"
   )
 endif ()
 
@@ -387,6 +398,17 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "stdthread")
     # Test is flaky with STDThread
     # See #18555
     "^VTK::FiltersFlowPathsCxx-TestEvenlySpacedStreamlines2D$"
+
+    # See #19471
+    "^VTK::FiltersCellGridCxx-TestCellGridEvaluator$"
+    )
+endif ()
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "tbb")
+  list(APPEND test_exclusions
+    # Test is flaky with TBB backend for vtkSMPTools
+    # See #19471
+    "^VTK::FiltersCellGridCxx-TestCellGridEvaluator$"
     )
 endif ()
 
@@ -532,14 +554,14 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39_webgpu")
     "^VTK::RenderingWebGPUCxx-TestComputeFrustumCulling") # Crashes randomly with mesa-vulkan-drivers
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_threads_linux_chrome_ext_vtk$")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_linux_chrome_ext_vtk$")
   list(APPEND test_exclusions
     # Fails when chrome uses software accelerated webgl2 in linux.
     "^VTK::RenderingCoreCxx-TestGlyph3DMapperCompositeDisplayAttributeInheritance$"
     "^VTK::RenderingCoreCxx-TestTransformCoordinateUseDouble$")
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_threads_windows_chrome_ext_vtk$")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_windows_chrome_ext_vtk$")
   list(APPEND test_exclusions
     # ERR_UNSUPPORTED_ESM_URL_SCHEME: absolute paths must be valid file:// URLs. Received protocol 'c:'
     "^VTK::WebAssemblyJavaScript")
@@ -559,6 +581,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm64")
     "^VTK::RenderingWebGPUCxx-TestComputePass"
     "^VTK::RenderingWebGPUCxx-TestComputePassChained"
     "^VTK::RenderingWebGPUCxx-TestComputePassUniform"
+    "^VTK::RenderingWebGPUCxx-TestComputePipelineRelease"
     "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapper"
     "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapperColors"
     "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapperDepth"
@@ -581,7 +604,8 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm64")
     "^VTK::RenderingWebGPUCxx-TestPointRendering_4"
     "^VTK::RenderingWebGPUCxx-TestMixedGeometry_1"
     "^VTK::RenderingWebGPUCxx-TestMixedGeometry_2"
-    "^VTK::RenderingWebGPUCxx-TestMixedGeometry_3")
+    "^VTK::RenderingWebGPUCxx-TestMixedGeometry_3"
+    "^VTK::RenderingWebGPUCxx-TestReadPixels")
 endif ()
 
 
