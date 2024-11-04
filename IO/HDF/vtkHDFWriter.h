@@ -43,6 +43,9 @@ typedef int64_t hid_t;
  * Options are provided for data compression, and writing partitions, composite parts and time steps
  * in different files.
  *
+ * To comply with the HDF5 and VTKHDF standard specification,
+ * "/" and "." contained in field names will be replaced by "_".
+ *
  * Full file format specification is here:
  * https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html#hdf-file-formats
  *
@@ -209,7 +212,8 @@ private:
   void DispatchDataObject(hid_t group, vtkDataObject* input, unsigned int partId = 0);
 
   /**
-   * For distributed datasets, write the meta-file
+   * For distributed datasets, write the meta-file referencing sub-files using Virtual Datasets.
+   * This file is written only on process/piece 0
    */
   void WriteDistributedMetafile(vtkDataObject* input);
 
@@ -226,7 +230,7 @@ private:
 
   ///@{
   /**
-   * For transient data, update the steps group with information relevant to the current timestep.
+   * For temporal data, update the steps group with information relevant to the current timestep.
    */
   bool UpdateStepsGroup(vtkUnstructuredGrid* input);
   bool UpdateStepsGroup(vtkPolyData* input);
@@ -234,7 +238,7 @@ private:
 
   ///@{
   /**
-   * Initialize the `Steps` group for transient data, and extendable datasets where needed.
+   * Initialize the `Steps` group for temporal data, and extendable datasets where needed.
    * This way, the other functions will append to existing datasets every step.
    */
   bool InitializeTemporalPolyData();
@@ -300,11 +304,15 @@ private:
    */
   bool AppendPrimitiveCells(hid_t baseGroup, vtkPolyData* input);
 
+  ///@{
   /**
    * Add the data arrays of the object to the file
    * OpenRoot should succeed on this->Impl before calling this function
    */
   bool AppendDataArrays(hid_t group, vtkDataObject* input, unsigned int partId = 0);
+  bool AppendDataSetAttributes(hid_t group, vtkDataObject* input, unsigned int partId = 0);
+  bool AppendFieldDataArrays(hid_t group, vtkDataObject* input, unsigned int partId = 0);
+  ///@}
 
   ///@{
   /**
@@ -336,14 +344,18 @@ private:
    */
   bool AppendMultiblock(hid_t group, vtkMultiBlockDataSet* mb);
 
+  ///@{
   /**
-   * Append the offset data in the steps group for the current array for transient data
+   * Append the offset data in the steps group for the current array for temporal data
    */
   bool AppendDataArrayOffset(
-    vtkAbstractArray* array, const char* arrayName, const char* offsetsGroupName);
+    vtkAbstractArray* array, const std::string& arrayName, const std::string& offsetsGroupName);
+  bool AppendDataArraySizeOffset(
+    vtkAbstractArray* array, const std::string& arrayName, const std::string& offsetsGroupName);
+  ///@}
 
   /**
-   * Write the NSteps attribute and the Value dataset to group for transient writing.
+   * Write the NSteps attribute and the Value dataset to group for temporal writing.
    */
   bool AppendTimeValues(hid_t group);
 
@@ -374,13 +386,13 @@ private:
   double* timeSteps = nullptr;
   bool IsTemporal = false;
   int CurrentTimeIndex = 0;
-  int NumberOfTimeSteps = 0;
+  int NumberOfTimeSteps = 1;
   vtkMTimeType PreviousStepMeshMTime = 0;
 
   // Distributed-related variables
   vtkMultiProcessController* Controller = nullptr;
-  int NbProcs = 1;
-  int Rank = 0;
+  int NbPieces = 1;
+  int CurrentPiece = 0;
   bool UsesDummyController = false;
   std::vector<vtkIdType> PointOffsets;
   std::vector<vtkIdType> CellOffsets;

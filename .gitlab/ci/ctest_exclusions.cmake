@@ -1,6 +1,9 @@
 set(test_exclusions
   # Random Memory Leak #18599
-  "^VTK::FiltersCorePython-probe$")
+  "^VTK::FiltersCorePython-probe$"
+  
+  # https://gitlab.kitware.com/vtk/vtk/-/issues/19427
+  "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperPickability$")
 
 if (NOT "$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
   list(APPEND test_exclusions
@@ -52,9 +55,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora" OR
 
     # Floating point imprecision?
     "^VTK::FiltersGeneralPython-TestSampleImplicitFunctionFilter$"
-
-    # Gets the wrong selection (sometimes).
-    "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperPickability$"
 
     # Test image looks "dim"; image rendering seems to be common
     # (some also have vertical line rendering differences)
@@ -327,8 +327,7 @@ endif ()
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "osmesa")
   list(APPEND test_exclusions
     # Flaky tests. They sometimes pass.
-    "^VTK::InteractionWidgetsPython-TestInteractorEventRecorder$"
-    "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperPickability$")
+    "^VTK::InteractionWidgetsPython-TestInteractorEventRecorder$")
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_arm64")
@@ -533,18 +532,58 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39_webgpu")
     "^VTK::RenderingWebGPUCxx-TestComputeFrustumCulling") # Crashes randomly with mesa-vulkan-drivers
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_windows_chrome_ext_vtk$")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_threads_linux_chrome_ext_vtk$")
+  list(APPEND test_exclusions
+    # Fails when chrome uses software accelerated webgl2 in linux.
+    "^VTK::RenderingCoreCxx-TestGlyph3DMapperCompositeDisplayAttributeInheritance$"
+    "^VTK::RenderingCoreCxx-TestTransformCoordinateUseDouble$")
+endif ()
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_threads_windows_chrome_ext_vtk$")
   list(APPEND test_exclusions
     # ERR_UNSUPPORTED_ESM_URL_SCHEME: absolute paths must be valid file:// URLs. Received protocol 'c:'
     "^VTK::WebAssemblyJavaScript")
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_linux_chrome_ext_vtk$")
-  list(APPEND test_exclusions
-    # Disabled until CI figures out a way to use hardware accel. inside linux container.
-    "^VTK::RenderingCoreCxx"
-    "^VTK::RenderingOpenGL2Cxx")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm64")
+  list (APPEND test_exclusions
+    # WebGPU tests on wasm64 fail 
+    "^VTK::RenderingWebGPUCxx-TestActorFaceCullingProperty"
+    "^VTK::RenderingWebGPUCxx-TestCellScalarMappedColors"
+    "^VTK::RenderingWebGPUCxx-TestComputeDoublePipelineRenderBuffer"
+    "^VTK::RenderingWebGPUCxx-TestComputeFrustumCulling"
+    "^VTK::RenderingWebGPUCxx-TestComputeOcclusionCulling"
+    "^VTK::RenderingWebGPUCxx-TestComputeOcclusionCullingResize"
+    "^VTK::RenderingWebGPUCxx-TestComputeModifyPointColors"
+    "^VTK::RenderingWebGPUCxx-TestComputeModifyCellColors"
+    "^VTK::RenderingWebGPUCxx-TestComputePass"
+    "^VTK::RenderingWebGPUCxx-TestComputePassChained"
+    "^VTK::RenderingWebGPUCxx-TestComputePassUniform"
+    "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapper"
+    "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapperColors"
+    "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapperDepth"
+    "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapperGeometry"
+    "^VTK::RenderingWebGPUCxx-TestComputePointCloudMapperResize"
+    "^VTK::RenderingWebGPUCxx-TestComputeTexture"
+    "^VTK::RenderingWebGPUCxx-TestLineRendering"
+    "^VTK::RenderingWebGPUCxx-TestLowPowerRenderWindow"
+    "^VTK::RenderingWebGPUCxx-TestPointScalarMappedColors"
+    "^VTK::RenderingWebGPUCxx-TestScalarModeToggle"
+    "^VTK::RenderingWebGPUCxx-TestSurfacePlusEdges"
+    "^VTK::RenderingWebGPUCxx-TestQuad"
+    "^VTK::RenderingWebGPUCxx-TestQuadPointRep"
+    "^VTK::RenderingWebGPUCxx-TestRenderWindowChangeDeviceLater"
+    "^VTK::RenderingWebGPUCxx-TestVertexRendering"
+    "^VTK::RenderingWebGPUCxx-TestWireframe"
+    "^VTK::RenderingWebGPUCxx-TestPointRendering_1"
+    "^VTK::RenderingWebGPUCxx-TestPointRendering_2"
+    "^VTK::RenderingWebGPUCxx-TestPointRendering_3"
+    "^VTK::RenderingWebGPUCxx-TestPointRendering_4"
+    "^VTK::RenderingWebGPUCxx-TestMixedGeometry_1"
+    "^VTK::RenderingWebGPUCxx-TestMixedGeometry_2"
+    "^VTK::RenderingWebGPUCxx-TestMixedGeometry_3")
 endif ()
+
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows" AND
     "$ENV{CMAKE_CONFIGURATION}" MATCHES "debug")

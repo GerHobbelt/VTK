@@ -38,6 +38,12 @@ struct InternalMapTextureAsyncData
 }
 
 //------------------------------------------------------------------------------
+vtkWebGPUComputePassTextureStorageInternals::~vtkWebGPUComputePassTextureStorageInternals()
+{
+  this->ReleaseResources();
+}
+
+//------------------------------------------------------------------------------
 void vtkWebGPUComputePassTextureStorageInternals::SetComputePass(
   vtkWeakPointer<vtkWebGPUComputePass> parentComputePass)
 {
@@ -52,15 +58,7 @@ void vtkWebGPUComputePassTextureStorageInternals::SetComputePass(
 bool vtkWebGPUComputePassTextureStorageInternals::CheckTextureIndex(
   std::size_t textureIndex, const std::string& callerFunctionName)
 {
-  if (textureIndex < 0)
-  {
-    vtkLog(ERROR,
-      "Negative textureIndex given to "
-        << callerFunctionName << ". Make sure to use an index that was returned by AddTexture().");
-
-    return false;
-  }
-  else if (textureIndex >= this->Textures.size())
+  if (textureIndex >= this->Textures.size())
   {
     vtkLog(ERROR,
       "Invalid textureIndex given to "
@@ -78,16 +76,7 @@ bool vtkWebGPUComputePassTextureStorageInternals::CheckTextureIndex(
 bool vtkWebGPUComputePassTextureStorageInternals::CheckTextureViewIndex(
   std::size_t textureViewIndex, const std::string& callerFunctionName)
 {
-  if (textureViewIndex < 0)
-  {
-    vtkLog(ERROR,
-      "Negative textureViewIndex given to "
-        << callerFunctionName
-        << ". Make sure to use an index that was returned by AddTextureView().");
-
-    return false;
-  }
-  else if (textureViewIndex >= this->TextureViewsToWebGPUTextureViews.size())
+  if (textureViewIndex >= this->TextureViewsToWebGPUTextureViews.size())
   {
     vtkLog(ERROR,
       "Invalid textureViewIndex given to " << callerFunctionName << ". Index was '"
@@ -542,7 +531,7 @@ int vtkWebGPUComputePassTextureStorageInternals::AddTextureView(
     vtkLog(ERROR,
       "The texture view with label \""
         << textureView->GetLabel()
-        << "\" has no assicated texture index. Make sure you obtained the textureView by calling "
+        << "\" has no associated texture index. Make sure you obtained the textureView by calling "
            "vtkWebGPUComputePass::CreateTextureView().");
 
     return -1;
@@ -879,8 +868,9 @@ void vtkWebGPUComputePassTextureStorageInternals::ReadTextureFromGPU(std::size_t
   wgpu::CommandBuffer commandBuffer = commandEncoder.Finish();
   this->ParentPassWGPUConfiguration->GetDevice().GetQueue().Submit(1, &commandBuffer);
 
-  auto bufferMapCallback = [](WGPUBufferMapAsyncStatus status, void* userdata) {
-    InternalMapTextureAsyncData* mapData = reinterpret_cast<InternalMapTextureAsyncData*>(userdata);
+  auto bufferMapCallback = [](WGPUBufferMapAsyncStatus status, void* userdata2) {
+    InternalMapTextureAsyncData* mapData =
+      reinterpret_cast<InternalMapTextureAsyncData*>(userdata2);
 
     if (status == WGPUBufferMapAsyncStatus_Success)
     {
@@ -916,7 +906,23 @@ void vtkWebGPUComputePassTextureStorageInternals::ReadTextureFromGPU(std::size_t
   buffer.MapAsync(wgpu::MapMode::Read, 0, bufferDescriptor.size, bufferMapCallback, callbackData);
 }
 
-//------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+void vtkWebGPUComputePassTextureStorageInternals::ReleaseResources()
+{
+  this->ParentComputePass = nullptr;
+  this->ParentPassWGPUConfiguration = nullptr;
+
+  this->Textures.clear();
+  this->RenderTextures.clear();
+  this->RenderTexturesToWebGPUTexture.clear();
+  this->WebGPUTextures.clear();
+
+  this->ComputeTextureToViews.clear();
+  this->TextureViews.clear();
+  this->TextureViewsToWebGPUTextureViews.clear();
+}
+
+//-----------------------------------------------------------------------------
 wgpu::TextureFormat vtkWebGPUComputePassTextureStorageInternals::ComputeTextureFormatToWebGPU(
   vtkWebGPUComputeTexture::TextureFormat format)
 {
@@ -925,11 +931,17 @@ wgpu::TextureFormat vtkWebGPUComputePassTextureStorageInternals::ComputeTextureF
     case vtkWebGPUComputeTexture::TextureFormat::RGBA8_UNORM:
       return wgpu::TextureFormat::RGBA8Unorm;
 
+    case vtkWebGPUComputeTexture::TextureFormat::BGRA8_UNORM:
+      return wgpu::TextureFormat::BGRA8Unorm;
+
     case vtkWebGPUComputeTexture::TextureFormat::R32_FLOAT:
       return wgpu::TextureFormat::R32Float;
 
     case vtkWebGPUComputeTexture::TextureFormat::DEPTH_24_PLUS:
       return wgpu::TextureFormat::Depth24Plus;
+
+    case vtkWebGPUComputeTexture::TextureFormat::DEPTH_24_PLUS_8_STENCIL:
+      return wgpu::TextureFormat::Depth24PlusStencil8;
 
     default:
       vtkLog(ERROR, "Unhandled texture format in ComputeTextureFormatToWebGPU: " << format);

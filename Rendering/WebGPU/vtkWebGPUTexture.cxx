@@ -34,6 +34,13 @@ unsigned int vtkWebGPUTexture::GetBytesPerPixel() const
   switch (this->Format)
   {
     case vtkWebGPUTexture::TextureFormat::RGBA8_UNORM:
+    case vtkWebGPUTexture::TextureFormat::BGRA8_UNORM:
+      return 4;
+
+    case vtkWebGPUTexture::TextureFormat::DEPTH_24_PLUS:
+      return 3;
+
+    case vtkWebGPUTexture::TextureFormat::DEPTH_24_PLUS_8_STENCIL:
       return 4;
 
     case vtkWebGPUTexture::TextureFormat::R32_FLOAT:
@@ -84,7 +91,9 @@ void vtkWebGPUTexture::GetSize(unsigned int& x, unsigned int& y) const
 //------------------------------------------------------------------------------
 void vtkWebGPUTexture::GetSize(unsigned int* xyz)
 {
-  xyz = this->Extents;
+  xyz[0] = this->Extents[0];
+  xyz[1] = this->Extents[1];
+  xyz[2] = this->Extents[2];
 }
 
 //------------------------------------------------------------------------------

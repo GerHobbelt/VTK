@@ -35,7 +35,8 @@ public:
   enum RenderTextureType
   {
     UNDEFINED = 0,
-    DEPTH_BUFFER
+    DEPTH_BUFFER,
+    COLOR_BUFFER
   };
 
   ///@{
@@ -78,7 +79,7 @@ public:
 
 protected:
   vtkWebGPUComputeRenderTexture();
-  ~vtkWebGPUComputeRenderTexture();
+  ~vtkWebGPUComputeRenderTexture() override;
   vtkWebGPUComputeRenderTexture(const vtkWebGPUComputeRenderTexture&) = delete;
   void operator=(const vtkWebGPUComputeRenderTexture&) = delete;
 

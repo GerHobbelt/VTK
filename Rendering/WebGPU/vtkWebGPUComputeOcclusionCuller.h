@@ -85,7 +85,7 @@ public:
 
 protected:
   vtkWebGPUComputeOcclusionCuller();
-  ~vtkWebGPUComputeOcclusionCuller();
+  ~vtkWebGPUComputeOcclusionCuller() override;
   vtkWebGPUComputeOcclusionCuller(const vtkWebGPUComputeOcclusionCuller&) = delete;
   void operator=(const vtkWebGPUComputeOcclusionCuller&) = delete;
 
@@ -169,7 +169,7 @@ private:
    * Recomputes the number of mipmaps of the hi-z buffer for the given newWidth and newHeight and
    * recreates all the texture views on the mipmap levels of the hi-z buffer
    */
-  void ResizeHierarchicalZBufferMipmapsChain(uint32_t newWidth, uint32_t newHeight);
+  void ResizeHierarchicalZBufferMipmapsChain();
 
   /**
    * Creates the texture view of the hierarchical z buffer for copying the depth buffer of the

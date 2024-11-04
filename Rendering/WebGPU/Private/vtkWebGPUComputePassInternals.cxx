@@ -13,6 +13,9 @@ VTK_ABI_NAMESPACE_BEGIN
 vtkStandardNewMacro(vtkWebGPUComputePassInternals);
 
 //------------------------------------------------------------------------------
+vtkWebGPUComputePassInternals::~vtkWebGPUComputePassInternals() = default;
+
+//------------------------------------------------------------------------------
 void vtkWebGPUComputePassInternals::PrintSelf(ostream& os, vtkIndent indent)
 {
   os << indent << "Initialized? : " << this->Initialized << std::endl;
@@ -122,7 +125,42 @@ wgpu::TextureView vtkWebGPUComputePassInternals::CreateWebGPUTextureView(
 void vtkWebGPUComputePassInternals::UpdateWebGPUBuffer(
   vtkSmartPointer<vtkWebGPUComputeBuffer> buffer, wgpu::Buffer wgpuBuffer)
 {
-  this->BufferStorage->UpdateWebGPUBuffer(buffer, wgpuBuffer);
+  std::size_t bufferIndex;
+  vtkWebGPUComputePassBufferStorageInternals::UpdateBufferStatusCode statusCode =
+    this->BufferStorage->UpdateWebGPUBuffer(buffer, wgpuBuffer, bufferIndex);
+
+  switch (statusCode)
+  {
+    case vtkWebGPUComputePassBufferStorageInternals::UpdateBufferStatusCode::SUCCESS:
+      this->RecreateBufferBindGroup(bufferIndex);
+
+      break;
+
+    case vtkWebGPUComputePassBufferStorageInternals::UpdateBufferStatusCode::BUFFER_NOT_FOUND:
+      // No buffer updated because the buffer was never added to the this compute pass
+      vtkDebugMacro("UpdateWebGPUBuffer, buffer not found and not updated");
+
+      return;
+
+    case vtkWebGPUComputePassBufferStorageInternals::UpdateBufferStatusCode::UP_TO_DATE:
+      // This means that the buffer was already up to date in the compute pass. This happens when a
+      // buffer is recreated on a compute pass --> this triggers the update of the buffer within all
+      // the passes of the compute pipeline but the pass that recreated the buffer already has the
+      // right buffer up-to-date, it doesn't need an update. The buffer storage of this compute pass
+      // will return -2
+      //
+      // We're thus returning early, no need to recreate the bind group
+      vtkDebugMacro("UpdateWebGPUBuffer, buffer already up-to-date");
+
+      return;
+
+    default:
+      vtkErrorWithObjectMacro(this,
+        "UpdateBufferStatusCode: "
+          << statusCode << " not handled in UpdateWebGPUBuffer(). This is an internal error.");
+
+      return;
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -151,7 +189,7 @@ void vtkWebGPUComputePassInternals::RecreateBufferBindGroup(int bufferIndex)
   {
     // We only need to check the binding because we already retrieved all the entries that
     // correspond to the group of the buffer
-    if (entry.binding == buffer->GetBinding())
+    if (entry.binding == static_cast<uint32_t>(buffer->GetBinding()))
     {
       // Replacing the buffer by the one we just recreated
       entry.buffer = this->BufferStorage->WebGPUBuffers[bufferIndex];
@@ -208,6 +246,12 @@ bool vtkWebGPUComputePassInternals::GetRegisteredTextureFromPipeline(
 }
 
 //------------------------------------------------------------------------------
+wgpu::Buffer vtkWebGPUComputePassInternals::GetWGPUBuffer(std::size_t bufferIndex)
+{
+  return this->BufferStorage->GetWGPUBuffer(bufferIndex);
+}
+
+//------------------------------------------------------------------------------
 void vtkWebGPUComputePassInternals::RecreateTexture(int textureIndex)
 {
   this->TextureStorage->RecreateTexture(textureIndex);
@@ -243,7 +287,7 @@ void vtkWebGPUComputePassInternals::RecreateTextureBindGroup(int textureIndex)
     // the texture view whose entry we're trying to recreate
     for (wgpu::BindGroupEntry& entry : bgEntries)
     {
-      if (entry.binding == textureView->GetBinding())
+      if (entry.binding == static_cast<uint32_t>(textureView->GetBinding()))
       {
         // Replacing the texture view by the new one (recreated by a previous call to
         // RecreateTexture())
@@ -400,13 +444,16 @@ void vtkWebGPUComputePassInternals::WebGPUDispatch(
   {
     vtkLogF(ERROR,
       "Invalid number of workgroups when dispatching compute pipeline \"%s\". Work groups sizes "
-      "(X, Y, Z) were: (%d, %d, %d) but no dimensions can be 0.",
+      "(X, Y, Z) were: (%u, %u, %u) but no dimensions can be 0.",
       this->ParentPass->Label.c_str(), groupsX, groupsY, groupsZ);
 
     return;
   }
 
   wgpu::CommandEncoder commandEncoder = this->CreateCommandEncoder();
+#ifndef NDEBUG
+  commandEncoder.PushDebugGroup(this->ParentPass->GetLabel().c_str());
+#endif
 
   wgpu::ComputePassEncoder computePassEncoder = CreateComputePassEncoder(commandEncoder);
   computePassEncoder.SetPipeline(this->ComputePipeline);
@@ -416,6 +463,9 @@ void vtkWebGPUComputePassInternals::WebGPUDispatch(
   }
   computePassEncoder.DispatchWorkgroups(groupsX, groupsY, groupsZ);
   computePassEncoder.End();
+#ifndef NDEBUG
+  commandEncoder.PopDebugGroup();
+#endif
 
   this->SubmitCommandEncoderToQueue(commandEncoder);
 }
@@ -526,6 +576,25 @@ void vtkWebGPUComputePassInternals::SubmitCommandEncoderToQueue(
 {
   wgpu::CommandBuffer commandBuffer = commandEncoder.Finish();
   this->WGPUConfiguration->GetDevice().GetQueue().Submit(1, &commandBuffer);
+}
+
+//------------------------------------------------------------------------------
+void vtkWebGPUComputePassInternals::ReleaseResources()
+{
+  this->Initialized = false;
+  this->BindGroupOrLayoutsInvalidated = true;
+
+  this->ShaderModule = nullptr;
+
+  this->BindGroups.clear();
+  this->BindGroupEntries.clear();
+  this->BindGroupLayouts.clear();
+  this->BindGroupLayoutEntries.clear();
+
+  this->ComputePipeline = nullptr;
+
+  this->TextureStorage->ReleaseResources();
+  this->BufferStorage->ReleaseResources();
 }
 
 VTK_ABI_NAMESPACE_END

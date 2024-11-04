@@ -16,6 +16,9 @@
 #include "vtkHDFUtilities.h"
 #include "vtkHDFWriter.h"
 
+#include <array>
+#include <string>
+
 VTK_ABI_NAMESPACE_BEGIN
 
 class vtkHDFWriter::Implementation
@@ -40,7 +43,7 @@ public:
    * Returns true if the operation was successful
    * If the operation fails, the file may have been created
    */
-  bool CreateFile(bool overwrite, const std::string& file);
+  bool CreateFile(bool overwrite, const std::string& filename);
 
   /**
    * Open existing VTKHDF file and set Root and File members.
@@ -50,6 +53,8 @@ public:
 
   /**
    * Close currently handled file, open using CreateFile or OpenFile.
+   * This does only need to be called when we want to close the file early; the file and open groups
+   * are closed automatically on object destruction.
    */
   void CloseFile();
 
@@ -60,11 +65,15 @@ public:
    */
   bool OpenSubfile(const std::string& filename);
 
+  ///@{
   /**
    * Inform the implementation that all the data has been written in subfiles,
    * and that the virtual datasets can now be created from them.
+   * This mechanism is used when writing a meta-file for temporal and/or multi-piece data.
    */
   void SetSubFilesReady(bool status) { this->SubFilesReady = status; }
+  bool GetSubFilesReady() { return this->SubFilesReady; }
+  ///@}
 
   /**
    * Create the steps group in the root group. Set a member variable to store the group, so it can
@@ -96,7 +105,7 @@ public:
    * Returned scoped handle may be invalid
    */
   vtkHDF::ScopedH5DHandle CreateAndWriteHdfDataset(hid_t group, hid_t type, hid_t source_type,
-    const char* name, int rank, const hsize_t dimensions[], const void* data);
+    const char* name, int rank, std::vector<hsize_t> dimensions, const void* data);
 
   /**
    * Create a HDF dataspace
@@ -180,10 +189,17 @@ public:
   vtkHDF::ScopedH5DHandle CreateVirtualDataset(
     hid_t group, const char* name, hid_t type, int numComp);
 
+  ///@{
   /**
-   *
+   * For temporal multi-piece meta-files, write the dataset `name` in group `group`,
+   * which must be the "steps" group or a child of it as the running sum of all registered sub-files
+   * datasets in the same location.
+   * The `PolyData` version does the same operation in 2 dimensions, for offsets array of size
+   * nbTimeSteps*nbPrimitives.
    */
-  hsize_t GetSubfileNumberOf(const std::string& qualifier, std::size_t subfileId, int part);
+  bool WriteSumSteps(hid_t group, const char* name);
+  bool WriteSumStepsPolyData(hid_t group, const char* name);
+  ///@}
 
   /**
    * Create a chunked dataset in the given group from a dataspace.
@@ -206,11 +222,14 @@ public:
   vtkHDF::ScopedH5DHandle CreateDatasetFromDataArray(
     hid_t group, const char* name, hid_t type, vtkAbstractArray* dataArray);
 
+  ///@{
   /**
-   * Creates a single-value dataset and write a value to it.
+   * Creates a dataset and write a value to it.
    * Returned scoped handle may be invalid
    */
   vtkHDF::ScopedH5DHandle CreateSingleValueDataset(hid_t group, const char* name, int value);
+  vtkHDF::ScopedH5DHandle Create2DValueDataset(hid_t group, const char* name, int* value, int size);
+  ///@}
 
   /**
    * Create a chunked dataset with an empty extendable dataspace using chunking and set the desired
@@ -227,6 +246,12 @@ public:
    * Return true if the write operation was successful.
    */
   bool AddSingleValueToDataset(hid_t dataset, int value, bool offset, bool trim = false);
+
+  /**
+   * Add a 2D value of integer type to an existing dataspace which represents the FieldDataSize.
+   * Return true if the write operation was successful.
+   */
+  bool AddFieldDataSizeValueToDataset(hid_t dataset, int* value, int size, bool offset);
 
   /**
    * Append a full data array at the end of an existing infinite dataspace.
@@ -255,6 +280,16 @@ public:
   bool AddOrCreateSingleValueDataset(
     hid_t group, const char* name, int value, bool offset = false, bool trim = false);
 
+  /**
+   * Append a 2D integer value to the dataset with name `FieldDataSize`.
+   * Create the dataset and dataspace if it does not exist yet.
+   * When offset is true, the value written to the dataset is offset by the previous value of the
+   * dataspace.
+   * Return true if the operation is successful.
+   */
+  bool AddOrCreateFieldDataSizeValueDataset(
+    hid_t group, const char* name, int* value, int size, bool offset = false);
+
   Implementation(vtkHDFWriter* writer);
   virtual ~Implementation();
 
@@ -265,7 +300,61 @@ private:
   vtkHDF::ScopedH5GHandle StepsGroup;
   std::vector<vtkHDF::ScopedH5FHandle> Subfiles;
   std::vector<std::string> SubfileNames;
+  std::string HdfType;
   bool SubFilesReady = false;
+
+  const std::array<std::string, 4> PrimitiveNames = { { "Vertices", "Lines", "Polygons",
+    "Strips" } };
+
+  /**
+   * Look into subfile `subfileId` and return the number of cells in part `part`.
+   * Supports UnstructuredGrid and PolyData subfiles.
+   */
+  hsize_t GetNumberOfCellsSubfile(
+    std::size_t subfileId, hsize_t part, bool isPolyData, const std::string& groupName);
+
+  /**
+   * Return the digit between 0 and 4 in the order of `PrimitiveNames`,
+   * representing the primitive associated to `group`.
+   * Return -1 if group is not a polydata primitive group.
+   */
+  char GetPrimitive(hid_t group);
+
+  /**
+   * Retrieve a single value from the 1-dimensional (usually meta-data)
+   * group `name` in a given subfile `subfileId`.
+   * `part` indicates the line (dimension 0) offset to read in the group.
+   * `primitive` is the column offset to use when reading into a 2-D meta-data array for Poly Data.
+   * Unless `primitive` is specified, assume that the array is 1-D.
+   */
+  hsize_t GetSubfileNumberOf(
+    const std::string& name, std::size_t subfileId, hsize_t part, char primitive = -1);
+
+  /**
+   * Set `totalSize` as the the sum of the subfiles dataset's size given a path to the dataset.
+   * Return false on failure (dataset does not exist on every subfile). `totalSize` value should not
+   * be used in this case.
+   */
+  bool GetSubFilesDatasetSize(const char* datasetPath, const char* groupName, hsize_t& totalSize);
+
+  // Possible indexing mode of VTKHDF datasets. See `GetDatasetIndexationMode`
+  enum class IndexingMode
+  {
+    Points,
+    Cells,
+    Connectivity,
+    MetaData,
+    Undefined
+  };
+
+  /**
+   * Return the indexation mode of the given dataset: when the dataset adds 1 component for every
+   * new time step or part, return `Single`. If we add a number of values equivalent to the number
+   * of points of the dataset every step/part, return `Points`. The same goes for `Cells` and
+   * `Connectivity`. This is used when creating virtual datasets from different parts, to know how
+   * to interleave virtual mappings.
+   */
+  IndexingMode GetDatasetIndexationMode(hid_t group, const char* name);
 };
 
 VTK_ABI_NAMESPACE_END

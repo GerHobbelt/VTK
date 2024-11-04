@@ -170,9 +170,6 @@ public:
   vtkSmartPointer<vtkWebGPUComputeTexture> GetComputeTexture(int textureIndex);
 
   /**
-   * Recreates a compute texture. Must be called if the compute texture has been modified (after a
-   * call to GetComputeTexure() + modifications of the parameters for example) for the  changes to
-   * take effect.
    * Retrieves the texture view associated with the given texture view index
    *
    * @warning The texture view will need to be recreated by calling RecreateTextureView() for all
@@ -181,8 +178,9 @@ public:
   vtkSmartPointer<vtkWebGPUComputeTextureView> GetTextureView(int textureViewIndex);
 
   /**
-   * Recreates a compute texture. Must be called if the compute texture has been modified (after
-   * a call to GetComputeTexture for example) for the  changes to take effect.
+   * Recreates a compute texture. Must be called if the compute texture has been modified (after a
+   * call to GetComputeTexure() + modifications of the parameters for example) for the  changes to
+   * take effect.
    */
   void RecreateComputeTexture(int textureIndex);
 
@@ -316,6 +314,13 @@ public:
    */
   void Dispatch();
 
+  /**
+   * Releases the resources used by this compute pass. After this call, the compute pass will be in
+   * an unusable state and it should be removed from the compute pipeline it belongs to. A new
+   * compute pass should then be created from the compute pipeline.
+   */
+  void ReleaseResources();
+
 protected:
   vtkWebGPUComputePass();
   ~vtkWebGPUComputePass() override;
@@ -329,11 +334,14 @@ private:
 
   void WriteTextureData(int textureIndex, const void* data, std::size_t numBytes);
 
-  friend class vtkWebGPUComputePipeline;
-  friend class vtkWebGPUHelpers;
   friend class vtkWebGPUComputePassInternals;
   friend class vtkWebGPUComputePassTextureStorageInternals;
   friend class vtkWebGPUComputePassBufferStorageInternals;
+  friend class vtkWebGPUComputePipeline;
+  friend class vtkWebGPUHelpers;
+  // For the mapper to be able to access the internals to access the wgpu::Buffer objects for use
+  // in a render pipeline
+  friend class vtkWebGPUPointCloudMapperInternals;
   friend class vtkWebGPURenderWindow;
   friend class vtkWebGPURenderer;
 

@@ -65,12 +65,14 @@ void vtkWebGPUHelpers::WriteComputeTextureToDisk(const std::string& filepath,
                   pixel[1] = static_cast<unsigned char>(mappedDataFloat[indexPadded * 4 + 1] * 255);
                   pixel[2] = static_cast<unsigned char>(mappedDataFloat[indexPadded * 4 + 2] * 255);
                   pixel[3] = static_cast<unsigned char>(mappedDataFloat[indexPadded * 4 + 3] * 255);
+                  break;
 
                 case 1:
                   pixel[0] = static_cast<unsigned char>(mappedDataFloat[indexPadded * 1 + 0] * 255);
                   pixel[1] = pixel[0];
                   pixel[2] = pixel[0];
                   pixel[3] = 255;
+                  break;
 
                 default:
                   break;
@@ -91,12 +93,14 @@ void vtkWebGPUHelpers::WriteComputeTextureToDisk(const std::string& filepath,
                   pixel[1] = mappedDataUnsignedChar[indexPadded * 4 + 1];
                   pixel[2] = mappedDataUnsignedChar[indexPadded * 4 + 2];
                   pixel[3] = mappedDataUnsignedChar[indexPadded * 4 + 3];
+                  break;
 
                 case 1:
                   pixel[0] = mappedDataUnsignedChar[indexPadded * 1 + 0];
                   pixel[1] = pixel[0];
                   pixel[2] = pixel[0];
                   pixel[3] = 255;
+                  break;
 
                 default:
                   break;
@@ -144,10 +148,12 @@ int vtkWebGPUHelpers::ComputeTextureFormatToVTKDataType(
   switch (format)
   {
     case vtkWebGPUComputeTexture::TextureFormat::RGBA8_UNORM:
+    case vtkWebGPUComputeTexture::TextureFormat::BGRA8_UNORM:
       return VTK_UNSIGNED_CHAR;
 
     case vtkWebGPUComputeTexture::TextureFormat::R32_FLOAT:
     case vtkWebGPUComputeTexture::TextureFormat::DEPTH_24_PLUS:
+    case vtkWebGPUComputeTexture::TextureFormat::DEPTH_24_PLUS_8_STENCIL:
       return VTK_FLOAT;
 
     default:

@@ -34,6 +34,7 @@ class VTKRENDERINGWEBGPU_EXPORT vtkWebGPUComputePipeline : public vtkObject
 public:
   vtkTypeMacro(vtkWebGPUComputePipeline, vtkObject);
   static vtkWebGPUComputePipeline* New();
+
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
   ///@{
@@ -72,6 +73,14 @@ public:
    * pipeline call. It can be called only once "at the end".
    */
   void Update();
+
+  /**
+   * Releases the resources used by this pipeline: all compute passes & registered buffers/textures.
+   *
+   * The WebGPU Configuration of this pipeline will be reset by this function and a call to
+   * SetWGPUConfiguration() will be necessary to create new compute passes on this pipeline.
+   */
+  void ReleaseResources();
 
 private:
   friend class vtkWebGPUComputePassInternals;
@@ -114,10 +123,16 @@ private:
   ///@}
 
   /**
+   * Makes sure that the WGPUConfiguration of this pipeline is initialized. If it is not, this
+   * method does the initialization.
+   */
+  void EnsureConfigured();
+
+  /**
    * WebGPU adapter and device used by this pipeline (and all the compute passes contained in this
    * pipeline)
    */
-  vtkSmartPointer<vtkWebGPUConfiguration> WGPUConfiguration;
+  vtkSmartPointer<vtkWebGPUConfiguration> WGPUConfiguration = nullptr;
 
   /**
    * List of all the passes contained in this pipeline
