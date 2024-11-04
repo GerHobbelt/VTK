@@ -84,13 +84,18 @@ public:
   vtkGetObjectMacro(RenderWindow, vtkRenderWindow);
   ///@}
 
-  ///@{
   /**
-   * Import the actors, cameras, lights and properties into a vtkRenderWindow.
+   * Import the actors, cameras, lights and properties into a vtkRenderWindow
+   * and return if it was sucessful of not.
    */
-  void Read();
-  void Update() { this->Read(); }
-  ///@}
+  VTK_UNBLOCKTHREADS
+  bool Update();
+
+  /**
+   * Import the actors, cameras, lights and properties into a vtkRenderWindow
+   */
+  VTK_DEPRECATED_IN_9_4_0("This method is deprected, please use Update instead")
+  void Read() { this->Update(); };
 
   /**
    * Recover a printable string that let importer implementation
@@ -153,12 +158,19 @@ public:
 
   /**
    * Import the actors, camera, lights and properties at a specific time value.
-   * If not reimplemented, only call Update().
    */
+  VTK_DEPRECATED_IN_9_4_0("This method is deprected, please use UpdateAtTimeValue instead")
   virtual void UpdateTimeStep(double timeValue);
 
+  /**
+   * Import the actors, camera, lights and properties at a specific time value.
+   * Returns if successful or not.
+   * If not reimplemented, only call Update() and return its output.
+   */
+  virtual bool UpdateAtTimeValue(double timeValue);
+
 protected:
-  vtkImporter();
+  vtkImporter() = default;
   ~vtkImporter() override;
 
   virtual int ImportBegin() { return 1; }
@@ -167,19 +179,46 @@ protected:
   virtual void ImportCameras(vtkRenderer*) {}
   virtual void ImportLights(vtkRenderer*) {}
   virtual void ImportProperties(vtkRenderer*) {}
+  virtual void ReadData();
+
+  enum class UpdateStatusEnum : bool
+  {
+    SUCCESS,
+    FAILURE
+  };
+
+  /**
+   * Set the update status.
+   * Importer implementation should set this during Import
+   * if import fails for any reason.
+   * vtkImporter::Update set this to SUCCESS on call.
+   * Default is SUCCESS;
+   */
+  void SetUpdateStatus(UpdateStatusEnum updateStatus)
+  {
+    this->UpdateStatus = updateStatus;
+    this->Modified();
+  }
+
+  /**
+   * Get the update status
+   */
+  UpdateStatusEnum GetUpdateStatus() { return this->UpdateStatus; }
 
   static std::string GetDataSetDescription(vtkDataSet* ds, vtkIndent indent);
   static std::string GetArrayDescription(vtkAbstractArray* array, vtkIndent indent);
 
-  vtkRenderer* Renderer;
-  vtkRenderWindow* RenderWindow;
+  vtkRenderer* Renderer = nullptr;
+  vtkRenderWindow* RenderWindow = nullptr;
   vtkSmartPointer<vtkDataAssembly> SceneHierarchy;
-
-  virtual void ReadData();
 
 private:
   vtkImporter(const vtkImporter&) = delete;
   void operator=(const vtkImporter&) = delete;
+
+  bool SetAndCheckUpdateStatus();
+
+  UpdateStatusEnum UpdateStatus = UpdateStatusEnum::SUCCESS;
 };
 
 VTK_ABI_NAMESPACE_END

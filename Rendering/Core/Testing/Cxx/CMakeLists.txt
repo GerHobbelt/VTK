@@ -72,6 +72,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestCompositePolyDataMapperSharedArray.cxx,NO_DATA
   TestCompositePolyDataMapperStaticBounds.cxx,NO_DATA,NO_VALID
   TestCompositePolyDataMapperSpheres.cxx,NO_DATA
+  TestCompositePolyDataMapperToggleScalarVisibilities.cxx,NO_DATA
   TestCompositePolyDataMapperVertices.cxx,NO_DATA
   TestDirectScalarsToColors.cxx
   TestDiscretizableColorTransferFunction.cxx,NO_VALID
@@ -113,6 +114,8 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestPointSelection.cxx,NO_VALID
   TestPointSelectionWithCellData.cxx,NO_VALID
   TestPolygonSelection.cxx
+  TestPolyDataMapperNormals.cxx
+  TestRenderLinesAsTubes.cxx
   TestResetCameraScreenSpace.cxx
   TestResetCameraVerticalAspectRatio.cxx
   TestResetCameraVerticalAspectRatioParallel.cxx

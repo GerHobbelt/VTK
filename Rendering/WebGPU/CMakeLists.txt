@@ -7,17 +7,26 @@ endif ()
 set(classes
   vtkWebGPUActor
   vtkWebGPUCamera
-  vtkWebGPUClearPass
-  vtkWebGPUComputePipeline
+  vtkWebGPUClearDrawPass
   vtkWebGPUComputeBuffer
+  vtkWebGPUComputeFrustumCuller
+  vtkWebGPUComputeOcclusionCuller
+  vtkWebGPUComputePass
+  vtkWebGPUComputePipeline
   vtkWebGPUComputeRenderBuffer
+  vtkWebGPUComputeRenderTexture
+  vtkWebGPUComputeTexture
+  vtkWebGPUComputeTextureView
   vtkWebGPUHardwareSelector
+  vtkWebGPUHelpers
   vtkWebGPULight
   vtkWebGPURenderWindow
   vtkWebGPUPolyDataMapper
   vtkWebGPUProperty
   vtkWebGPURenderer
-  vtkWebGPURenderPass)
+  vtkWebGPURenderPass
+  vtkWebGPUTexture
+  vtkWebGPUTextureView)
 
 set(private_classes
   vtkWebGPUInternalsBindGroup
@@ -25,11 +34,15 @@ set(private_classes
   vtkWebGPUInternalsBuffer
   vtkWebGPUInternalsCallbacks
   vtkWebGPUInternalsComputeBuffer
+  vtkWebGPUInternalsComputePass
+  vtkWebGPUInternalsComputePassTextureStorage
+  vtkWebGPUInternalsComputePassBufferStorage
   vtkWebGPUInternalsPipelineLayout
   vtkWebGPUInternalsRenderPassCreateInfo
   vtkWebGPUInternalsRenderPassDescriptor
   vtkWebGPUInternalsRenderPipelineDescriptor
-  vtkWebGPUInternalsShaderModule)
+  vtkWebGPUInternalsShaderModule
+  vtkWebGPUInternalsTexture)
 
 # setup factory overrides
 # NI - Not Implemented
@@ -63,11 +76,17 @@ unset(wgsl_shader_sources)
 unset(private_wgsl_shader_headers)
 unset(public_wgsl_shader_headers)
 set(private_shader_files
-  wgsl/PolyData.wgsl)
+  wgsl/FrustumCullingShader.wgsl
+  wgsl/PolyData.wgsl
+  wgsl/OcclusionCullingCopyDepthBuffer.wgsl
+  wgsl/OcclusionCullingDepthMipmaps.wgsl
+  wgsl/OcclusionCullingPropsCulling.wgsl)
 
 set(public_shader_files
-  Testing/Cxx/TestShaders/TestComputePipelineShader.wgsl
-  Testing/Cxx/TestShaders/TestComputePipelineUniformShader.wgsl
+  Testing/Cxx/TestShaders/TestComputePassShader.wgsl
+  Testing/Cxx/TestShaders/TestComputePassChainedShader.wgsl
+  Testing/Cxx/TestShaders/TestComputePassUniformShader.wgsl
+  Testing/Cxx/TestShaders/TestComputeTextureShader.wgsl
   Testing/Cxx/TestShaders/TestComputeModifyPointColorsShader.wgsl
   Testing/Cxx/TestShaders/TestComputeModifyPointPositionsShader.wgsl
   Testing/Cxx/TestShaders/TestComputeModifyCellColorsShader.wgsl)
@@ -75,7 +94,7 @@ set(public_shader_files
 foreach (file IN LISTS private_shader_files)
   vtk_encode_string(
     INPUT         "${file}"
-    EXPORT_SYMBOL "VTKRENDERINGWEBGPU_NO_EXPORT"
+    EXPORT_SYMBOL "VTKRENDERINGWEBGPU_EXPORT"
     EXPORT_HEADER "vtkRenderingWebGPUModule.h"
     HEADER_OUTPUT header
     SOURCE_OUTPUT source)
@@ -188,7 +207,7 @@ vtk_module_add_module(VTK::RenderingWebGPU
 
 vtk_module_compile_features(VTK::RenderingWebGPU
   PUBLIC
-    cxx_std_14)
+    cxx_std_17)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   vtk_module_link_options(VTK::RenderingWebGPU
@@ -223,13 +242,7 @@ else ()
   endif ()
   vtk_module_find_package(PACKAGE Dawn)
   # Must include these source files here.
-  vtk_module_sources(VTK::RenderingWebGPU PRIVATE
-    "${DAWN_GEN_SRC_DIR}/dawn/webgpu_cpp.cpp"
-    "${DAWN_GEN_SRC_DIR}/dawn/dawn_proc.c")
   vtk_module_link(VTK::RenderingWebGPU
-    PRIVATE
-      ${DAWN_LIBRARIES})
-  vtk_module_include(VTK::RenderingWebGPU
     PUBLIC
-      ${DAWN_INCLUDE_DIRS})
+      dawn::webgpu_dawn)
 endif ()

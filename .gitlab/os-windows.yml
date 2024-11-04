@@ -94,10 +94,6 @@
         # from GitLab-CI by default (it runs as a Windows service).
         QT_OPENGL: desktop
 
-.windows_tbb_addin:
-    variables:
-        TBB_REDIST_DIR: "intel64\vc14"
-
 .windows_vs2022:
     extends: .windows_build
 
@@ -106,10 +102,17 @@
         VCVARSPLATFORM: "x64"
         VCVARSVERSION: "14.35.32215"
 
+.windows_vs2022_debug_mpi_qt:
+    extends:
+        - .windows_vs2022
+
+    variables:
+        CMAKE_CONFIGURATION: windows_vs2022_debug_mpi_qt
+        CMAKE_BUILD_TYPE: Debug
+
 .windows_vs2022_kits_mpi_python_qt:
     extends:
         - .windows_vs2022
-        # - .windows_tbb_addin
 
     variables:
         CMAKE_CONFIGURATION: windows_vs2022_kits_mpi_python_qt
@@ -124,7 +127,6 @@
 .windows_vs2022_kits_mpi_python_qt_ext_vtk:
     extends:
         - .windows_vs2022
-        # - .windows_tbb_addin
 
     variables:
         CMAKE_CONFIGURATION: windows_vs2022_kits_mpi_python_qt_ext_vtk
@@ -132,7 +134,6 @@
 .windows_vs2022_mpi_python_qt:
     extends:
         - .windows_vs2022
-        # - .windows_tbb_addin
 
     variables:
         CMAKE_CONFIGURATION: windows_vs2022_mpi_python_qt
@@ -140,22 +141,27 @@
 .windows_vs2022_mpi_python_qt_static:
     extends:
         - .windows_vs2022
-        # - .windows_tbb_addin
 
     variables:
         CMAKE_CONFIGURATION: windows_vs2022_mpi_python_qt_static
 
-.wasm32_emscripten_windows_chrome:
+.wasm32_emscripten_windows_chrome_ext_vtk:
     extends: .windows
 
     variables:
-        CMAKE_CONFIGURATION: wasm32_emscripten_windows_chrome
+        CMAKE_CONFIGURATION: wasm32_emscripten_windows_chrome_ext_vtk
+        WASM_WORDSIZE: 32
+        VTK_TESTING_WASM_ENGINE_ARGUMENTS: "--disable-restore-session-state --no-default-browser-check --no-first-run --incognito --disable-application-cache --new-tab"
 
-.wasm64_emscripten_windows_chrome:
-    extends: .windows
 
-    variables:
-        CMAKE_CONFIGURATION: wasm64_emscripten_windows_chrome
+#.wasm64_emscripten_windows_chrome_ext_vtk:
+#    extends: .windows
+
+#    variables:
+#         CMAKE_CONFIGURATION: wasm64_emscripten_windows_chrome_ext_vtk
+#         WASM_WORDSIZE: 64
+#         VTK_TESTING_WASM_ENGINE_ARGUMENTS: "--disable-restore-session-state --no-default-browser-check --no-first-run --incognito --disable-application-cache --new-tab --js-flags=--experimental-wasm-memory64"
+
 
 ## Tags
 
@@ -220,9 +226,6 @@
     - cmake -P .gitlab/ci/download_python.cmake
     - Set-Item -Force -Path "env:PATH" -Value "$pwdpath\.gitlab\python;$env:PATH"
     - Set-Item -Force -Path "env:PYTHONHOME" -Value "$pwdpath\.gitlab\python"
-    - cmake -P .gitlab/ci/download_tbb.cmake
-    - Set-Item -Force -Path "env:CMAKE_PREFIX_PATH" -Value "$pwdpath\.gitlab\tbb;$env:CMAKE_PREFIX_PATH"
-    - Set-Item -Force -Path "env:PATH" -Value "$pwdpath\.gitlab\tbb\redist\$env:TBB_REDIST_DIR;$env:PATH"
     - cmake -P .gitlab/ci/download_openxr.cmake
     - Set-Item -Force -Path "env:CMAKE_PREFIX_PATH" -Value "$pwdpath\.gitlab\openxr;$env:CMAKE_PREFIX_PATH"
     - Set-Item -Force -Path "env:PATH" -Value "$pwdpath\.gitlab\openxr\x64\bin;$env:PATH"
@@ -343,7 +346,6 @@
         - .gitlab\ci\check_warnings.ps1 -BuildPath ./Testing/ExternalWheel # This will call exit in case of warnings
     interruptible: true
 
-
 .before_script_windows_emscripten: &before_script_windows_emscripten
     - *before_script_windows
     - cmake -P .gitlab/ci/download_python.cmake
@@ -369,8 +371,8 @@
     - wasm-opt --version
     - emcc --version
 
-.cmake_build_wasm_emscripten_windows:
-    stage: build
+.cmake_test_wasm_emscripten_windows_ext:
+    stage: test-ext
     extends: .warning_policy
 
     script:
@@ -378,29 +380,21 @@
         - Invoke-Expression -Command .gitlab/ci/buildcache.ps1
         - Set-Item -Force -Path "env:PATH" -Value "$env:PATH;$pwdpath\.gitlab\buildcache\bin"
         - buildcache --show-stats
-        - ctest -VV -S .gitlab/ci/ctest_configure.cmake
-        - ctest -VV -S .gitlab/ci/ctest_build.cmake | Out-File -FilePath compile_output.log
-        - buildcache --show-stats
-        - .gitlab\ci\check_warnings.ps1 -BuildPath . # This will call exit in case of warnings
-
-    interruptible: true
-
-.cmake_test_wasm_emscripten_windows:
-    stage: test
-    extends: .warning_policy
-
-    script:
-        - *before_script_windows_emscripten
         # Fetch chrome-for-testing
         - cmake -P .gitlab/ci/download_chrome.cmake
         # Launch one instance of the browser which will be used by all tests, each test is run inside an isolated process anyway
-        - .gitlab\chrome\chrome.exe --disable-restore-session-state --no-default-browser-check --no-first-run --incognito --disable-application-cache
+        # TODO: This works and makes sure no test timesout but the terminate_chrome_processes.ps1 at the end hangs forever.
+        # - .gitlab\chrome\chrome.exe --disable-restore-session-state --no-default-browser-check --no-first-run --incognito --disable-application-cache
         # Reuse the venv from the build step (avoids version changes between
         # build and testing). This is set up manually because Activate.ps1
         # doesn't seem to work for our extracted Python tarball.
         - Set-Item -Force -Path "env:PATH" -Value "$pwdpath\build\ci-venv\Scripts;$env:PATH"
         - Set-Item -Force -Path "env:PYTHONPATH" -Value "$pwdpath\build\ci-venv\Lib\site-packages"
-        - ctest --output-on-failure -V -S .gitlab/ci/ctest_test.cmake
-        - powershell -File ".gitlab/ci/terminate_chrome_processes.ps1"
+        - Set-Item -Force -Path "env:VTK_TESTING_WASM_ENGINE" -Value "$pwdpath\.gitlab\chrome\chrome.exe"
+        - ctest --output-on-failure -V -S .gitlab/ci/ctest_test_external_wasm.cmake
+        - buildcache --show-stats
+        # TODO: Times out :/
+        #- powershell -File ".gitlab/ci/terminate_chrome_processes.ps1"
+        - .gitlab\ci\check_warnings.ps1 -BuildPath .\Testing\ExternalWasm # This will call exit in case of warnings
 
     interruptible: true
