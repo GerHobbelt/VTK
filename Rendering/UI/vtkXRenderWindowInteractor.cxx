@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <poll.h>
 #include <sys/time.h>
 
 #include "vtkActor.h"
@@ -31,6 +32,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <vector>
 
 VTK_ABI_NAMESPACE_BEGIN
 vtkStandardNewMacro(vtkXRenderWindowInteractor);
@@ -75,16 +77,16 @@ public:
   void DestroyLocalTimer(int id) { this->LocalToTimer.erase(id); }
 
   /**
-   * This interactor uses `select` to coordinate timers.
-   * Returns true if `select` needs to block until some time elapses or a user interaction event
-   * occurs. Returns false if `select` needs to block indefinitely until a user interaction event
-   * occurs. The `tv` arg is populated with a time-interval that can be used by `select` when it
-   * needs to use a timeout.
+   * This interactor uses `poll()` to coordinate timers.
+   * Returns true if `poll()` needs to block until some time elapses or a user interaction event
+   * occurs. Returns false if `poll()` needs to block indefinitely until a user interaction event
+   * occurs. The `timeout` arg is populated with a time interval (in milliseconds) that can be
+   * used by `poll()` when it needs to use a timeout.
    */
-  bool GetTimeToNextTimer(timeval& tv)
+  bool GetTimeToNextTimer(int& timeout)
   {
-    bool useTimeout = false; // whether `select` must block for some time.
-    uint64_t delta = 0;      // in microsecs
+    bool useTimeout = false; // whether `poll()` must block for some time.
+    uint64_t delta = 0;      // in microseconds
     if (!this->LocalToTimer.empty())
     {
       timeval ctv;
@@ -100,8 +102,8 @@ public:
         useTimeout = true;
       }
     }
-    tv.tv_sec = delta / 1000000;
-    tv.tv_usec = delta % 1000000;
+    // max timeout will be VTK_UNSIGNED_INT_MAX/1000, or 4.3e6 milliseconds
+    timeout = static_cast<int>(delta / 1000);
     return useTimeout;
   }
 
@@ -144,13 +146,8 @@ public:
 
   static std::set<vtkXRenderWindowInteractor*> Instances;
 
-  struct LoopInformation
-  {
-    // whether application was terminated
-    bool Done = false;
-    // the number of events dispatched by `ProcessEvents()`
-    uint64_t NumEventsDispatched = 0;
-  } LoopInfo;
+  // whether application was terminated
+  bool LoopDone = false;
   int DisplayConnection;
 
 private:
@@ -206,6 +203,11 @@ void vtkXRenderWindowInteractor::TerminateApp()
 
   this->Done = true;
 
+  if (this->RenderWindow == nullptr || this->RenderWindow->GetGenericDisplayId() == nullptr)
+  {
+    return;
+  }
+
   // Send a VTK_BreakXtLoop ClientMessage event to be sure we pop out of the
   // event loop.  This "wakes up" the event loop.  Otherwise, it might sit idle
   // waiting for an event before realizing an exit was requested.
@@ -228,50 +230,54 @@ void vtkXRenderWindowInteractor::TerminateApp()
 void vtkXRenderWindowInteractor::ProcessEvents()
 {
   auto& internals = (*this->Internal);
-  auto& done = internals.LoopInfo.Done;
-  auto& evCount = internals.LoopInfo.NumEventsDispatched;
+  auto& done = internals.LoopDone;
 
-  // reset vars which help VTK wait for new events or timer timeouts.
-  done = true;
-  evCount = 0;
+  std::map<Window, vtkXRenderWindowInteractor*> windowmap;
+  std::set<Display*> dpys;
+  // Make a copy of Instances, the original set might change during loop
+  std::vector<vtkXRenderWindowInteractor*> instances(
+    vtkXRenderWindowInteractorInternals::Instances.begin(),
+    vtkXRenderWindowInteractorInternals::Instances.end());
+  for (auto rwi : instances)
+  {
+    if (rwi->RenderWindow->GetGenericDisplayId() == nullptr)
+    {
+      // The window has closed the display connection
+      rwi->Finalize();
+      continue;
+    }
+    windowmap.insert({ rwi->WindowId, rwi });
+    dpys.insert(rwi->DisplayId);
+  }
 
-  for (auto rwi = vtkXRenderWindowInteractorInternals::Instances.begin();
-       rwi != vtkXRenderWindowInteractorInternals::Instances.end();)
+  for (Display* dpy : dpys)
   {
     XEvent event;
-    while (XPending((*rwi)->DisplayId) != 0)
+    while (this->CheckDisplayId(dpy) && XPending(dpy) != 0)
     {
       // If events are pending, dispatch them to the right RenderWindowInteractor
-      XNextEvent((*rwi)->DisplayId, &event);
-      (*rwi)->DispatchEvent(&event);
-      evCount++;
-    }
-    (*rwi)->FireTimers();
-
-    // Check if all RenderWindowInteractors have been terminated
-    done = done && (*rwi)->Done;
-
-    // If current RenderWindowInteractor have been terminated, handle its last event,
-    // then remove it from the Instance vector
-    if ((*rwi)->Done)
-    {
-      // Empty the event list
-      while (XPending((*rwi)->DisplayId) != 0)
+      XNextEvent(dpy, &event);
+      Window w = event.xany.window;
+      auto iter = windowmap.find(w);
+      if (iter != windowmap.end() && !iter->second->Done)
       {
-        XNextEvent((*rwi)->DisplayId, &event);
-        (*rwi)->DispatchEvent(&event);
+        iter->second->DispatchEvent(&event);
       }
-
-      // Finalize the rwi
-      (*rwi)->Finalize();
-
-      // Adjust the Instances vector
-      rwi = vtkXRenderWindowInteractorInternals::Instances.erase(rwi);
     }
-    else
+  }
+
+  // Set event loop to terminate if there were no displays to check for events
+  done = dpys.empty();
+
+  for (auto rwi : vtkXRenderWindowInteractorInternals::Instances)
+  {
+    if (!rwi->Done)
     {
-      ++rwi;
+      rwi->FireTimers();
     }
+    // Set event loop to terminate if SetDone(true) or TerminateApp() was
+    // called on any of the interactors
+    done = done || rwi->Done;
   }
 }
 
@@ -279,15 +285,17 @@ void vtkXRenderWindowInteractor::ProcessEvents()
 void vtkXRenderWindowInteractor::WaitForEvents()
 {
   bool useTimeout = false;
-  timeval soonestTimer;
+  int soonestTimer = 0;
 
   // check to see how long we wait for the next timer
   for (auto rwi : vtkXRenderWindowInteractorInternals::Instances)
   {
     if (rwi->Done)
+    {
       continue;
+    }
 
-    timeval t;
+    int t;
     bool haveTimer = rwi->Internal->GetTimeToNextTimer(t);
     if (haveTimer)
     {
@@ -296,30 +304,37 @@ void vtkXRenderWindowInteractor::WaitForEvents()
         useTimeout = true;
         soonestTimer = t;
       }
-      else if (timercmp(&t, &soonestTimer, <))
+      else
       {
-        soonestTimer = t;
+        soonestTimer = std::min(soonestTimer, t);
       }
     }
   }
 
-  fd_set in_fds;
-
-  // select will wait until 'tv' elapses or something else wakes us
-  FD_ZERO(&in_fds);
-  int maxFd = -1;
-  timeval* timeout = useTimeout ? &soonestTimer : nullptr;
+  // build the list of unique display connection fds to poll
+  std::vector<pollfd> in_fds;
   for (auto rwi : vtkXRenderWindowInteractorInternals::Instances)
   {
-    if (!rwi->Done)
+    if (!rwi->Done && rwi->RenderWindow->GetGenericDisplayId() != nullptr)
     {
       int rwi_fd = rwi->Internal->DisplayConnection;
-      FD_SET(rwi_fd, &in_fds);
-      maxFd = std::max<int>(maxFd, rwi_fd);
+      auto iter = std::lower_bound(in_fds.begin(), in_fds.end(), rwi_fd,
+        [](const pollfd& pfd, const int& fd) { return pfd.fd < fd; });
+
+      if (iter == in_fds.end() || iter->fd != rwi_fd)
+      {
+        in_fds.insert(iter, { rwi_fd, POLLIN, 0 });
+      }
     }
   }
-  vtkDebugMacro(<< "wait");
-  select(maxFd + 1, &in_fds, nullptr, nullptr, timeout);
+
+  if (!in_fds.empty())
+  {
+    // poll() will wait until timeout elapses or something else wakes us
+    int timeout = useTimeout ? soonestTimer : -1;
+    vtkDebugMacro(<< "X event wait, timeout=" << timeout << "ms");
+    poll(in_fds.data(), static_cast<nfds_t>(in_fds.size()), timeout);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -338,17 +353,17 @@ void vtkXRenderWindowInteractor::StartEventLoop()
     rwi->Done = false;
   }
 
-  auto& loopInfo = this->Internal->LoopInfo;
+  auto& loopDone = this->Internal->LoopDone;
   do
   {
     // process pending events.
     this->ProcessEvents();
-    // wait for events only if no events were dispatched and application is not yet terminated.
-    if (!loopInfo.NumEventsDispatched && !loopInfo.Done)
+    // wait for events if application is not yet terminated.
+    if (!loopDone)
     {
       this->WaitForEvents();
     }
-  } while (!loopInfo.Done);
+  } while (!loopDone);
 }
 
 //------------------------------------------------------------------------------
@@ -418,8 +433,31 @@ void vtkXRenderWindowInteractor::Initialize()
   this->Size[1] = size[1];
 }
 
+//------------------------------------------------------------------------------
+bool vtkXRenderWindowInteractor::CheckDisplayId(Display* dpy)
+{
+  bool good = false;
+  for (auto rwi : vtkXRenderWindowInteractorInternals::Instances)
+  {
+    if (rwi->DisplayId == dpy)
+    {
+      if (rwi->RenderWindow->GetGenericDisplayId() != nullptr)
+      {
+        good = true;
+        continue;
+      }
+      vtkDebugMacro(<< "RenderWindow->DisplayId is null for " << rwi->GetObjectDescription());
+    }
+  }
+
+  return good;
+}
+
+//------------------------------------------------------------------------------
 void vtkXRenderWindowInteractor::Finalize()
 {
+  vtkXRenderWindowInteractorInternals::Instances.erase(this);
+
   if (this->RenderWindow)
   {
     // Finalize the window

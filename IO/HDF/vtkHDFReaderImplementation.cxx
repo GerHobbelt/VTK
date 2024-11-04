@@ -459,22 +459,43 @@ bool vtkHDFReader::Implementation::ComputeAMROffsetsPerLevels(
       return false;
     }
 
-    if (H5Lexists(levelGroupID, "NumberOfAMRBox", H5P_DEFAULT) <= 0)
-    {
-      vtkErrorWithObjectMacro(this->Reader, "No NumberOfAMRBox dataset at Steps/Level" << level);
-      return false;
-    }
-
-    vtkHDF::ScopedH5DHandle amrBoxDatasetID = H5Dopen(levelGroupID, "NumberOfAMRBox", H5P_DEFAULT);
-    if (amrBoxDatasetID == H5I_INVALID_HID)
-    {
-      vtkErrorWithObjectMacro(
-        this->Reader, "Can't find NumberOfAMRBox dataset at Steps/Level" << level);
-      return false;
-    }
-
     std::vector<int> numberOfBox;
     numberOfBox.resize(numberOfSteps);
+
+    std::vector<vtkIdType> boxOffsets;
+    boxOffsets.resize(numberOfSteps);
+
+    // Due to an error in the VTKHDF File Format 2.2, few array names miss an 's' at
+    // the end. As we should support any VTKHDF version 2.X, we should handle it.
+    // It concerns: NumberOfAMRBoxes, AMRBoxOffsets and Point/Cell/FieldDataOffsets
+    std::string numberOfBoxesDatasetName = "NumberOfAMRBoxes";
+    std::string amrboxOffsetsDatasetName = "AMRBoxOffsets";
+    std::array<const char*, 3> groupNames = { "PointDataOffsets", "CellDataOffsets",
+      "FieldDataOffsets" };
+
+    if (this->Version[0] == 2 && this->Version[1] == 2)
+    {
+      numberOfBoxesDatasetName = "NumberOfAMRBox";
+      amrboxOffsetsDatasetName = "AMRBoxOffset";
+      groupNames = { "PointDataOffset", "CellDataOffset", "FieldDataOffset" };
+    }
+
+    if (H5Lexists(levelGroupID, numberOfBoxesDatasetName.c_str(), H5P_DEFAULT) <= 0)
+    {
+      vtkErrorWithObjectMacro(
+        this->Reader, "No " << numberOfBoxesDatasetName << " dataset at Steps/Level" << level);
+      return false;
+    }
+
+    vtkHDF::ScopedH5DHandle amrBoxDatasetID =
+      H5Dopen(levelGroupID, numberOfBoxesDatasetName.c_str(), H5P_DEFAULT);
+    if (amrBoxDatasetID == H5I_INVALID_HID)
+    {
+      vtkErrorWithObjectMacro(this->Reader,
+        "Can't find " << numberOfBoxesDatasetName << " dataset at Steps/Level" << level);
+      return false;
+    }
+
     if (H5Dread(
           amrBoxDatasetID, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, numberOfBox.data()) < 0)
     {
@@ -482,22 +503,23 @@ bool vtkHDFReader::Implementation::ComputeAMROffsetsPerLevels(
       return false;
     }
 
-    if (H5Lexists(levelGroupID, "AMRBoxOffset", H5P_DEFAULT) <= 0)
+    if (H5Lexists(levelGroupID, amrboxOffsetsDatasetName.c_str(), H5P_DEFAULT) <= 0)
     {
-      vtkErrorWithObjectMacro(this->Reader, "No AMRBoxOffset dataset at Steps/Level" << level);
+      vtkErrorWithObjectMacro(
+        this->Reader, "No " << amrboxOffsetsDatasetName << " dataset at Steps/Level" << level);
       return false;
     }
 
-    vtkHDF::ScopedH5DHandle boxOffsetID = H5Dopen(levelGroupID, "AMRBoxOffset", H5P_DEFAULT);
+    vtkHDF::ScopedH5DHandle boxOffsetID =
+      H5Dopen(levelGroupID, amrboxOffsetsDatasetName.c_str(), H5P_DEFAULT);
     if (boxOffsetID == H5I_INVALID_HID)
     {
-      vtkErrorWithObjectMacro(this->Reader, "Can't AMRBoxOffset dataset at Steps/Level" << level);
+      vtkErrorWithObjectMacro(
+        this->Reader, "Can't " << amrboxOffsetsDatasetName << " dataset at Steps/Level" << level);
       return false;
     }
 
-    std::vector<int> boxOffsets;
-    boxOffsets.resize(numberOfSteps);
-    if (H5Dread(boxOffsetID, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, boxOffsets.data()) < 0)
+    if (H5Dread(boxOffsetID, VTK_ID_H5T, H5S_ALL, H5S_ALL, H5P_DEFAULT, boxOffsets.data()) < 0)
     {
       vtkErrorWithObjectMacro(this->Reader, << "Error reading hyperslab from ");
       return false;
@@ -506,8 +528,6 @@ bool vtkHDFReader::Implementation::ComputeAMROffsetsPerLevels(
     this->AMRInformation.BlocksPerLevel.push_back(numberOfBox[step]);
     this->AMRInformation.BlockOffsetsPerLevel.push_back((boxOffsets[step]));
 
-    std::array<const char*, 3> groupNames = { "PointDataOffset", "CellDataOffset",
-      "FieldDataOffset" };
     for (int attributeType = vtkDataObject::AttributeTypes::POINT;
          attributeType <= vtkDataObject::AttributeTypes::FIELD; ++attributeType)
     {
@@ -549,10 +569,9 @@ bool vtkHDFReader::Implementation::ComputeAMROffsetsPerLevels(
           return false;
         }
 
-        std::vector<int> cellOffsets;
+        std::vector<vtkIdType> cellOffsets;
         cellOffsets.resize(numberOfSteps);
-        if (H5Dread(constantID, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, cellOffsets.data()) <
-          0)
+        if (H5Dread(constantID, VTK_ID_H5T, H5S_ALL, H5S_ALL, H5P_DEFAULT, cellOffsets.data()) < 0)
         {
           vtkErrorWithObjectMacro(this->Reader, << "Error reading hyperslab from ");
           return false;
@@ -570,7 +589,7 @@ bool vtkHDFReader::Implementation::ComputeAMROffsetsPerLevels(
             this->AMRInformation.FieldOffsetsPerLevel[name].push_back(cellOffsets[step]);
             if (step + 1 < static_cast<int>(cellOffsets.size()))
             {
-              int fieldSize = cellOffsets[step + 1] - cellOffsets[step];
+              vtkIdType fieldSize = cellOffsets[step + 1] - cellOffsets[step];
               this->AMRInformation.FieldSizesPerLevel[name].push_back(fieldSize);
             }
             else
@@ -624,8 +643,8 @@ bool vtkHDFReader::Implementation::ReadLevelTopology(unsigned int level,
     return false;
   }
 
-  unsigned int numberOfDatasets = static_cast<unsigned int>(amrBoxRawData.size() / 6);
-  for (unsigned int dataSetIndex = 0; dataSetIndex < numberOfDatasets; ++dataSetIndex)
+  vtkIdType numberOfDatasets = static_cast<vtkIdType>(amrBoxRawData.size() / 6);
+  for (vtkIdType dataSetIndex = 0; dataSetIndex < numberOfDatasets; ++dataSetIndex)
   {
     int* currentAMRBoxRawData = amrBoxRawData.data() + (6 * dataSetIndex);
     vtkAMRBox amrBox(currentAMRBoxRawData);
@@ -747,7 +766,7 @@ bool vtkHDFReader::Implementation::ReadLevelData(unsigned int level,
               {
                 cellOffset =
                   this->AMRInformation.FieldOffsetsPerLevel[name][level] / numberOfDatasets;
-                int fieldSize = this->AMRInformation.FieldSizesPerLevel[name][level];
+                vtkIdType fieldSize = this->AMRInformation.FieldSizesPerLevel[name][level];
                 if (fieldSize == -1)
                 {
                   dataSize = (dataSize - cellOffset);

@@ -275,10 +275,11 @@ install(
   DESTINATION "${vtk_cmake_destination}"
   COMPONENT "development")
 
-# We need this for targets that depends in vtkjava to
-# delay its source code compilation until the vtkjava JAR file is
-# generated.
-add_custom_target(vtkjava_jar DEPENDS "$<TARGET_FILE:vtkjava>")
+if (CMAKE_GENERATOR MATCHES "Ninja")
+  # We need this for targets that depends in vtkjava to delay its
+  # source code compilation until the vtkjava JAR file is generated.
+  add_custom_target(vtkjava_jar DEPENDS "$<TARGET_FILE:vtkjava>")
+endif ()
 
 if (VTK_BUILD_TESTING AND TARGET VTK::TestingRendering)
   add_subdirectory(Testing)
@@ -399,10 +400,11 @@ endif()
 if(VTK_JAVA_INSTALL)
   set(MAVEN_NATIVE_ARTIFACT_XML)
   foreach(native_name ${MAVEN_NATIVE_ARTIFACTS})
-    string(APPEND MAVEN_NATIVE_ARTIFACT_XML "${MAVEN_NATIVE_ARTIFACT_XML}\n                                <artifact><file>vtk${MAVEN_VTK_ARTIFACT_SUFFIX}-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}-natives-${native_name}.jar</file><classifier>natives-${native_name}</classifier><type>jar</type></artifact>")
+    string(APPEND MAVEN_NATIVE_ARTIFACT_XML
+      "\n                <artifact><file>vtk${MAVEN_VTK_ARTIFACT_SUFFIX}-${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}-natives-${native_name}.jar</file><classifier>natives-${native_name}</classifier><type>jar</type></artifact>")
   endforeach()
   if(VTK_JAVA_JOGL_COMPONENT)
-    string(APPEND MAVEN_DEPENDENCY_XML "${MAVEN_DEPENDENCY_XML}\n      <dependency><groupId>org.jogamp.jogl</groupId><artifactId>jogl-all-main</artifactId><version>${JOGL_VERSION}</version></dependency>\n      <dependency><groupId>org.jogamp.gluegen</groupId><artifactId>gluegen-rt-main</artifactId><version>${JOGL_VERSION}</version></dependency>")
+    string(APPEND MAVEN_DEPENDENCY_XML "\n      <dependency><groupId>org.jogamp.jogl</groupId><artifactId>jogl-all-main</artifactId><version>${JOGL_VERSION}</version></dependency>\n      <dependency><groupId>org.jogamp.gluegen</groupId><artifactId>gluegen-rt-main</artifactId><version>${JOGL_VERSION}</version></dependency>")
   endif()
   configure_file(JavaInstall.cmake.in
                  ${CMAKE_CURRENT_BINARY_DIR}/JavaInstall.cmake @ONLY)

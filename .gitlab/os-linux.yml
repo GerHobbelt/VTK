@@ -476,14 +476,6 @@
         - linux-x86_64
         - vtk
 
-.linux_cuda_builder_tags:
-    tags:
-        - build
-        - docker
-        - large-memory
-        - linux-x86_64
-        - vtk
-
 .linux_tester_tags:
     tags:
         - docker
@@ -614,8 +606,12 @@
         - $LAUNCHER ctest -VV -S .gitlab/ci/ctest_build.cmake &> $GIT_CLONE_PATH/compile_output.log
         - sccache --show-stats
         - cd build
+        - "$PYTHON_PREFIX/bin/python -m pip install -U setuptools wheel"
         - "$PYTHON_PREFIX/bin/python setup.py bdist_wheel"
         - auditwheel show dist/*.whl > $GIT_CLONE_PATH/wheel_output.log
+        - auditwheel repair dist/*.whl >> $GIT_CLONE_PATH/wheel_output.log
+        - mv -v dist/ dist-orig/
+        - mv -v wheelhouse/ dist/
         - "$PYTHON_PREFIX/bin/python $GIT_CLONE_PATH/.gitlab/ci/create_wheel_sdk_archive.py"
         - cd ..
         - exec .gitlab/ci/check_warnings.sh .
@@ -812,6 +808,3 @@
             "$HOME/.m2/settings.xml"
         - cd build/install
         - mvn deploy -Dvtk.snapshots.repo=https://maven.pkg.github.com/kitware/vtk -Dvtk.snapshots.repo.id=github
-
-    environment:
-        name: maven-upload
