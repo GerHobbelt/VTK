@@ -114,6 +114,12 @@ public:
   herr_t CreateSoftLink(hid_t group, const char* groupName, const char* targetLink);
 
   /**
+   * Create an external link to the real group containing the block datatset.
+   */
+  herr_t CreateExternalLink(
+    hid_t group, const char* filename, const char* source, const char* targetLink);
+
+  /**
    * Open and return an existing group thanks to id and a relative or absolute path to this group.
    */
   vtkHDF::ScopedH5GHandle OpenExistingGroup(hid_t group, const char* name);
@@ -144,7 +150,7 @@ public:
    * Returned scoped handle may be invalid
    */
   vtkHDF::ScopedH5DHandle CreateChunkedHdfDataset(hid_t group, const char* name, hid_t type,
-    hid_t dataspace, hsize_t numCols, hsize_t chunkSize[]);
+    hid_t dataspace, hsize_t numCols, hsize_t chunkSize[], int compressionLevel = 0);
 
   /**
    * Creates a dataspace to the exact array dimensions
@@ -166,11 +172,11 @@ public:
   vtkHDF::ScopedH5DHandle CreateSingleValueDataset(hid_t group, const char* name, int value);
 
   /**
-   * Create a chunked dataset with an empty extendable dataspace using chunking.
-   * Returned scoped handle may be invalid
+   * Create a chunked dataset with an empty extendable dataspace using chunking and set the desired
+   * level of compression. Returned scoped handle may be invalid
    */
-  vtkHDF::ScopedH5DHandle InitDynamicDataset(
-    hid_t group, const char* name, hid_t type, hsize_t cols, hsize_t chunkSize[]);
+  vtkHDF::ScopedH5DHandle InitDynamicDataset(hid_t group, const char* name, hid_t type,
+    hsize_t cols, hsize_t chunkSize[], int compressionLevel = 0);
 
   /**
    * Add a single value of integer type to an existing dataspace.

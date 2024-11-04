@@ -5,7 +5,8 @@ set(test_exclusions
 if (NOT "$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
   list(APPEND test_exclusions
     # Flaky; timesout sometimes on macOS and Linux
-    "^VTK::RenderingVolumeOpenGL2Cxx-TestGPURayCastDepthPeelingBoxWidget$")
+    "^VTK::RenderingVolumeOpenGL2Cxx-TestGPURayCastDepthPeelingBoxWidget$"
+  )
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora" OR
@@ -86,6 +87,10 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "el8")
     # Consistent timeout. Needs investigation.
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19303
     "^VTK::RenderingOpenGL2Cxx-TestFloor$"
+
+    # Intermittent flakiness; may be related to CI runner OpenGL config.
+    # Appears as a colormap or color-range failure:
+    "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
     )
 endif ()
 
@@ -211,6 +216,12 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora39_mpi")
     "^VTK::ParallelMPICxx-MPI-TestNonBlockingCommunication$"
     "^VTK::ParallelMPICxx-MPI-TestPProbe$"
     "^VTK::ParallelMPICxx-MPI-TestProcess$"
+
+    # Failures that appear related to OpenGL driver.
+    #    MESA: error: ZINK: vkCreateInstance failed (VK_ERROR_INCOMPATIBLE_DRIVER)
+    #    glx: failed to create drisw screen
+    #    failed to load driver: zink
+    "^VTK::RenderingCellGridPython-TestCellGridRendering$"
     )
 endif ()
 
@@ -256,8 +267,12 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
     # Fail to present D3D resources (see #18657)
     "^VTK::RenderingOpenGL2Cxx-TestWin32OpenGLDXRenderWindow$"
 
-    # https://gitlab.kitware.com/vtk/vtk/-/issues/19183 
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19183
     "^VTK::RenderingCellGridPython-TestCellGridRendering$"
+    # Thread-local objects are not destroyed at program exit.
+    # https://stackoverflow.com/questions/50897768/in-visual-studio-thread-local-variables-destructor-not-called-when-used-with
+    "^VTK::FiltersCellGridPython-TestCellGridRange$"
+    "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
   )
 endif ()
 
@@ -289,6 +304,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos_x86_64")
     # MacOS OpenGL issue (intermittent)
     "^VTK::RenderingCellGridPython-TestCellGridRendering$"
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
+    "^VTK::IOIOSSPython-TestIOSSCellGridReader$"
   )
 endif ()
 
@@ -343,7 +359,11 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "wheel")
       "^VTK::FiltersModelingPython-TestImprintFilter3$"
       "^VTK::FiltersModelingPython-TestImprintFilter6$"
       "^VTK::FiltersSourcesPython-TestStaticCellLocatorLineIntersection$"
-      "^VTK::InteractionWidgetsPython-TestTensorWidget2$")
+      "^VTK::InteractionWidgetsPython-TestTensorWidget2$"
+      # Intermittent flakiness; may be related to CI runner OpenGL config.
+      # Appears as a colormap or color-range failure:
+      "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
+    )
   endif ()
   if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos.*_x86_64")
     list(APPEND test_exclusions
@@ -373,12 +393,92 @@ endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "ospray")
   list(APPEND test_exclusions
+    # Fails with:
+    #     ZINK: vkCreateInstance failed (VK_ERROR_INCOMPATIBLE_DRIVER)
+    #     glx: failed to create drisw screen
+    #     failed to load driver: zink
+    "^VTK::RenderingCellGridPython-TestCellGridRendering$"
     # Cache segfaults on docker
     "^VTK::RenderingRayTracingCxx-TestOSPRayCache$"
     # https://github.com/ospray/ospray/issues/571
     "^VTK::RenderingRayTracingCxx-TestPathTracerMaterials$")
 endif ()
 
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)")
+  list(APPEND test_exclusions
+    # https://gitlab.kitware.com/vtk/vtk/-/issues/19343
+    "^VTK::RenderingCoreCxx-TestActorLightingFlag$"
+    "^VTK::RenderingCoreCxx-TestBlockOpacity$"
+    "^VTK::RenderingCoreCxx-TestCompositeDataDisplayAttributes$"
+    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperMixedGeometryEdges$"
+    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperPartialFieldData$"
+    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperSpheres$"
+    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperVertices$"
+    "^VTK::RenderingCoreCxx-TestEdgeFlags$"
+    "^VTK::RenderingCoreCxx-TestFollowerPicking$"
+    "^VTK::RenderingCoreCxx-TestGlyph3DMapperMasking$"
+    "^VTK::RenderingCoreCxx-TestGlyph3DMapperOrientationArray$"
+    "^VTK::RenderingCoreCxx-TestLabeledContourMapperWithActorMatrix$"
+    "^VTK::RenderingCoreCxx-TestOpacity$"
+    "^VTK::RenderingCoreCxx-TestTextureRGBADepthPeeling$"
+    "^VTK::RenderingCoreCxx-TestTranslucentImageActorDepthPeeling$"
+    "^VTK::RenderingCoreCxx-TestTranslucentLUTDepthPeeling$"
+    "^VTK::RenderingCoreCxx-TestTranslucentLUTTextureDepthPeeling$"
+    "^VTK::RenderingCoreCxx-TestResizingWindowToImageFilter$"
+    "^VTK::RenderingCoreCxx-TestTextureWrap$"
+    "^VTK::RenderingOpenGL2Cxx-TestCoincident$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositeDataPointGaussian$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositeDataPointGaussianSelection$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2CellScalars$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2MixedGeometryCellScalars$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2MixedGeometryEdges$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2PartialFieldData$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2Pickability$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2Picking$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2Spheres$"
+    "^VTK::RenderingOpenGL2Cxx-TestCompositePolyDataMapper2Vertices$"
+    "^VTK::RenderingOpenGL2Cxx-TestDepthPeelingOcclusionQuery$"
+    "^VTK::RenderingOpenGL2Cxx-TestDepthPeelingPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestDepthPeelingPassViewport$"
+    "^VTK::RenderingOpenGL2Cxx-TestEDLPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestFlipRenderFramebuffer$"
+    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
+    "^VTK::RenderingOpenGL2Cxx-TestFramebufferHDR$" # flaky
+    "^VTK::RenderingOpenGL2Cxx-TestGaussianBlurPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperEdges$"
+    "^VTK::RenderingOpenGL2Cxx-TestHiddenLineRemovalPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestLightingMapNormalsPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestMultiTexturing$"
+    "^VTK::RenderingOpenGL2Cxx-TestMultiTexturingInterpolateScalars$"
+    "^VTK::RenderingOpenGL2Cxx-TestOutlineGlowPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestPBRClearCoat$"
+    "^VTK::RenderingOpenGL2Cxx-TestPBREdgeTint$"
+    "^VTK::RenderingOpenGL2Cxx-TestPBRHdrEnvironment$"
+    "^VTK::RenderingOpenGL2Cxx-TestPointFillPass$"
+    "^VTK::RenderingOpenGL2Cxx-TestPointGaussianMapper$"
+    "^VTK::RenderingOpenGL2Cxx-TestPointGaussianMapperAnisotropic$"
+    "^VTK::RenderingOpenGL2Cxx-TestPointGaussianMapperOpacity$"
+    "^VTK::RenderingOpenGL2Cxx-TestPointGaussianSelection$"
+    "^VTK::RenderingOpenGL2Cxx-TestProgramPointSize$"
+    "^VTK::RenderingOpenGL2Cxx-TestRemoveActorNonCurrentContext$"
+    "^VTK::RenderingOpenGL2Cxx-TestDirectSelectionRendering$"
+    "^VTK::RenderingOpenGL2Cxx-TestSimpleMotionBlur$" # flaky
+    "^VTK::RenderingOpenGL2Cxx-TestSpherePoints$"
+    "^VTK::RenderingOpenGL2Cxx-TestSphereVertex$"
+    "^VTK::RenderingOpenGL2Cxx-TestSurfaceInterpolationSwitch$"
+    "^VTK::RenderingOpenGL2Cxx-TestTexture16Bits$"
+    "^VTK::RenderingOpenGL2Cxx-TestTextureBufferEmulation$"
+    "^VTK::RenderingOpenGL2Cxx-TestValuePassFloatingPoint$"
+    "^VTK::RenderingOpenGL2Cxx-TestVBOPLYMapper$"
+    "^VTK::RenderingOpenGL2Cxx-TestWindowBlits$")
+endif ()
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)_emscripten_linux_chrome$")
+  list(APPEND test_exclusions
+    # Disabled until CI figures out a way to use hardware accel. inside linux container.
+    "^VTK::RenderingCoreCxx"
+    "^VTK::RenderingOpenGL2Cxx")
+endif ()
 string(REPLACE ";" "|" test_exclusions "${test_exclusions}")
 if (test_exclusions)
   set(test_exclusions "(${test_exclusions})")

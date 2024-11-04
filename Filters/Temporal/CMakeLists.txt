@@ -1,6 +1,8 @@
 set(classes
+  vtkCriticalTime
   vtkForceStaticMesh
-  vtkDataObjectMeshCache)
+  vtkDataObjectMeshCache
+  vtkTemporalSmoothing)
 
 vtk_module_add_module(VTK::FiltersTemporal
   CLASSES ${classes})

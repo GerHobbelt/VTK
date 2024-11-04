@@ -19,6 +19,7 @@ VTK_ABI_NAMESPACE_BEGIN
 class vtkCellArray;
 class vtkDataObjectTree;
 class vtkDataSet;
+class vtkPoints;
 class vtkPointSet;
 class vtkPolyData;
 class vtkUnstructuredGrid;
@@ -76,14 +77,49 @@ public:
 
   ///@{
   /**
-   * Configurable chunk size for transient (time-dependent) data, where arrays resized every
-   * timestep, hence requiring chunking. Read more about chunks and chunk size here :
+   * Get/set the chunk size used for chunk storage layout. Chunked storage is required for
+   * extensible/unlimited dimensions datasets (such as time-dependent data), and filters such as
+   * compression. Read more about chunks and chunk size here :
    * https://support.hdfgroup.org/HDF5/doc/Advanced/Chunking/
    *
-   * Defaults to 100.
+   * Regarding performance impact of chunking and how to find the optimal value depending on the
+   * data, please check this documentation:
+   * https://docs.hdfgroup.org/hdf5/develop/_l_b_dset_layout.html
+   *
+   * Defaults to 25000 (to fit with the default chunk cache of 1Mb of HDF5).
    */
   vtkSetMacro(ChunkSize, int);
   vtkGetMacro(ChunkSize, int);
+  ///@}
+
+  ///@{
+  /**
+   * Get/set the compression level used by hdf5.
+   * The compression level is between 0 (no compression) and 9 (max compression level).
+   *
+   * @warning Compression level used can have a big performance impact for writing/reading data.
+   * For reference, the default value used by HDF5 when we apply a compression is 4.
+   *
+   * @note Only points, cells and data arrays will be compressed. Other datas are considered to be
+   * too small to be worth compressing.
+   *
+   * Default to 0.
+   */
+  vtkSetClampMacro(CompressionLevel, int, 0, 9);
+  vtkGetMacro(CompressionLevel, int);
+  ///@}
+
+  ///@{
+  /**
+   * When set, write composite leaf blocks in different files,
+   * named FileName_without_extension_BlockName.extension.
+   * If FileName does not have an extension, blocks are named
+   * FileName_BlockName.vtkhdf
+   * These files are referenced by the main file using external links.
+   * Default is false.
+   */
+  vtkSetMacro(UseExternalComposite, bool);
+  vtkGetMacro(UseExternalComposite, bool);
   ///@}
 
 protected:
@@ -120,15 +156,15 @@ private:
    * Dispatch the input vtkDataObject to the right writing function, depending on its dynamic type.
    * Data will be written in the specified group, which must already exist.
    */
-  void DispatchDataObject(hid_t group, vtkDataObject* input);
+  void DispatchDataObject(hid_t group, vtkDataObject* input, unsigned int partId = 0);
 
   ///@{
   /**
    * Write the given dataset to the current FileName in vtkHDF format.
    * returns true if the writing operation completes successfully.
    */
-  bool WriteDatasetToFile(hid_t group, vtkPolyData* input);
-  bool WriteDatasetToFile(hid_t group, vtkUnstructuredGrid* input);
+  bool WriteDatasetToFile(hid_t group, vtkPolyData* input, unsigned int partId = 0);
+  bool WriteDatasetToFile(hid_t group, vtkUnstructuredGrid* input, unsigned int partId = 0);
   bool WriteDatasetToFile(hid_t group, vtkPartitionedDataSet* input);
   bool WriteDatasetToFile(hid_t group, vtkDataObjectTree* input);
   ///@}
@@ -146,8 +182,19 @@ private:
    * Initialize the `Steps` group for transient data, and extendable datasets where needed.
    * This way, the other functions will append to existing datasets every step.
    */
-  bool InitializeTemporalData(vtkUnstructuredGrid* input);
-  bool InitializeTemporalData(vtkPolyData* input);
+  bool InitializeTemporalPolyData();
+  bool InitializeTemporalUnstructuredGrid();
+  ///@}
+
+  ///@{
+  /**
+   * Initialize empty dynamic chunked datasets where data will be appended.
+   * These datasets will be extended when a new partition is written.
+   */
+  bool InitializeChunkedDatasets(hid_t group, vtkUnstructuredGrid* input);
+  bool InitializeChunkedDatasets(hid_t group, vtkPolyData* input);
+  bool InitializePointDatasets(hid_t group, vtkPoints* input);
+  bool InitializePrimitiveDataset(hid_t group);
   ///@}
 
   /**
@@ -202,7 +249,7 @@ private:
    * Add the data arrays of the object to the file
    * OpenRoot should succeed on this->Impl before calling this function
    */
-  bool AppendDataArrays(hid_t group, vtkDataObject* input);
+  bool AppendDataArrays(hid_t group, vtkDataObject* input, unsigned int partId = 0);
 
   ///@{
   /**
@@ -210,6 +257,15 @@ private:
    * without hierarchy.
    */
   bool AppendBlocks(hid_t group, vtkPartitionedDataSetCollection* pdc);
+  ///@}
+
+  ///@{
+  /**
+   * Write block in a separate file whose name is derived to the block name,
+   * and create an external link from VTKHDF/blockName to this file's content.
+   * The block should be of non-composite type.
+   */
+  bool AppendExternalBlock(vtkDataObject* block, std::string& blockName);
   ///@}
 
   /**
@@ -228,8 +284,8 @@ private:
   /**
    * Append the offset data in the steps group for the current array for transient data
    */
-  bool AppendTemporalDataArray(hid_t arrayGroup, vtkAbstractArray* array, const char* arrayName,
-    const char* offsetsGroupName, hid_t dataType);
+  bool AppendDataArrayOffset(
+    vtkAbstractArray* array, const char* arrayName, const char* offsetsGroupName);
 
   /**
    * Write the NSteps attribute and the Value dataset to group for transient writing.
@@ -254,7 +310,9 @@ private:
   char* FileName = nullptr;
   bool Overwrite = true;
   bool WriteAllTimeSteps = true;
-  int ChunkSize = 100;
+  bool UseExternalComposite = false;
+  int ChunkSize = 25000;
+  int CompressionLevel = 0;
 
   // Temporal-related private variables
   double* timeSteps = nullptr;

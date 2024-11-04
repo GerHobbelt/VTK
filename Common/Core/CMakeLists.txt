@@ -178,8 +178,9 @@ configure_file(
 # create a list of source files for explicit array type instantiations
 set(instantiation_sources)
 
-# steal the list of array types from vtkCreateArrayDispatchArrayList.cmake
-foreach (INSTANTIATION_VALUE_TYPE IN LISTS vtkArrayDispatch_all_types)
+include(vtkTypeLists)
+
+foreach (INSTANTIATION_VALUE_TYPE IN LISTS vtk_numeric_types)
   # only instantiate fundamental types, not typedefs
   if (INSTANTIATION_VALUE_TYPE STREQUAL "vtkIdType")
     continue()
@@ -367,8 +368,8 @@ set(nowrap_template_classes
 set(serialization_helper_sources)
 if (VTK_WRAP_SERIALIZATION)
   list(APPEND serialization_helper_sources
-    vtkCollectionSerDesHelper.cxx
-    vtkDataArraySerDesHelper.cxx)
+    vtkDataArraySerDesHelper.cxx
+    vtkStringArraySerDesHelper.cxx)
 endif ()
 
 set(sources
@@ -554,6 +555,7 @@ set(nowrap_headers
   vtkDataArrayTupleRange_Generic.h
   vtkDataArrayValueRange_AOS.h
   vtkDataArrayValueRange_Generic.h
+  vtkHashCombiner.h
   vtkImplicitArrayTraits.h
   vtkIndexedArray.h
   vtkInherits.h

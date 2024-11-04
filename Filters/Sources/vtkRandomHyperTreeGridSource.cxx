@@ -155,6 +155,11 @@ int vtkRandomHyperTreeGridSource::RequestData(
   vtkHyperTreeGrid* htg = vtkHyperTreeGrid::GetData(outInfo);
   htg->Initialize();
   htg->SetDimensions(this->Dimensions);
+  if (htg->GetDimension() == 0)
+  {
+    // No HyperTrees, we don't need to create anything
+    return 1;
+  }
   htg->SetBranchFactor(::BRANCHING_FACTOR);
   {
     vtkNew<vtkDoubleArray> coords;
@@ -185,6 +190,11 @@ int vtkRandomHyperTreeGridSource::RequestData(
   vtkIdType treeOffset = 0;
   int numberOfTrees = (updateExtent[1] - updateExtent[0]) * (updateExtent[3] - updateExtent[2]) *
     (updateExtent[5] - updateExtent[4]);
+  if (numberOfTrees <= 0)
+  {
+    // Nothing to generate
+    return 1;
+  }
 
   // Gather all tree ids in a vector
   std::vector<int> hyperTrees;
@@ -248,7 +258,12 @@ int vtkRandomHyperTreeGridSource::RequestData(
     auto cursor = vtkSmartPointer<vtkHyperTreeGridNonOrientedCursor>::Take(
       htg->NewNonOrientedCursor(treeId, true));
     double unmaskedFraction = 1.0;
-    if (this->MaskedFraction > 0)
+    if (this->MaskedFraction == 1.0)
+    {
+      cursor->SetMask(true);
+      unmaskedFraction = 0.0;
+    }
+    else if (this->MaskedFraction > 0)
     {
       unmaskedFraction =
         this->GenerateMask(cursor, treeId, 1.0, false, treeSiblingsFractionMasked, errorMargin);

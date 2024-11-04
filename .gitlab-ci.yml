@@ -67,10 +67,11 @@ dummy:build:
 readthedocs:build:
     stage: test
     extends:
-      - .linux_builder_tags
-      - .make_sphinx_docs
-      - .sphinx_artifacts
-      - .run_automatically
+        - .readthedocs
+        - .linux_builder_tags
+        - .make_sphinx_docs
+        - .sphinx_artifacts
+        - .run_automatically
     dependencies: []
     needs: []
     timeout: 15 minutes
@@ -375,51 +376,117 @@ fedora39-mpi-python-vtkmoverride:test:
     needs:
         - fedora39-mpi-python-vtkmoverride:build
 
-## Webassembly build
-webassembly:build:
+## Cross compile for the 'wasm32-emscripten' architecture on a linux host
+wasm32-emscripten-linux-chrome:build:
     extends:
-        - .webassembly
-        - .cmake_build_webassembly_linux
+        - .wasm32_emscripten_linux_chrome
+        - .cmake_build_wasm_emscripten_linux
         - .linux_builder_tags
         - .cmake_build_artifacts
         - .run_manually
     dependencies: []
     needs: []
 
-## Webassembly test
-webassembly:test:
+wasm32-emscripten-linux-chrome:test:
     extends:
-        - .webassembly
-        - .cmake_test_webassembly_linux
+        - .wasm32_emscripten_linux_chrome
+        - .cmake_test_wasm_emscripten_linux
         - .linux_tester_tags
         - .cmake_test_artifacts
         - .run_automatically
     dependencies:
-        - webassembly:build
+        - wasm32-emscripten-linux-chrome:build
     needs:
-        - webassembly:build
+        - wasm32-emscripten-linux-chrome:build
 
-## Webassembly package
-webassembly:package:
+wasm32-emscripten:package:
     extends:
-        - .webassembly
-        - .cmake_package_webassembly_linux
+        - .wasm32_emscripten_linux_chrome
+        - .cmake_package_wasm32_emscripten_linux
         - .linux_packager_tags
         - .cmake_webassembly_artifacts
         - .run_automatically
     dependencies:
-        - webassembly:build
+        - wasm32-emscripten-linux-chrome:build
     needs:
-        - webassembly:build
+        - wasm32-emscripten-linux-chrome:build
 
-webassembly:vtk:upload:
+wasm32-emscripten:vtk:upload:
     extends:
-        - .generic_webassembly_vtk_upload
+        - .generic_vtk_wasm32_emscripten_linux_upload
         - .weekly_upload_only
     dependencies:
-        - webassembly:package
+        - wasm32-emscripten:package
     needs:
-        - webassembly:package
+        - wasm32-emscripten:package
+
+## Cross compile for the 'wasm64-emscripten' architecture on a linux host
+wasm64-emscripten-linux-chrome:build:
+    extends:
+        - .wasm64_emscripten_linux_chrome
+        - .cmake_build_wasm_emscripten_linux
+        - .linux_builder_tags
+        - .cmake_build_artifacts
+        - .run_manually
+    dependencies: []
+    needs: []
+
+wasm64-emscripten-linux-chrome:test:
+    extends:
+        - .wasm64_emscripten_linux_chrome
+        - .cmake_test_wasm_emscripten_linux
+        - .linux_tester_tags
+        - .cmake_test_artifacts
+        - .run_automatically
+    dependencies:
+        - wasm64-emscripten-linux-chrome:build
+    needs:
+        - wasm64-emscripten-linux-chrome:build
+
+wasm64-emscripten:package:
+    extends:
+        - .wasm64_emscripten_linux_chrome
+        - .cmake_package_wasm64_emscripten_linux
+        - .linux_packager_tags
+        - .cmake_webassembly_artifacts
+        - .run_automatically
+    dependencies:
+        - wasm64-emscripten-linux-chrome:build
+    needs:
+        - wasm64-emscripten-linux-chrome:build
+
+wasm64-emscripten:vtk:upload:
+    extends:
+        - .generic_vtk_wasm64_emscripten_linux_upload
+        - .weekly_upload_only
+    dependencies:
+        - wasm64-emscripten:package
+    needs:
+        - wasm64-emscripten:package
+
+## Cross compile for the 'wasm32-emscripten' architecture on a windows host
+wasm32-emscripten-windows-chrome:build:
+    extends:
+        - .wasm32_emscripten_windows_chrome
+        - .cmake_build_wasm_emscripten_windows
+        - .windows_builder_tags
+        - .cmake_build_artifacts
+        - .run_manually
+    dependencies: []
+    needs: []
+    stage: quick
+
+wasm32-emscripten-windows-chrome:test:
+    extends:
+        - .wasm32_emscripten_windows_chrome
+        - .cmake_test_wasm_emscripten_windows
+        - .windows_tester_tags
+        - .cmake_test_artifacts
+        - .run_automatically
+    dependencies:
+        - wasm32-emscripten-windows-chrome:build
+    needs:
+        - wasm32-emscripten-windows-chrome:build
 
 ## Python wheel builds
 
@@ -735,7 +802,7 @@ wheel-linux-python311-x86_64:build:
         - .cmake_build_wheel_linux
         - .linux_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     dependencies: []
     needs: []
 
@@ -744,7 +811,7 @@ wheel-linux-python311-x86_64:test:
         - .wheel_linux311_x86_64
         - .cmake_test_wheel_linux
         - .linux_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-linux-python311-x86_64:build
@@ -756,7 +823,7 @@ wheel-linux-python311-x86_64:test-x11:
         - .wheel_linux311_x86_64
         - .cmake_test_wheel_linux_x11
         - .linux_tester_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-linux-python311-x86_64:build
@@ -769,7 +836,7 @@ wheel-linux-python311-x86_64-osmesa:build:
         - .cmake_build_wheel_linux
         - .linux_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     dependencies: []
     needs: []
 
@@ -778,7 +845,7 @@ wheel-linux-python311-x86_64-osmesa:test:
         - .wheel_linux311_x86_64_osmesa
         - .cmake_test_wheel_linux
         - .linux_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-linux-python311-x86_64-osmesa:build
@@ -790,7 +857,7 @@ wheel-linux-python311-x86_64-osmesa:test-x11:
         - .wheel_linux311_x86_64_osmesa
         - .cmake_test_wheel_linux_x11
         - .linux_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-linux-python311-x86_64-osmesa:build
@@ -803,7 +870,7 @@ wheel-linux-python311-x86_64-egl:build:
         - .cmake_build_wheel_linux
         - .linux_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     dependencies: []
     needs: []
 
@@ -812,7 +879,7 @@ wheel-linux-python311-x86_64-egl:test:
         - .wheel_linux311_x86_64_egl
         - .cmake_test_wheel_linux
         - .linux_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-linux-python311-x86_64-egl:build
@@ -824,7 +891,7 @@ wheel-linux-python311-x86_64-egl:test-x11:
         - .wheel_linux311_x86_64_egl
         - .cmake_test_wheel_linux_x11
         - .linux_tester_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-linux-python311-x86_64-egl:build
@@ -1716,7 +1783,7 @@ wheel-macos-python311-arm64:build:
         - .cmake_build_wheel_macos
         - .macos_arm64_wheel_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     dependencies: []
     needs: []
 
@@ -1725,7 +1792,7 @@ wheel-macos-python311-arm64:test:
         - .wheel_macos311_arm64
         - .cmake_test_wheel_macos
         - .macos_arm64_wheel_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-macos-python311-arm64:build
@@ -1738,7 +1805,7 @@ wheel-macos-python311-x86_64:build:
         - .cmake_build_wheel_macos
         - .macos_wheel_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     timeout: 90 minutes
     dependencies: []
     needs: []
@@ -1748,7 +1815,7 @@ wheel-macos-python311-x86_64:test:
         - .wheel_macos311_x86_64
         - .cmake_test_wheel_macos
         - .macos_wheel_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-macos-python311-x86_64:build
@@ -2046,7 +2113,7 @@ wheel-windows-python311-x86_64:build:
         - .cmake_build_wheel_windows
         - .windows_wheel_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     dependencies: []
     needs: []
 
@@ -2055,7 +2122,7 @@ wheel-windows-python311-x86_64:test:
         - .wheel_windows311_x86_64
         - .cmake_test_wheel_windows
         - .windows_wheel_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-windows-python311-x86_64:build
@@ -2068,7 +2135,7 @@ wheel-windows-python311-x86_64-osmesa:build:
         - .cmake_build_wheel_windows
         - .windows_wheel_builder_tags
         - .cmake_wheel_artifacts
-        - .run_manually
+        - .merged_only
     dependencies: []
     needs: []
 
@@ -2077,7 +2144,7 @@ wheel-windows-python311-x86_64-osmesa:test:
         - .wheel_windows311_x86_64_osmesa
         - .cmake_test_wheel_windows
         - .windows_wheel_builder_tags
-        - .run_automatically
+        - .merged_only
         - .cdash_annotations_artifacts
     dependencies:
         - wheel-windows-python311-x86_64-osmesa:build
