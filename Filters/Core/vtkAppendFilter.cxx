@@ -396,10 +396,11 @@ int vtkAppendFilter::RequestData(vtkInformation* vtkNotUsed(request),
   output->GetCellData()->CopyAllOn(vtkDataSetAttributes::COPYTUPLE);
 
   // Now copy the array data
-  this->AppendArrays(
-    vtkDataObject::POINT, inputVector, globalIndices, output, newPts->GetNumberOfPoints());
+  this->AppendArrays(vtkDataObject::POINT, inputVector, globalIndices, output,
+    newPts->GetNumberOfPoints(), reallyMergePoints);
   this->UpdateProgress(0.75);
-  this->AppendArrays(vtkDataObject::CELL, inputVector, nullptr, output, output->GetNumberOfCells());
+  this->AppendArrays(vtkDataObject::CELL, inputVector, nullptr, output, output->GetNumberOfCells(),
+    reallyMergePoints);
   this->UpdateProgress(1.0);
 
   // Update ourselves and release memory
@@ -439,7 +440,8 @@ vtkDataSetCollection* vtkAppendFilter::GetNonEmptyInputs(vtkInformationVector** 
 
 //------------------------------------------------------------------------------
 void vtkAppendFilter::AppendArrays(int attributesType, vtkInformationVector** inputVector,
-  vtkIdType* globalIds, vtkUnstructuredGrid* output, vtkIdType totalNumberOfElements)
+  vtkIdType* globalIds, vtkUnstructuredGrid* output, vtkIdType totalNumberOfElements,
+  bool reallyMergePoints)
 {
   // Check if attributesType is supported
   if (attributesType != vtkDataObject::POINT && attributesType != vtkDataObject::CELL)
@@ -473,16 +475,21 @@ void vtkAppendFilter::AppendArrays(int attributesType, vtkInformationVector** in
     if (auto inputData = dataSet->GetAttributes(attributesType))
     {
       const auto numberOfInputTuples = inputData->GetNumberOfTuples();
-      if (globalIds != nullptr)
+      for (vtkIdType id = 0; id < numberOfInputTuples; ++id)
       {
-        for (vtkIdType id = 0; id < numberOfInputTuples; ++id)
+        if (attributesType != vtkDataObject::POINT || !reallyMergePoints ||
+          !dataSet->HasAnyGhostPoints() ||
+          dataSet->GetGhostArray(vtkDataObject::POINT)->GetValue(id) == 0)
         {
-          fieldList.CopyData(inputIndex, inputData, id, outputData, globalIds[offset + id]);
+          if (globalIds != nullptr)
+          {
+            fieldList.CopyData(inputIndex, inputData, id, outputData, globalIds[offset + id]);
+          }
+          else
+          {
+            fieldList.CopyData(inputIndex, inputData, id, outputData, offset + id);
+          }
         }
-      }
-      else
-      {
-        fieldList.CopyData(inputIndex, inputData, 0, numberOfInputTuples, outputData, offset);
       }
       offset += numberOfInputTuples;
       ++inputIndex;
