@@ -23,6 +23,8 @@
 #include "vtkWebGPUConfiguration.h"
 #include "vtkWebGPURenderer.h"
 
+#include "vtksys/SystemTools.hxx"
+
 #include <exception>
 #include <sstream>
 
@@ -148,7 +150,7 @@ void vtkWebGPURenderWindow::Initialize()
     return;
   }
 
-  this->CreateSwapChain();
+  this->ConfigureSurface();
   this->CreateOffscreenColorAttachments();
   this->CreateDepthStencilTexture();
   this->CreateFSQGraphicsPipeline();
@@ -254,12 +256,9 @@ wgpu::Adapter vtkWebGPURenderWindow::GetAdapter()
 }
 
 //------------------------------------------------------------------------------
-wgpu::TextureFormat vtkWebGPURenderWindow::GetPreferredSwapChainTextureFormat()
+wgpu::TextureFormat vtkWebGPURenderWindow::GetPreferredSurfaceTextureFormat()
 {
-  ///@{ TODO: Concrete window subclasses must override this method, query window system
-  // for a preferred texture format.
-  return wgpu::TextureFormat::BGRA8Unorm;
-  ///@}
+  return this->PreferredSurfaceTextureFormat;
 }
 
 //------------------------------------------------------------------------------
@@ -372,45 +371,53 @@ void vtkWebGPURenderWindow::SubmitCommandBuffer(int count, wgpu::CommandBuffer* 
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPURenderWindow::CreateSwapChain()
+void vtkWebGPURenderWindow::ConfigureSurface()
 {
   vtkDebugMacro(<< __func__ << '(' << this->Size[0] << ',' << this->Size[1] << ')');
   vtkWebGPUCheckUnconfigured(this);
-
-  this->SwapChain.Width = this->Size[0];
-  this->SwapChain.Height = this->Size[1];
-
-  wgpu::SwapChainDescriptor swapChainDescriptor = {};
-  swapChainDescriptor.usage = wgpu::TextureUsage::RenderAttachment;
-  swapChainDescriptor.format = this->GetPreferredSwapChainTextureFormat();
-  swapChainDescriptor.width = this->SwapChain.Width;
-  swapChainDescriptor.height = this->SwapChain.Height;
-  swapChainDescriptor.presentMode = wgpu::PresentMode::Fifo;
-
-  this->SwapChain.TexFormat = swapChainDescriptor.format;
-  if (auto device = this->GetDevice())
+  // Configure the surface.
+  wgpu::SurfaceCapabilities capabilities;
+  this->Surface.GetCapabilities(this->GetAdapter(), &capabilities);
+  if (capabilities.formatCount > 0)
   {
-    this->SwapChain.Instance = device.CreateSwapChain(this->Surface, &swapChainDescriptor);
-  }
-  else
-  {
-    vtkErrorMacro(
-      << "Cannot create a command encoder because a WebGPU device has not been initialized!");
+    wgpu::SurfaceConfiguration config = {};
+    config.usage = wgpu::TextureUsage::RenderAttachment;
+    config.device = this->GetDevice();
+    config.width = this->Size[0];
+    config.height = this->Size[1];
+    config.presentMode = wgpu::PresentMode::Fifo;
+    for (std::size_t i = 0; i < capabilities.formatCount; ++i)
+    {
+      config.format = capabilities.formats[i];
+      // prefer BGRA8Unorm
+      if (config.format == wgpu::TextureFormat::BGRA8Unorm)
+      {
+        break;
+      }
+    }
+    this->Surface.Configure(&config);
+    this->PreferredSurfaceTextureFormat = config.format;
+    this->SurfaceConfiguredSize[0] = this->Size[0];
+    this->SurfaceConfiguredSize[1] = this->Size[1];
   }
 }
 
 //------------------------------------------------------------------------------
-void vtkWebGPURenderWindow::DestroySwapChain()
+void vtkWebGPURenderWindow::UnconfigureSurface()
 {
   vtkDebugMacro(<< __func__);
-  this->SwapChain.Instance = nullptr;
+  if (this->Surface == nullptr)
+  {
+    return;
+  }
+  this->Surface.Unconfigure();
 }
 
 //------------------------------------------------------------------------------
 void vtkWebGPURenderWindow::CreateDepthStencilTexture()
 {
-  vtkDebugMacro(<< __func__ << '(' << this->SwapChain.Width << ',' << this->SwapChain.Height
-                << ')');
+  vtkDebugMacro(<< __func__ << '(' << this->SurfaceConfiguredSize[0] << ','
+                << this->SurfaceConfiguredSize[1] << ')');
   vtkWebGPUCheckUnconfigured(this);
   auto device = this->WGPUConfiguration->GetDevice();
   if (device == nullptr)
@@ -425,8 +432,8 @@ void vtkWebGPURenderWindow::CreateDepthStencilTexture()
 
   wgpu::TextureDescriptor textureDesc;
   textureDesc.dimension = wgpu::TextureDimension::e2D;
-  textureDesc.size.width = this->SwapChain.Width;
-  textureDesc.size.height = this->SwapChain.Height;
+  textureDesc.size.width = this->SurfaceConfiguredSize[0];
+  textureDesc.size.height = this->SurfaceConfiguredSize[1];
   textureDesc.size.depthOrArrayLayers = 1;
   textureDesc.sampleCount = 1;
   textureDesc.format = wgpu::TextureFormat::Depth24PlusStencil8;
@@ -489,8 +496,8 @@ void vtkWebGPURenderWindow::CreateOffscreenColorAttachments()
   // must match swapchain's dimensions as we'll eventually sample from this.
   wgpu::Extent3D textureExtent;
   textureExtent.depthOrArrayLayers = 1;
-  textureExtent.width = this->SwapChain.Width;
-  textureExtent.height = this->SwapChain.Height;
+  textureExtent.width = this->SurfaceConfiguredSize[0];
+  textureExtent.height = this->SurfaceConfiguredSize[1];
 
   // Color attachment
   wgpu::TextureDescriptor textureDesc;
@@ -498,7 +505,7 @@ void vtkWebGPURenderWindow::CreateOffscreenColorAttachments()
   textureDesc.mipLevelCount = 1;
   textureDesc.sampleCount = 1;
   textureDesc.dimension = wgpu::TextureDimension::e2D;
-  textureDesc.format = this->GetPreferredSwapChainTextureFormat();
+  textureDesc.format = this->GetPreferredSurfaceTextureFormat();
   textureDesc.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
     wgpu::TextureUsage::CopySrc | wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::StorageBinding;
   textureDesc.viewFormatCount = 0;
@@ -645,7 +652,7 @@ void vtkWebGPURenderWindow::CreateFSQGraphicsPipeline()
   pipelineDesc.vertex.bufferCount = 0;
   pipelineDesc.cFragment.module = shaderModule;
   pipelineDesc.cFragment.entryPoint = "fragmentMain";
-  pipelineDesc.cTargets[0].format = this->GetPreferredSwapChainTextureFormat();
+  pipelineDesc.cTargets[0].format = this->GetPreferredSurfaceTextureFormat();
   pipelineDesc.DisableDepthStencil();
   pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleStrip;
 
@@ -752,9 +759,49 @@ void vtkWebGPURenderWindow::PostRasterizationRender()
 void vtkWebGPURenderWindow::RenderOffscreenTexture()
 {
   vtkWebGPUCheckUnconfigured(this);
-  if (this->SwapChain.Instance == nullptr)
+  if (this->Surface == nullptr)
   {
-    vtkErrorMacro(<< "Cannot render offscreen texture because swapchain is null!");
+    vtkErrorMacro(<< "Cannot render offscreen texture because surface is null!");
+    return;
+  }
+  // prepare the offscreen texture for presentation.
+  wgpu::SurfaceTexture surfaceTexture;
+  this->Surface.GetCurrentTexture(&surfaceTexture);
+  switch (surfaceTexture.status)
+  {
+    case wgpu::SurfaceGetCurrentTextureStatus::Timeout:
+      vtkErrorMacro(
+        << "Cannot render offscreen texture because SurfaceGetCurrentTextureStatus=Timeout");
+      return;
+    case wgpu::SurfaceGetCurrentTextureStatus::Outdated:
+      vtkErrorMacro(
+        << "Cannot render offscreen texture because SurfaceGetCurrentTextureStatus=Outdated");
+      return;
+    case wgpu::SurfaceGetCurrentTextureStatus::Lost:
+      vtkErrorMacro(
+        << "Cannot render offscreen texture because SurfaceGetCurrentTextureStatus=Lost");
+      return;
+    case wgpu::SurfaceGetCurrentTextureStatus::OutOfMemory:
+      vtkErrorMacro(
+        << "Cannot render offscreen texture because SurfaceGetCurrentTextureStatus=OutOfMemory");
+      return;
+    case wgpu::SurfaceGetCurrentTextureStatus::DeviceLost:
+      vtkErrorMacro(
+        << "Cannot render offscreen texture because SurfaceGetCurrentTextureStatus=DeviceLost");
+      return;
+    case wgpu::SurfaceGetCurrentTextureStatus::Success:
+    default:
+      break;
+  }
+  if (surfaceTexture.texture == nullptr)
+  {
+    vtkErrorMacro(<< "Cannot render offscreen texture because SurfaceTexture is null!");
+    return;
+  }
+  if (surfaceTexture.suboptimal)
+  {
+    // TODO: Warn exactly once per Initialize/Finalize duration.
+    vtkDebugMacro(<< "SurfaceTexture format is suboptimal!");
     return;
   }
   if (this->ColorAttachment.Texture == nullptr)
@@ -780,10 +827,9 @@ void vtkWebGPURenderWindow::RenderOffscreenTexture()
     vtkErrorMacro(<< "Cannot render offscreen texture because the command encoder is null!");
     return;
   }
-  // prepare the offscreen texture for presentation.
-  this->SwapChain.Framebuffer = this->SwapChain.Instance.GetCurrentTextureView();
 
-  vtkWebGPURenderPassDescriptorInternals renderPassDescriptor({ this->SwapChain.Framebuffer });
+  vtkWebGPURenderPassDescriptorInternals renderPassDescriptor(
+    { surfaceTexture.texture.CreateView() });
   renderPassDescriptor.label = "Render offscreen texture";
 
   for (auto& colorAttachment : renderPassDescriptor.ColorAttachments)
@@ -796,8 +842,9 @@ void vtkWebGPURenderWindow::RenderOffscreenTexture()
   if (auto encoder = this->NewRenderPass(renderPassDescriptor))
   {
     encoder.SetLabel("Encode offscreen texture render commands");
-    encoder.SetViewport(0, 0, this->SwapChain.Width, this->SwapChain.Height, 0.0, 1.0);
-    encoder.SetScissorRect(0, 0, this->SwapChain.Width, this->SwapChain.Height);
+    encoder.SetViewport(
+      0, 0, this->SurfaceConfiguredSize[0], this->SurfaceConfiguredSize[1], 0.0, 1.0);
+    encoder.SetScissorRect(0, 0, this->SurfaceConfiguredSize[0], this->SurfaceConfiguredSize[1]);
     // set fsq pipeline
 #ifndef NDEBUG
     encoder.PushDebugGroup("FSQ Render");
@@ -866,14 +913,15 @@ void vtkWebGPURenderWindow::Start()
     this->Initialize();
   }
 
-  if (this->Size[0] != this->SwapChain.Width || this->Size[1] != this->SwapChain.Height)
+  if (this->Size[0] != this->SurfaceConfiguredSize[0] ||
+    this->Size[1] != this->SurfaceConfiguredSize[1])
   {
     // Window's size changed, need to recreate the swap chain, textures, ...
     this->DestroyFSQGraphicsPipeline();
     this->DestroyDepthStencilTexture();
     this->DestroyOffscreenColorAttachments();
-    this->DestroySwapChain();
-    this->CreateSwapChain();
+    this->UnconfigureSurface();
+    this->ConfigureSurface();
     this->CreateOffscreenColorAttachments();
     this->CreateDepthStencilTexture();
     this->CreateFSQGraphicsPipeline();
@@ -893,9 +941,9 @@ void vtkWebGPURenderWindow::Frame()
     vtkErrorMacro(<< "Cannot render frame because the command encoder is null!");
     return;
   }
-  if (this->SwapChain.Instance == nullptr)
+  if (this->Surface == nullptr)
   {
-    vtkErrorMacro(<< "Cannot render frame because the swapchain is null!");
+    vtkErrorMacro(<< "Cannot render frame because the surface is null!");
     return;
   }
   this->Superclass::Frame();
@@ -922,9 +970,8 @@ void vtkWebGPURenderWindow::Frame()
 
   // On web, html5 `requestAnimateFrame` takes care of presentation.
 #ifndef __EMSCRIPTEN__
-  this->SwapChain.Instance.Present();
+  this->Surface.Present();
 #endif
-  this->SwapChain.Framebuffer = nullptr;
 
   // Clean up staging buffer for SetPixelData.
   if (this->StagingPixelData.Buffer.Get() != nullptr)
@@ -1710,8 +1757,9 @@ int vtkWebGPURenderWindow::SupportsOpenGL()
 //------------------------------------------------------------------------------
 const char* vtkWebGPURenderWindow::ReportCapabilities()
 {
-  // TODO: Request caps from device
-  return "unknown";
+  static std::string caps = "unknown";
+  caps = this->WGPUConfiguration->ReportCapabilities();
+  return caps.c_str();
 }
 
 //------------------------------------------------------------------------------
@@ -1728,16 +1776,16 @@ void vtkWebGPURenderWindow::ReleaseGraphicsResources(vtkWindow* w)
   {
     return;
   }
-  for (auto ren : vtk::Range(this->Renderers))
+  for (auto renderer : vtk::Range(this->Renderers))
   {
-    ren->ReleaseGraphicsResources(this);
+    renderer->ReleaseGraphicsResources(this);
   }
+  this->WGPUPipelineCache->ReleaseGraphicsResources(w);
   this->DestroyFSQGraphicsPipeline();
   this->DestroyDepthStencilTexture();
   this->DestroyOffscreenColorAttachments();
-  this->DestroySwapChain();
+  this->UnconfigureSurface();
   this->BufferMapReadContext.src = nullptr;
-  this->Surface = nullptr;
 }
 
 //------------------------------------------------------------------------------
@@ -1754,6 +1802,42 @@ void vtkWebGPURenderWindow::SetWGPUConfiguration(vtkWebGPUConfiguration* config)
   {
     this->Initialize();
   }
+}
+
+//------------------------------------------------------------------------------
+std::string vtkWebGPURenderWindow::PreprocessShaderSource(const std::string& source) const
+{
+  std::istringstream is(source);
+  std::ostringstream os;
+  std::string line;
+
+  while (std::getline(is, line))
+  {
+    if (line.find("#include") != std::string::npos)
+    {
+      auto pieces = vtksys::SystemTools::SplitString(line, ' ');
+      if (pieces.size() == 3)
+      {
+        const auto key = pieces[2].substr(1, pieces[2].size() - 2);
+        const auto replacement = this->WGPUShaderDatabase->GetShaderSource(key);
+        if (!replacement.empty())
+        {
+          os << "// Start " << key << '\n';
+          os << this->PreprocessShaderSource(replacement) << '\n';
+          os << "// End " << key << '\n';
+        }
+        else
+        {
+          vtkErrorMacro(<< "Failed to substitute " << line);
+        }
+      }
+    }
+    else
+    {
+      os << line << '\n';
+    }
+  }
+  return os.str();
 }
 
 VTK_ABI_NAMESPACE_END
