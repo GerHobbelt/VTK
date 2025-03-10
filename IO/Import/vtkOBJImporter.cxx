@@ -376,8 +376,8 @@ int vtkOBJPolyDataProcessor::RequestData(vtkInformation* vtkNotUsed(request),
     pLine = rawLine;
     pEnd = rawLine + strlen(rawLine);
 
-    // watch for BOM
-    if (pEnd - pLine > 3 && pLine[0] == -17 && pLine[1] == -69 && pLine[2] == -65)
+    // watch for UTF-8 BOM
+    if (pEnd - pLine > 3 && std::string_view(pLine, 3) == "\xef\xbb\xbf")
     {
       pLine += 3;
     }
@@ -418,8 +418,8 @@ int vtkOBJPolyDataProcessor::RequestData(vtkInformation* vtkNotUsed(request),
         _extractLine(rawLine);
 
         // in the OBJ format the first characters determine how to interpret the line:
-        // Skip comments
-        if (strcmp(cmd, "#") == 0)
+        // Skip comments and empty lines
+        if (cmd[0] == '#' || cmd[0] == '\0')
         {
           continue;
         }
@@ -430,9 +430,13 @@ int vtkOBJPolyDataProcessor::RequestData(vtkInformation* vtkNotUsed(request),
           {
             pLine++;
           }
-          // Recover the mtllib without the \n at the end
+          while (isspace(*(pEnd - 1)) && pLine < pEnd)
+          {
+            pEnd--;
+          }
+          // Recover the mtllib
           mtlname = vtksys::SystemTools::GetFilenamePath(this->FileName) + "/" +
-            std::string(pLine, strlen(pLine) - 1);
+            std::string(pLine, pEnd - pLine);
           mtllibDefined = true;
           break;
         }
@@ -555,13 +559,13 @@ int vtkOBJPolyDataProcessor::RequestData(vtkInformation* vtkNotUsed(request),
     float col[3];
 
     int lineNr = 0;
+    long lastVertexIndex = 0;
     while (everything_ok && fgets(rawLine, MAX_LINE, in) != nullptr)
     { /** While OK and there is another line in the file */
       lineNr++;
       _extractLine(rawLine);
 
       // in the OBJ format the first characters determine how to interpret the line:
-      static long lastVertexIndex = 0;
       if (strcmp(cmd, "v") == 0)
       {
         // this is a vertex definition, expect three floats (six if vertex color), separated by

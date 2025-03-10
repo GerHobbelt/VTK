@@ -53,13 +53,15 @@ const char* backgroundShaderSource = R"(
       @builtin(position) position: vec4<f32>
     };
     struct FragmentOutput {
-      @location(0) color: vec4<f32>
+      @location(0) color: vec4<f32>,
+      @location(1) ids: vec4<u32>,
     };
 
     @fragment
     fn fragmentMain() -> FragmentOutput {
       var output: FragmentOutput;
       output.color = vec4<f32>(1, 1, 1, 1);
+      output.ids = vec4<u32>(0u);
       return output;
     }
   )";
@@ -207,6 +209,11 @@ void vtkWebGPURenderer::Clear()
       blendState->alpha.dstFactor = wgpu::BlendFactor::Zero;
     }
   }
+  // Prepare selection ids output.
+  bkgPipelineDescriptor.cTargets[1].format =
+    wgpuRenderWindow->GetPreferredSelectorIdsTextureFormat();
+  bkgPipelineDescriptor.cFragment.targetCount++;
+  bkgPipelineDescriptor.DisableBlending(1);
   const auto pipelineKey =
     wgpuPipelineCache->GetPipelineKey(&bkgPipelineDescriptor, backgroundShaderSource);
   wgpuPipelineCache->CreateRenderPipeline(&bkgPipelineDescriptor, this, backgroundShaderSource);
@@ -250,7 +257,8 @@ void vtkWebGPURenderer::RecordRenderCommands()
   if (auto* wgpuRenderWindow = vtkWebGPURenderWindow::SafeDownCast(this->RenderWindow))
   {
     vtkWebGPURenderPassDescriptorInternals renderPassDescriptor(
-      { wgpuRenderWindow->GetOffscreenColorAttachmentView() },
+      { wgpuRenderWindow->GetOffscreenColorAttachmentView(),
+        wgpuRenderWindow->GetHardwareSelectorAttachmentView() },
       wgpuRenderWindow->GetDepthStencilView(),
       /*clearColor=*/false, /*clearDepth=*/false, /*clearStencil=*/false);
     renderPassDescriptor.label = "vtkWebGPURenderer::RecordRenderCommands";
@@ -319,47 +327,6 @@ int vtkWebGPURenderer::UpdateGeometry(vtkFrameBufferObjectBase* /*fbo=nullptr*/)
     return 0;
   }
 
-  if (this->Selector)
-  {
-    // When selector is present, we are performing a selection,
-    // so do the selection rendering pass instead of the normal passes.
-    // Delegate the rendering of the props to the selector itself.
-
-    // use pickfromprops ?
-    if (this->PickFromProps)
-    {
-      vtkProp** pa;
-      vtkProp* aProp;
-      if (this->PickFromProps->GetNumberOfItems() > 0)
-      {
-        pa = new vtkProp*[this->PickFromProps->GetNumberOfItems()];
-        int pac = 0;
-
-        vtkCollectionSimpleIterator pit;
-        for (this->PickFromProps->InitTraversal(pit);
-             (aProp = this->PickFromProps->GetNextProp(pit));)
-        {
-          if (aProp->GetVisibility())
-          {
-            pa[pac++] = aProp;
-          }
-        }
-
-        this->NumberOfPropsRendered = this->Selector->Render(this, pa, pac);
-        delete[] pa;
-      }
-    }
-    else
-    {
-      this->NumberOfPropsRendered =
-        this->Selector->Render(this, this->PropArray, this->PropArrayCount);
-    }
-
-    this->RenderTime.Modified();
-    vtkDebugMacro("Rendered " << this->NumberOfPropsRendered << " actors");
-    return this->NumberOfPropsRendered;
-  }
-
   // We can render everything because if it was
   // not visible it would not have been put in the
   // list in the first place, and if it was allocated
@@ -416,6 +383,10 @@ int vtkWebGPURenderer::UpdateOpaquePolygonalGeometry()
     {
       for (int i = 0; i < this->PropArrayCount; i++)
       {
+        if (auto* wgpuActor = vtkWebGPUActor::SafeDownCast(this->PropArray[i]))
+        {
+          wgpuActor->SetId(i);
+        }
         this->PropArray[i]->RenderOpaqueGeometry(this);
       }
       result += this->PropArrayCount;
@@ -452,6 +423,10 @@ int vtkWebGPURenderer::UpdateTranslucentPolygonalGeometry()
     {
       for (int i = 0; i < this->PropArrayCount; i++)
       {
+        if (auto* wgpuActor = vtkWebGPUActor::SafeDownCast(this->PropArray[i]))
+        {
+          wgpuActor->SetId(i);
+        }
         this->PropArray[i]->RenderTranslucentPolygonalGeometry(this);
       }
       result += this->PropArrayCount;
@@ -747,7 +722,6 @@ void vtkWebGPURenderer::ReleaseGraphicsResources(vtkWindow* w)
   this->WGPURenderEncoder = nullptr;
   this->SceneTransformBuffer = nullptr;
   this->SceneLightsBuffer = nullptr;
-  this->LastActorBufferSize = 0;
   this->SceneBindGroup = nullptr;
   this->SceneBindGroupLayout = nullptr;
 }
@@ -828,12 +802,15 @@ void vtkWebGPURenderer::BeginRecording()
     // create a new bundle encoder.
     const std::string label = this->GetObjectDescription();
     auto wgpuRenderWindow = vtkWebGPURenderWindow::SafeDownCast(this->GetRenderWindow());
-    const auto colorFormat = wgpuRenderWindow->GetPreferredSurfaceTextureFormat();
+    const std::vector<wgpu::TextureFormat> colorFormats = {
+      wgpuRenderWindow->GetPreferredSurfaceTextureFormat(),
+      wgpuRenderWindow->GetPreferredSelectorIdsTextureFormat()
+    };
     const int sampleCount =
       wgpuRenderWindow->GetMultiSamples() ? wgpuRenderWindow->GetMultiSamples() : 1;
     wgpu::RenderBundleEncoderDescriptor bundleEncDesc;
-    bundleEncDesc.colorFormatCount = 1;
-    bundleEncDesc.colorFormats = &colorFormat;
+    bundleEncDesc.colorFormatCount = colorFormats.size();
+    bundleEncDesc.colorFormats = colorFormats.data();
     bundleEncDesc.depthStencilFormat = wgpuRenderWindow->GetDepthStencilFormat();
     bundleEncDesc.sampleCount = sampleCount;
     bundleEncDesc.depthReadOnly = false;

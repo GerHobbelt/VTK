@@ -962,7 +962,8 @@ void vtkWebGPUPolyDataMapper::UpdateMeshGeometryBuffers(vtkWebGPURenderWindow* w
   this->MapScalars(this->CurrentInput, 1.0, cellFlag);
   this->DeducePointCellAttributeAvailability(this->CurrentInput);
 
-  MeshAttributeDescriptor meshAttrDescriptor;
+  MeshAttributeDescriptor meshAttrDescriptor = {};
+  meshAttrDescriptor.Pickable = true;
 
   vtkPointData* pointData = this->CurrentInput->GetPointData();
   vtkDataArray* pointPositions = this->CurrentInput->GetPoints()->GetData();
@@ -1317,6 +1318,10 @@ void vtkWebGPUPolyDataMapper::SetupGraphicsPipelines(
   depthState->depthWriteEnabled = true;
   depthState->depthCompare = wgpu::CompareFunction::Less;
   ///@}
+  // Prepare selection ids output.
+  descriptor.cTargets[1].format = wgpuRenderWindow->GetPreferredSelectorIdsTextureFormat();
+  descriptor.cFragment.targetCount++;
+  descriptor.DisableBlending(1);
 
   // Update local parameters that decide whether a pipeline must be rebuilt.
   this->RebuildGraphicsPipelines = false;

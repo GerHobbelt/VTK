@@ -42,7 +42,7 @@ public:
       vtkTypeUInt32 Flags = 0;
     } RenderOpts;
 
-    struct ShadeOptions
+    struct ColorOptions
     {
       // Material ambient color - applicable when shading type is global.
       vtkTypeFloat32 AmbientColor[3] = {};
@@ -70,7 +70,9 @@ public:
       vtkTypeFloat32 Opacity = 0;
       // Interpolation type
       vtkTypeUInt32 InterpolationType = VTK_FLAT;
-    } ShadeOpts;
+      // Id to color by
+      vtkTypeUInt32 Id = 0;
+    } ColorOpts;
   };
 
   class MapperBooleanCache
@@ -115,6 +117,8 @@ public:
   wgpu::BindGroupLayout ActorBindGroupLayout;
   wgpu::BindGroup ActorBindGroup;
   wgpu::Buffer ActorBuffer;
+
+  vtkTypeUInt32 Id = 0;
 
   inline void PopulateBindgroupLayouts(std::vector<wgpu::BindGroupLayout>& layouts)
   {

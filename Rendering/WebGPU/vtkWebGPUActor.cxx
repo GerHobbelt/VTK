@@ -109,6 +109,7 @@ void vtkWebGPUActor::Render(vtkRenderer* renderer, vtkMapper* mapper)
         bool updateBuffers = this->CacheActorRenderOptions();
         updateBuffers |= this->CacheActorShadeOptions();
         updateBuffers |= this->CacheActorTransforms();
+        updateBuffers |= this->CacheActorId();
         if (updateBuffers)
         {
           wgpuConfiguration->WriteBuffer(internals.ActorBuffer, 0,
@@ -156,6 +157,12 @@ bool vtkWebGPUActor::SupportRenderBundles()
 
   // Assuming that any other mapper supports render bundles
   return true;
+}
+
+//------------------------------------------------------------------------------
+void vtkWebGPUActor::SetId(vtkTypeUInt32 id)
+{
+  this->Internals->Id = id;
 }
 
 //------------------------------------------------------------------------------
@@ -330,7 +337,7 @@ bool vtkWebGPUActor::CacheActorShadeOptions()
   if (displayProperty->GetMTime() > internals.ShadingOptionsBuildTimestamp ||
     this->GetMTime() > internals.ShadingOptionsBuildTimestamp)
   {
-    auto& so = internals.CachedActorInfo.ShadeOpts;
+    auto& so = internals.CachedActorInfo.ColorOpts;
     so.AmbientIntensity = displayProperty->GetAmbient();
     so.DiffuseIntensity = displayProperty->GetDiffuse();
     so.SpecularIntensity = displayProperty->GetSpecular();
@@ -345,6 +352,18 @@ bool vtkWebGPUActor::CacheActorShadeOptions()
       so.VertexColor[i] = displayProperty->GetVertexColor()[i];
     }
     internals.ShadingOptionsBuildTimestamp.Modified();
+    return true;
+  }
+  return false;
+}
+
+//------------------------------------------------------------------------------
+bool vtkWebGPUActor::CacheActorId()
+{
+  auto& internals = (*this->Internals);
+  if (internals.CachedActorInfo.ColorOpts.Id != internals.Id)
+  {
+    internals.CachedActorInfo.ColorOpts.Id = internals.Id;
     return true;
   }
   return false;

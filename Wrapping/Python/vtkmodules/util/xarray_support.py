@@ -1,7 +1,7 @@
 import cftime
-import inspect
 import logging
 import numpy as np
+from os.path import basename, splitext, exists
 import xarray as xr
 from vtkmodules.vtkCommonCore import (
     vtkVariant,
@@ -50,7 +50,6 @@ class vtkXArrayCFReader(VTKPythonAlgorithmBase):
     '''
 
     _FORWARD_GET = {
-        "CanReadFile",
         "GetAccessor",
         "GetAllDimensions",
 
@@ -109,9 +108,7 @@ class vtkXArrayCFReader(VTKPythonAlgorithmBase):
         VTKPythonAlgorithmBase.__init__(
             self, nInputPorts=0, nOutputPorts=1, outputType="vtkDataObject"
         )
-        logging.basicConfig(level=logging.DEBUG)
         self._log = logging.getLogger("vtkXArrayCFReader")
-        self._log.setLevel(logging.DEBUG)
         self._filename = None
         self._timesteps = None
         self._timeindex = None
@@ -130,7 +127,6 @@ class vtkXArrayCFReader(VTKPythonAlgorithmBase):
                 self.Modified()
             return getattr(self._reader, name)
         else:
-            logging.error(f"Attribute '{name}' is not forwarded.")
             raise AttributeError()
 
     def SetFileName(self, name):
@@ -141,6 +137,21 @@ class vtkXArrayCFReader(VTKPythonAlgorithmBase):
 
     def GetFileName(self):
         return self._filename
+
+    def CanReadFile(self, filepath):
+        ext = splitext(filepath)[1]
+        filename = basename(filepath)
+        correct_name = False
+        if ext == '.nc' or ext == '.grib' or ext == '.h5':
+            correct_name = True
+        else:
+            if ext == '' and filename == '.zgroup':
+                correct_name = True
+        if correct_name and exists(filepath):
+            return 1
+        else:
+            return 0
+
 
     def SetNode(self, node):
         if self._node != node:
@@ -193,7 +204,7 @@ class vtkXArrayCFReader(VTKPythonAlgorithmBase):
             self._log.debug("Whole extent: {}".format(ext))
             oi.Set(vtkStreamingDemandDrivenPipeline.WHOLE_EXTENT(), ext, 6)
         if roi.Has(vtkAlgorithm.CAN_HANDLE_PIECE_REQUEST()):
-            roi.Set(vtkAlgorithm.CAN_HANDLE_PIECE_REQUEST(), 1)
+            oi.Set(vtkAlgorithm.CAN_HANDLE_PIECE_REQUEST(), 1)
         if roi.Has(vtkAlgorithm.CAN_PRODUCE_SUB_EXTENT()):
             oi.Set(vtkAlgorithm.CAN_PRODUCE_SUB_EXTENT(), 1)
         return 1
