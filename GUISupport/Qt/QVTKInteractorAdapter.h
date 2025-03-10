@@ -40,11 +40,6 @@ public:
   ~QVTKInteractorAdapter() override;
 
   // Description:
-  // Enable/disable the touch event processing
-  void SetEnableTouchEventProcessing(bool val);
-  bool GetEnableTouchEventProcessing() const { return this->EnableTouchProcessing; }
-
-  // Description:
   // Set the device pixel ratio, this defaults to 1.0, but in Qt 5 can be != 1.0.
   void SetDevicePixelRatio(float ratio, vtkRenderWindowInteractor* iren = nullptr);
   float GetDevicePixelRatio() { return this->DevicePixelRatio; }
@@ -52,11 +47,10 @@ public:
   // Description:
   // Process a QEvent and send it to the interactor
   // returns whether the event was recognized and processed
-  bool ProcessEvent(QEvent* e, vtkRenderWindowInteractor* iren);
+  virtual bool ProcessEvent(QEvent* e, vtkRenderWindowInteractor* iren);
 
 protected:
   int AccumulatedDelta;
-  bool EnableTouchProcessing;
   float DevicePixelRatio;
   static const double DevicePixelRatioTolerance;
 };

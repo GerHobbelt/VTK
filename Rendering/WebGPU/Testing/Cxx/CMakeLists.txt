@@ -1,15 +1,5 @@
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
-  set(_vtk_test_emscripten_extra_linker_args
-    "-sASYNCIFY=1"
-    "-sASYNCIFY_STACK_SIZE=81920" #~297 nesting levels
-    # O2 or higher make wasm-opt terribly slow.
-    # test executables take a minute to link.
-    "-O2"
-    "-g2"
-    # we need emscripten to emit code that handles exit code and atexit(s)
-    "-sEXIT_RUNTIME=1"
-    "-sALLOW_MEMORY_GROWTH=1")
 endif ()
 # (vtk/vtk#19322): Add baselines for these unit tests
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
@@ -42,6 +32,7 @@ vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   TestNViewportsNActorsOneMapper.cxx,NO_DATA
   TestNViewportsOneActor.cxx,NO_DATA
   TestPointScalarMappedColors.cxx,NO_DATA
+  TestPolyDataMapper2D.cxx,NO_DATA
   TestReadPixels.cxx,NO_DATA,NO_VALID
   TestRenderPointsAsSpheres.cxx,NO_DATA
   TestRenderLinesAsTubes.cxx,NO_DATA
@@ -114,4 +105,20 @@ vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   --ortho
   TestRenderLinesAsTubesOrthoCamera,TestRenderLinesAsTubes.cxx,NO_DATA) 
 
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --point-colors
+  TestPolyDataMapper2DPointScalarColorMapping,TestPolyDataMapper2D.cxx,NO_DATA) 
+
+vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+  --cell-colors
+  TestPolyDataMapper2DCellScalarColorMapping,TestPolyDataMapper2D.cxx,NO_DATA) 
 vtk_test_cxx_executable(vtkRenderingWebGPUCxxTests tests)
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # Enable asyncify for webgpu async API
+  target_link_options(vtkRenderingWebGPUCxxTests
+    PRIVATE
+      "-sASYNCIFY=1"
+      #~297 nesting levels
+      "-sASYNCIFY_STACK_SIZE=81920")
+endif ()

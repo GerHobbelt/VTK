@@ -8,14 +8,6 @@ endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
-  set(_vtk_test_emscripten_extra_linker_args
-    "-sASSERTIONS=1"
-    # O2 or higher make wasm-opt terribly slow.
-    # test executables take a minute to link.
-    # we need emscripten to emit code that handles exit code and atexit(s)
-    "-sEXIT_RUNTIME=1"
-    # tests dynamically allocate memory, can easily go over the preset limit.
-    "-sALLOW_MEMORY_GROWTH=1")
 endif ()
 
 vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
@@ -99,6 +91,7 @@ vtk_add_test_cxx(vtkRenderingCoreCxxTests tests
   TestManyActors.cxx,NO_VALID
   TestMapVectorsAsRGBColors.cxx
   TestMapVectorsToColors.cxx
+  TestMixedGeometryCellScalars.cxx,NO_DATA
   TestOffAxisStereo.cxx
   TestOnAndOffScreenConeCxx.cxx
   TestOpacity.cxx

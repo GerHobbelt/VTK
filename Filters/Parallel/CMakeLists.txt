@@ -3,6 +3,7 @@ set(classes
   vtkAggregateDataSetFilter
   vtkAlignImageDataSetFilter
   vtkAngularPeriodicFilter
+  vtkPAxisAlignedReflectionFilter
   vtkCleanArrays
   vtkCollectGraph
   vtkCollectPolyData
@@ -67,6 +68,11 @@ set(private_headers
 vtk_object_factory_declare(
   BASE vtkConvertToMultiBlockDataSet
   OVERRIDE vtkPConvertToMultiBlockDataSet
+  )
+
+vtk_object_factory_declare(
+  BASE      vtkAxisAlignedReflectionFilter
+  OVERRIDE  vtkPAxisAlignedReflectionFilter
   )
 
 vtk_object_factory_configure(

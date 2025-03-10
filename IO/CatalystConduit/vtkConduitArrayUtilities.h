@@ -17,6 +17,7 @@
 #ifndef vtkConduitArrayUtilities_h
 #define vtkConduitArrayUtilities_h
 
+#include "vtkDeprecation.h"             // for VTK_DEPRECATED_IN_9_5_0
 #include "vtkIOCatalystConduitModule.h" // for exports
 #include "vtkObject.h"
 #include "vtkSmartPointer.h" // for vtkSmartPointer
@@ -51,7 +52,13 @@ public:
   /**
    * Returns a vtkDataArray from a conduit node in the conduit mcarray protocol
    * that is a conduit ghost array named ascent_ghosts.
+   *
+   * @deprecated: Instead of using this function, use the state/metadata/vtk_fields
+   * to define the attribute_type, values_to_replace and replacement_values instead for
+   * the ghost array.
    */
+  VTK_DEPRECATED_IN_9_5_0("This function is deprecated, because in the future "
+                          "state/metadata/vtk_fields will only be used.")
   static vtkSmartPointer<vtkDataArray> MCGhostArrayToVTKGhostArray(
     const conduit_node* mcarray, bool is_cell_data);
   ///@}
@@ -80,11 +87,12 @@ public:
    * Read a O2MRelation element
    */
   VTK_DEPRECATED_IN_9_4_0("Version with additional `numberOfPoints` parameter needed with "
-                          "zero-copy arrays stored on acceleration devices such as CUDA")
+                          "zero-copy arrays stored on acceleration devices such as CUDA. "
+                          "`leafname` is always connectivity, so it is removed in the new version.")
   static vtkSmartPointer<vtkCellArray> O2MRelationToVTKCellArray(
     const conduit_node* o2mrelation, const std::string& leafname);
   static vtkSmartPointer<vtkCellArray> O2MRelationToVTKCellArray(
-    vtkIdType numberOfPoints, const conduit_node* o2mrelation, const std::string& leafname);
+    vtkIdType numberOfPoints, const conduit_node* o2mrelation);
 
 protected:
   vtkConduitArrayUtilities();

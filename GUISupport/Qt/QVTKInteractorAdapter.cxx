@@ -24,8 +24,9 @@
 
 #include "vtkCommand.h"
 
-// function to get VTK keysyms from ascii characters
 VTK_ABI_NAMESPACE_BEGIN
+
+// function to get VTK keysyms from ascii characters
 static const char* ascii_to_key_sym(int);
 // function to get VTK keysyms from Qt keys
 static const char* qt_key_to_key_sym(Qt::Key, Qt::KeyboardModifiers modifiers);
@@ -37,17 +38,11 @@ const double QVTKInteractorAdapter::DevicePixelRatioTolerance = 1e-5;
 QVTKInteractorAdapter::QVTKInteractorAdapter(QObject* parentObject)
   : QObject(parentObject)
   , AccumulatedDelta(0)
-  , EnableTouchProcessing(true)
   , DevicePixelRatio(1.0)
 {
 }
 
 QVTKInteractorAdapter::~QVTKInteractorAdapter() = default;
-
-void QVTKInteractorAdapter::SetEnableTouchEventProcessing(bool val)
-{
-  this->EnableTouchProcessing = val;
-}
 
 void QVTKInteractorAdapter::SetDevicePixelRatio(float ratio, vtkRenderWindowInteractor* iren)
 {
@@ -195,17 +190,10 @@ bool QVTKInteractorAdapter::ProcessEvent(QEvent* e, vtkRenderWindowInteractor* i
           break;
       }
     }
-    e2->accept();
     return true;
   }
-
   if (t == QEvent::TouchBegin || t == QEvent::TouchUpdate || t == QEvent::TouchEnd)
   {
-    if (!this->EnableTouchProcessing)
-    {
-      return false;
-    }
-
     QTouchEvent* e2 = dynamic_cast<QTouchEvent*>(e);
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     Q_FOREACH (const QTouchEvent::TouchPoint& point, e2->touchPoints())
