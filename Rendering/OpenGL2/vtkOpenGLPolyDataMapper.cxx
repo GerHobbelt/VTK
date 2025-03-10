@@ -1928,7 +1928,7 @@ void vtkOpenGLPolyDataMapper::ReplaceShaderClip(
     }
 
     // geometry shader impl
-    if (GSSource.length())
+    if (!GSSource.empty())
     {
       vtkShaderProgram::Substitute(VSSource, "//VTK::Clip::Dec", "out vec4 clipVertexMC;");
       vtkShaderProgram::Substitute(VSSource, "//VTK::Clip::Impl", "  clipVertexMC =  vertexMC;\n");
@@ -3488,13 +3488,15 @@ void vtkOpenGLPolyDataMapper::RenderPieceDraw(vtkRenderer* ren, vtkActor* actor)
 #endif
 
   vtkHardwareSelector* selector = ren->GetSelector();
-  bool draw_surface_with_edges =
-    (actor->GetProperty()->GetEdgeVisibility() && representation == VTK_SURFACE) && !selector;
+  int iEnd = vtkOpenGLPolyDataMapper::PrimitiveEnd;
+  if (selector && selector->GetFieldAssociation() == vtkDataObject::FIELD_ASSOCIATION_POINTS)
+  {
+    // when selecting points, the selection pass renders points at a larger size.
+    // so don't show vertices as they might conflict with the selection pass.
+    iEnd = vtkOpenGLPolyDataMapper::PrimitiveVertices;
+  }
   int numVerts = this->VBOs->GetNumberOfTuples("vertexMC");
-  for (int i = vtkOpenGLPolyDataMapper::PrimitiveStart;
-       i < (draw_surface_with_edges ? vtkOpenGLPolyDataMapper::PrimitiveEnd
-                                    : vtkOpenGLPolyDataMapper::PrimitiveTriStrips + 1);
-       i++)
+  for (int i = vtkOpenGLPolyDataMapper::PrimitiveStart; i < iEnd; i++)
   {
     this->DrawingVertices = i > vtkOpenGLPolyDataMapper::PrimitiveTriStrips;
     this->DrawingSelection = false;

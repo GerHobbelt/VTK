@@ -308,17 +308,14 @@ int vtkImplicitCylinderRepresentation::ComputeInteractionState(int X, int Y, int
 //------------------------------------------------------------------------------
 void vtkImplicitCylinderRepresentation::SetRepresentationState(int state)
 {
+  // Clamp the state
+  state = std::min<int>(std::max<int>(state, vtkImplicitCylinderRepresentation::Outside),
+    vtkImplicitCylinderRepresentation::Scaling);
+
   if (this->RepresentationState == state)
   {
     return;
   }
-
-  // Clamp the state
-  state = (state < vtkImplicitCylinderRepresentation::Outside
-      ? vtkImplicitCylinderRepresentation::Outside
-      : (state > vtkImplicitCylinderRepresentation::Scaling
-            ? vtkImplicitCylinderRepresentation::Scaling
-            : state));
 
   this->RepresentationState = state;
   this->Modified();
@@ -950,7 +947,7 @@ double* vtkImplicitCylinderRepresentation::GetCenter()
 //------------------------------------------------------------------------------
 void vtkImplicitCylinderRepresentation::GetCenter(double xyz[3])
 {
-  return this->Cylinder->GetCenter(xyz);
+  this->Cylinder->GetCenter(xyz);
 }
 
 //------------------------------------------------------------------------------
@@ -988,7 +985,7 @@ double* vtkImplicitCylinderRepresentation::GetAxis()
 //------------------------------------------------------------------------------
 void vtkImplicitCylinderRepresentation::GetAxis(double xyz[3])
 {
-  return this->Cylinder->GetAxis(xyz);
+  this->Cylinder->GetAxis(xyz);
 }
 
 //------------------------------------------------------------------------------

@@ -116,8 +116,6 @@ vtkXOpenGLRenderWindowInternal::vtkXOpenGLRenderWindowInternal(vtkRenderWindow*)
 
 vtkStandardNewMacro(vtkXOpenGLRenderWindow);
 
-#define MAX_LIGHTS 8
-
 GLXFBConfig vtkXOpenGLRenderWindowTryForFBConfig(Display* DisplayId, int drawable_type,
   vtkTypeBool doublebuff, vtkTypeBool stereo, vtkTypeBool stencil, bool srgb)
 {
@@ -184,24 +182,6 @@ GLXFBConfig vtkXOpenGLRenderWindowTryForFBConfig(Display* DisplayId, int drawabl
   // cout << "            STATUS : FAILURE!!!" << endl;
   return None;
 }
-
-// dead code?
-#if 0
-XVisualInfo *vtkXOpenGLRenderWindowTryForVisual(Display *DisplayId,
-                                                vtkTypeBool doublebuff,
-                                                vtkTypeBool stereo,
-                                                int stencil, bool srgb)
-{
-  GLXFBConfig fbc = vtkXOpenGLRenderWindowTryForFBConfig(DisplayId,
-       GLX_WINDOW_BIT,
-       doublebuff, stereo,
-       stencil, srgb);
-
-  XVisualInfo *v = glXGetVisualFromFBConfig( DisplayId, fbc);
-
-  return v;
-}
-#endif
 
 GLXFBConfig vtkXOpenGLRenderWindowGetDesiredFBConfig(Display* DisplayId, vtkTypeBool& win_stereo,
   vtkTypeBool& win_doublebuffer, int drawable_type, vtkTypeBool& stencil, bool srgb)
@@ -468,8 +448,8 @@ void vtkXOpenGLRenderWindow::CreateAWindow()
   if ((this->Position[0] >= 0) && (this->Position[1] >= 0))
   {
     xsh.flags |= USPosition;
-    xsh.x = static_cast<int>(this->Position[0]);
-    xsh.y = static_cast<int>(this->Position[1]);
+    xsh.x = this->Position[0];
+    xsh.y = this->Position[1];
   }
 
   x = this->Position[0];

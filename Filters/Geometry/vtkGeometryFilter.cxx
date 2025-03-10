@@ -405,19 +405,19 @@ public:
     this->Initialize(pointIds);
   }
 
-  inline static constexpr int GetSize() { return TSize; }
+  static constexpr int GetSize() { return TSize; }
 
   template <int Size = TSize>
   typename std::enable_if<(Size == 3), void>::type Initialize(const vtkIdType* pointIds)
   {
     // Reorder to get smallest id in first.
-    if (pointIds[1] < pointIds[0] && pointIds[1] < pointIds[2])
+    if (pointIds[1] <= pointIds[0] && pointIds[1] <= pointIds[2])
     {
       this->PointIds[0] = static_cast<TInputIdType>(pointIds[1]);
       this->PointIds[1] = static_cast<TInputIdType>(pointIds[2]);
       this->PointIds[2] = static_cast<TInputIdType>(pointIds[0]);
     }
-    else if (pointIds[2] < pointIds[0] && pointIds[2] < pointIds[1])
+    else if (pointIds[2] <= pointIds[0] && pointIds[2] <= pointIds[1])
     {
       this->PointIds[0] = static_cast<TInputIdType>(pointIds[2]);
       this->PointIds[1] = static_cast<TInputIdType>(pointIds[0]);
@@ -435,21 +435,21 @@ public:
   typename std::enable_if<(Size == 4), void>::type Initialize(const vtkIdType* pointIds)
   {
     // Reorder to get smallest id in first.
-    if (pointIds[1] < pointIds[0] && pointIds[1] < pointIds[2] && pointIds[1] < pointIds[3])
+    if (pointIds[1] <= pointIds[0] && pointIds[1] <= pointIds[2] && pointIds[1] <= pointIds[3])
     {
       this->PointIds[0] = static_cast<TInputIdType>(pointIds[1]);
       this->PointIds[1] = static_cast<TInputIdType>(pointIds[2]);
       this->PointIds[2] = static_cast<TInputIdType>(pointIds[3]);
       this->PointIds[3] = static_cast<TInputIdType>(pointIds[0]);
     }
-    else if (pointIds[2] < pointIds[0] && pointIds[2] < pointIds[1] && pointIds[2] < pointIds[3])
+    else if (pointIds[2] <= pointIds[0] && pointIds[2] <= pointIds[1] && pointIds[2] <= pointIds[3])
     {
       this->PointIds[0] = static_cast<TInputIdType>(pointIds[2]);
       this->PointIds[1] = static_cast<TInputIdType>(pointIds[3]);
       this->PointIds[2] = static_cast<TInputIdType>(pointIds[0]);
       this->PointIds[3] = static_cast<TInputIdType>(pointIds[1]);
     }
-    else if (pointIds[3] < pointIds[0] && pointIds[3] < pointIds[1] && pointIds[3] < pointIds[2])
+    else if (pointIds[3] <= pointIds[0] && pointIds[3] <= pointIds[1] && pointIds[3] <= pointIds[2])
     {
       this->PointIds[0] = static_cast<TInputIdType>(pointIds[3]);
       this->PointIds[1] = static_cast<TInputIdType>(pointIds[0]);
@@ -507,7 +507,7 @@ public:
     this->Initialize(pointIds);
   }
 
-  inline int GetSize() const { return this->NumberOfPoints; }
+  int GetSize() const { return this->NumberOfPoints; }
 
   void Initialize(const vtkIdType* pointIds)
   {
@@ -550,7 +550,7 @@ private:
   static constexpr bool EasyToComputeSize = !Is64BitsSystem || IsId64Bits;
   static constexpr int FSizeDivSizeId = FSize / SizeId;
 
-  inline static constexpr int SizeOfFace(const int& numberOfPoints)
+  static constexpr int SizeOfFace(const int& numberOfPoints)
   {
     return FaceMemoryPool::FSize +
       (FaceMemoryPool::EasyToComputeSize
@@ -1747,8 +1747,8 @@ struct ExtractStructured : public ExtractCellBoundaries<TInputIdType>
       this->FaceOperator(faceBeginCellId, faceEndCellId);
       if (isFirst)
       {
-        this->Self->UpdateProgress(static_cast<double>(0.05 * (this->CurrentAxis + !this->MinFace) +
-          (0.05 * faceEndCellId / this->NumberOfFaces)));
+        this->Self->UpdateProgress(0.05 * (this->CurrentAxis + !this->MinFace) +
+          (0.05 * faceEndCellId / this->NumberOfFaces));
       }
     }
     else
@@ -1756,8 +1756,8 @@ struct ExtractStructured : public ExtractCellBoundaries<TInputIdType>
       this->ShrinkingFacesOperator(faceBeginCellId, faceEndCellId);
       if (isFirst)
       {
-        this->Self->UpdateProgress(static_cast<double>(
-          0.1 * this->CurrentAxis + (0.1 * faceEndCellId / this->NumberOfFaces)));
+        this->Self->UpdateProgress(
+          0.1 * this->CurrentAxis + (0.1 * faceEndCellId / this->NumberOfFaces));
       }
     }
   } // operator()
