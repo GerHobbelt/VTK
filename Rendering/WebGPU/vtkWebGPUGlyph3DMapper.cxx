@@ -30,6 +30,7 @@
 #include "vtkWebGPURenderWindow.h"
 #include "vtkWebGPURenderer.h"
 
+#include "Private/vtkWebGPUActorInternals.h"
 #include "Private/vtkWebGPUBindGroupInternals.h"
 #include "Private/vtkWebGPUBindGroupLayoutInternals.h"
 #include "Private/vtkWebGPUPipelineLayoutInternals.h"
@@ -1126,6 +1127,7 @@ public:
     descriptor.vertex.entryPoint = "vertexMain";
     descriptor.vertex.bufferCount = 0;
     descriptor.cFragment.entryPoint = "fragmentMain";
+    descriptor.EnableBlending(0);
     descriptor.cTargets[0].format = wgpuRenderWindow->GetPreferredSurfaceTextureFormat();
     auto depthState = descriptor.EnableDepthStencil(wgpuRenderWindow->GetDepthStencilFormat());
     depthState->depthWriteEnabled = true;
@@ -1145,7 +1147,7 @@ public:
 
     std::vector<wgpu::BindGroupLayout> bgls;
     wgpuRenderer->PopulateBindgroupLayouts(bgls);
-    wgpuActor->PopulateBindgroupLayouts(bgls);
+    wgpuActor->Internals->PopulateBindgroupLayouts(bgls);
     bgls.emplace_back(
       this->CreateMeshAttributeBindGroupLayout(device, "MeshAttributeBindGroupLayout"));
     bgls.emplace_back(this->CreateTopologyBindGroupLayout(device, "TopologyBindGroupLayout"));

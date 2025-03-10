@@ -19,7 +19,6 @@
 #include "vtkRendererCollection.h"
 #include "vtkTypeUInt8Array.h"
 #include "vtkUnsignedCharArray.h"
-#include "vtkWebGPUClearDrawPass.h"
 #include "vtkWebGPUConfiguration.h"
 #include "vtkWebGPURenderer.h"
 
@@ -656,7 +655,7 @@ void vtkWebGPURenderWindow::RecreateComputeRenderTextures()
   {
     int* dims = this->GetSize();
 
-    // Upadting the size of the texture
+    // Updating the size of the texture
     renderTexture->SetSize(dims[0], dims[1]);
 
     // Updating the WebGPU texture used by the render texture since it has been recreated by the
