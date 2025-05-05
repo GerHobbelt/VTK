@@ -1107,9 +1107,13 @@ int vtkHDFReader::Read(
   }
   else if (data)
   {
-    // Only single piece datasets should have a non-partitioned output structure
-    assert(pieces.size() == 1);
-    data->ShallowCopy(pieces.back());
+    // Only single piece datasets should have a non-partitioned output structure,
+    // Although all ranks may not have a non-null piece
+    assert(pieces.size() <= 1);
+    if (pieces.size() == 1)
+    {
+      data->ShallowCopy(pieces.back());
+    }
   }
   else
   {
@@ -1631,7 +1635,7 @@ int vtkHDFReader::RequestData(vtkInformation* vtkNotUsed(request),
     return 0;
   }
 
-  if (this->HasTransientData)
+  if (this->GetHasTemporalData())
   {
     double* values = outInfo->Get(vtkStreamingDemandDrivenPipeline::TIME_STEPS());
     if (outInfo->Has(vtkStreamingDemandDrivenPipeline::UPDATE_TIME_STEP()))
@@ -1642,7 +1646,6 @@ int vtkHDFReader::RequestData(vtkInformation* vtkNotUsed(request),
         1;
       this->Step = this->Step >= this->NumberOfSteps ? this->NumberOfSteps - 1
                                                      : (this->Step < 0 ? 0 : this->Step);
-      output->GetInformation()->Set(vtkDataObject::DATA_TIME_STEP(), this->TimeValue);
     }
     this->TimeValue = values[this->Step];
   }
@@ -1698,7 +1701,16 @@ int vtkHDFReader::RequestData(vtkInformation* vtkNotUsed(request),
     vtkErrorMacro("HDF dataset type unknown: " << dataSetType);
     return 0;
   }
-  return ok && this->AddFieldArrays(output);
+
+  ok = ok && this->AddFieldArrays(output);
+
+  if (this->GetHasTemporalData())
+  {
+    // do this at the end because using cache may override this.
+    output->GetInformation()->Set(vtkDataObject::DATA_TIME_STEP(), this->TimeValue);
+  }
+
+  return ok;
 }
 
 //----------------------------------------------------------------------------

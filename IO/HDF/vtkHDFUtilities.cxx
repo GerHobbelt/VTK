@@ -311,9 +311,10 @@ bool ReadDataSetType(hid_t groupID, int& dataSetType)
     }
 
     H5T_cset_t characterType = H5Tget_cset(hdfType);
-    if (characterType != H5T_CSET_ASCII)
+    if (characterType != H5T_CSET_ASCII && characterType != H5T_CSET_UTF8)
     {
-      vtkErrorWithObjectMacro(nullptr, "Not an ASCII string character type: " << characterType);
+      vtkErrorWithObjectMacro(
+        nullptr, "Not an ASCII or UTF-8 string character type: " << characterType);
       return false;
     }
 
@@ -354,6 +355,9 @@ bool ReadDataSetType(hid_t groupID, int& dataSetType)
       vtkErrorWithObjectMacro(nullptr, "H5Tis_variable_str failed while reading Type attribute");
       return false;
     }
+
+    // Handle null-terminated strings
+    typeName.erase(std::find(typeName.begin(), typeName.end(), '\0'), typeName.end());
 
     if (typeName == "OverlappingAMR")
     {
