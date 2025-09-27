@@ -237,7 +237,7 @@ public:
    * Transfer data from source to destination.
    */
   template <typename SOURCE_TYPE, typename DEST_TYPE>
-  int Execute(MPI_Comm comm, int rank, int nComps, SOURCE_TYPE* srcData, DEST_TYPE* destData,
+  int Execute(MPI_Comm comm, int rank, int nComps* srcData, DEST_TYPE* destData,
     std::vector<MPI_Request>& reqs, std::deque<MPI_Datatype>& types, int tag);
 
   /**
@@ -255,7 +255,7 @@ public:
 private:
   // dispatch helper for vtk data type enum
   template <typename SOURCE_TYPE>
-  int Execute(MPI_Comm comm, int rank, int nComps, SOURCE_TYPE* srcData, int destType,
+  int Execute(MPI_Comm comm, int rank, int nComps* srcData, int destType,
     void* destData, std::vector<MPI_Request>& reqs, std::deque<MPI_Datatype>& types, int tag);
 
   int Id;                      // transaction id
@@ -271,7 +271,7 @@ private:
 
 //-----------------------------------------------------------------------------
 template <typename SOURCE_TYPE>
-int vtkPPixelTransfer::Execute(MPI_Comm comm, int rank, int nComps, SOURCE_TYPE* srcData,
+int vtkPPixelTransfer::Execute(MPI_Comm comm, int rank, int nComps* srcData,
   int destType, void* destData, std::vector<MPI_Request>& reqs, std::deque<MPI_Datatype>& types,
   int tag)
 {
@@ -286,7 +286,7 @@ int vtkPPixelTransfer::Execute(MPI_Comm comm, int rank, int nComps, SOURCE_TYPE*
 
 //-----------------------------------------------------------------------------
 template <typename SOURCE_TYPE, typename DEST_TYPE>
-int vtkPPixelTransfer::Execute(MPI_Comm comm, int rank, int nComps, SOURCE_TYPE* srcData,
+int vtkPPixelTransfer::Execute(MPI_Comm comm, int rank, int nComps* srcData,
   DEST_TYPE* destData, std::vector<MPI_Request>& reqs, std::deque<MPI_Datatype>& types, int tag)
 {
   int iErr = 0;
