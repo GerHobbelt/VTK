@@ -128,7 +128,6 @@
 #include "vtkObject.h"
 
 #include <cassert> // Used internally
-#include <limits>  // Used infinity
 #include <memory>  // std::shared_ptr
 
 VTK_ABI_NAMESPACE_BEGIN
@@ -276,14 +275,8 @@ public:
    */
   void CopyStructure(vtkHyperTree* ht);
 
-  /**
-   * Return a freeze instance (a priori compact but potentially
-   * unmodifiable).
-   * This method is calling by the Squeeze method of hypertree grid.
-   * The mode parameter will allow to propose different instances.
-   * Today, there is none, the freeze call does not do anything.
-   */
-  virtual vtkHyperTree* Freeze(const char* mode) = 0;
+  VTK_DEPRECATED_IN_9_6_0("No effect, do not use.")
+  virtual vtkHyperTree* Freeze(const char* vtkNotUsed(mode)) { return this; };
 
   ///@{
   /**
@@ -361,7 +354,6 @@ public:
    * level (0).
    */
   void GetScale(double s[3]) const;
-
   double GetScale(unsigned int d) const;
   ///@}
 
@@ -371,7 +363,7 @@ public:
    * used by the symmetric filter.
    */
   std::shared_ptr<vtkHyperTreeGridScales> InitializeScales(
-    const double* scales, bool reinitialize = false) const;
+    const double* scales, bool reinitialize = false);
 
   /**
    * Return an instance of an implementation of a hypertree for
@@ -512,7 +504,7 @@ public:
    * by the symmetric filter.
    * Here, you set 'scales' since extern description (sharing).
    */
-  void SetScales(std::shared_ptr<vtkHyperTreeGridScales> scales) const { this->Scales = scales; }
+  void SetScales(std::shared_ptr<vtkHyperTreeGridScales> scales) { this->Scales = scales; }
   ///@}
 
   ///@{
@@ -560,7 +552,7 @@ protected:
   // In hypertree grid, one description by hypertree.
   // In Uniform hypertree grid, one description by hypertree grid
   // (all cells, different hypertree, are identical by level).
-  mutable std::shared_ptr<vtkHyperTreeGridScales> Scales;
+  std::shared_ptr<vtkHyperTreeGridScales> Scales;
 
 private:
   void InitializeBase(
