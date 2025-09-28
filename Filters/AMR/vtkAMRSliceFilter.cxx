@@ -78,7 +78,7 @@ bool vtkAMRSliceFilter::IsAMRData2D(vtkOverlappingAMR* input)
 {
   assert("pre: Input AMR dataset is nullptr" && (input != nullptr));
 
-  return input->GetGridDescription() != VTK_XYZ_GRID;
+  return input->GetGridDescription() != vtkStructuredData::VTK_STRUCTURED_XYZ_GRID;
 }
 
 //------------------------------------------------------------------------------
@@ -152,7 +152,7 @@ vtkUniformGrid* vtkAMRSliceFilter::GetSlice(
       slice->SetOrigin(sliceOrigin);
       slice->SetDimensions(sliceDims);
       slice->SetSpacing(spacing);
-      assert(slice->GetDataDescription() == VTK_YZ_PLANE);
+      assert(slice->GetDataDescription() == vtkStructuredData::VTK_STRUCTURED_YZ_PLANE);
       break;
     case Y_NORMAL: // -- XZ plane
       sliceDims[0] = dims[0];
@@ -166,7 +166,7 @@ vtkUniformGrid* vtkAMRSliceFilter::GetSlice(
       slice->SetOrigin(sliceOrigin);
       slice->SetDimensions(sliceDims);
       slice->SetSpacing(spacing);
-      assert(slice->GetDataDescription() == VTK_XZ_PLANE);
+      assert(slice->GetDataDescription() == vtkStructuredData::VTK_STRUCTURED_XZ_PLANE);
       break;
     case Z_NORMAL: // -- XY plane
       sliceDims[0] = dims[0];
@@ -180,7 +180,7 @@ vtkUniformGrid* vtkAMRSliceFilter::GetSlice(
       slice->SetOrigin(sliceOrigin);
       slice->SetDimensions(sliceDims);
       slice->SetSpacing(spacing);
-      assert(slice->GetDataDescription() == VTK_XY_PLANE);
+      assert(slice->GetDataDescription() == vtkStructuredData::VTK_STRUCTURED_XY_PLANE);
       break;
     default:
       vtkErrorMacro("Undefined normal");
@@ -273,13 +273,13 @@ void vtkAMRSliceFilter::GetAMRSliceInPlane(
   switch (this->Normal)
   {
     case X_NORMAL:
-      description = VTK_YZ_PLANE;
+      description = vtkStructuredData::VTK_STRUCTURED_YZ_PLANE;
       break;
     case Y_NORMAL:
-      description = VTK_XZ_PLANE;
+      description = vtkStructuredData::VTK_STRUCTURED_XZ_PLANE;
       break;
     case Z_NORMAL:
-      description = VTK_XY_PLANE;
+      description = vtkStructuredData::VTK_STRUCTURED_XY_PLANE;
       break;
     default:
       vtkErrorMacro("Undefined normal");
@@ -291,13 +291,13 @@ void vtkAMRSliceFilter::GetAMRSliceInPlane(
   }
 
   auto numLevels = vtkMath::Min(this->MaxResolution + 1, inp->GetNumberOfLevels());
-  std::vector<int> blocksPerLevel(numLevels, 0);
+  std::vector<unsigned int> blocksPerLevel(numLevels, 0);
   for (unsigned int i = 0; i < this->BlocksToLoad.size(); i++)
   {
     unsigned int flatIndex = this->BlocksToLoad[i];
     unsigned int level;
     unsigned int dataIdx;
-    inp->GetLevelAndIndex(flatIndex, level, dataIdx);
+    inp->ComputeIndexPair(flatIndex, level, dataIdx);
     assert(level < numLevels);
     blocksPerLevel[level]++;
   }
@@ -314,7 +314,7 @@ void vtkAMRSliceFilter::GetAMRSliceInPlane(
     }
   }
 
-  out->Initialize(static_cast<int>(blocksPerLevel.size()), blocksPerLevel.data());
+  out->Initialize(blocksPerLevel);
   out->SetGridDescription(description);
   out->SetOrigin(p->GetOrigin());
   vtkTimerLog::MarkStartEvent("AMRSlice::GetAMRSliceInPlane");
@@ -329,7 +329,7 @@ void vtkAMRSliceFilter::GetAMRSliceInPlane(
     int flatIndex = this->BlocksToLoad[i];
     unsigned int level;
     unsigned int dataIdx;
-    inp->GetLevelAndIndex(flatIndex, level, dataIdx);
+    inp->ComputeIndexPair(flatIndex, level, dataIdx);
     vtkUniformGrid* grid = inp->GetDataSet(level, dataIdx);
     vtkUniformGrid* slice = nullptr;
 

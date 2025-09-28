@@ -46,8 +46,8 @@ int TestNonOverlappingAMR(int, char*[])
 {
   // Create and populate the AMR dataset.
   vtkNew<vtkNonOverlappingAMR> amr;
-  int blocksPerLevel[] = { 1, 2 };
-  amr->Initialize(2, blocksPerLevel);
+  const std::vector<unsigned int> blocksPerLevel{ 1, 2 };
+  amr->Initialize(blocksPerLevel);
 
   double origin[3] = { 0.0, 0.0, 0.0 };
   double spacing[3] = { 1.0, 1.0, 1.0 };
@@ -115,13 +115,13 @@ int TestNonOverlappingAMR(int, char*[])
     return EXIT_FAILURE;
   }
 
-  if (amr->GetNumberOfDataSets(1) != 2)
+  if (amr->GetNumberOfBlocks(1) != 2)
   {
-    vtkLogF(ERROR, "Invalid number of datasets");
+    vtkLogF(ERROR, "Invalid number of blocks for a level");
     return EXIT_FAILURE;
   }
 
-  if (amr->GetTotalNumberOfBlocks() != 3)
+  if (amr->GetNumberOfBlocks() != 3)
   {
     vtkLogF(ERROR, "Invalid total number of blocks");
     return EXIT_FAILURE;
@@ -137,18 +137,18 @@ int TestNonOverlappingAMR(int, char*[])
 
   unsigned int level = 1;
   unsigned int index = 1;
-  unsigned int compIdx = amr->GetCompositeIndex(level, index);
+  unsigned int compIdx = amr->GetAbsoluteBlockIndex(level, index);
   if (compIdx != 2)
   {
-    vtkLogF(ERROR, "Unexpected GetCompositeIndex result");
+    vtkLogF(ERROR, "Unexpected GetAbsoluteBlockIndex result");
     return EXIT_FAILURE;
   }
 
   level = index = 0;
-  amr->GetLevelAndIndex(compIdx, level, index);
+  amr->ComputeIndexPair(compIdx, level, index);
   if (level != 1 || index != 1)
   {
-    vtkLogF(ERROR, "Unexpected GetLevelAndIndex result");
+    vtkLogF(ERROR, "Unexpected ComputeIndexPair result");
     return EXIT_FAILURE;
   }
   if (amr->GetDataSet(level, index) != ug3.Get())

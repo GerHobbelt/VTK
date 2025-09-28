@@ -646,19 +646,18 @@ vtkDataObject* vtkDataObjectGenerator::FillOutputDataObjects(
 
       vtkOverlappingAMR* hbo = vtkOverlappingAMR::SafeDownCast(outData);
 
-      std::vector<int> blocksPerLevel;
+      std::vector<unsigned int> blocksPerLevel;
       std::vector<vtkInternalStructureCache*>::iterator git;
       for (git = structure->children.begin(); git != structure->children.end(); ++git)
       {
         vtkInternalStructureCache* gptr = *git;
-        vtkIdType nds = static_cast<vtkIdType>(gptr->children.size());
-        blocksPerLevel.push_back(nds);
+        blocksPerLevel.push_back(static_cast<unsigned int>(gptr->children.size()));
       }
 
       double origin[3] = { 0, 0, 0 };
-      hbo->Initialize(static_cast<int>(blocksPerLevel.size()), blocksPerLevel.data());
+      hbo->Initialize(blocksPerLevel);
       hbo->SetOrigin(origin);
-      hbo->SetGridDescription(VTK_XYZ_GRID);
+      hbo->SetGridDescription(vtkStructuredData::VTK_STRUCTURED_XYZ_GRID);
       vtkIdType gcnt = 0;
       bool abort = false;
       vtkIdType progressCounter = 0;

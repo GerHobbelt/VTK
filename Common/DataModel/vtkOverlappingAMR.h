@@ -28,6 +28,7 @@
 
 #include "vtkAMRBox.h"                // For vtkAMRBox
 #include "vtkCommonDataModelModule.h" // For export macro
+#include "vtkDeprecation.h"           // for VTK_DEPRECATED_IN_9_6_0
 #include "vtkUniformGridAMR.h"
 
 VTK_ABI_NAMESPACE_BEGIN
@@ -46,7 +47,6 @@ public:
    * Return class name of data type (see vtkType.h for definitions).
    */
   int GetDataObjectType() VTK_FUTURE_CONST override { return VTK_OVERLAPPING_AMR; }
-
   vtkTypeMacro(vtkOverlappingAMR, vtkUniformGridAMR);
 
   /**

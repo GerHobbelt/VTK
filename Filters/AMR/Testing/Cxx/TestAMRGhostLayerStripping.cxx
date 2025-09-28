@@ -60,7 +60,7 @@ void WriteUnGhostedGrids(const int dimension, vtkOverlappingAMR* amr)
   for (; levelIdx < amr->GetNumberOfLevels(); ++levelIdx)
   {
     unsigned dataIdx = 0;
-    for (; dataIdx < amr->GetNumberOfDataSets(levelIdx); ++dataIdx)
+    for (; dataIdx < amr->GetNumberOfBlocks(levelIdx); ++dataIdx)
     {
       vtkUniformGrid* grid = amr->GetDataSet(levelIdx, dataIdx);
       if (grid != nullptr)
@@ -227,11 +227,11 @@ vtkUniformGrid* GetGhostedGrid(
 vtkOverlappingAMR* GetGhostedDataSet(const int dimension, const int NG, vtkOverlappingAMR* inputAMR)
 {
   vtkOverlappingAMR* ghostedAMR = vtkOverlappingAMR::New();
-  std::vector<int> blocksPerLevel(2);
+  std::vector<unsigned int> blocksPerLevel(2);
   blocksPerLevel[0] = 1;
   blocksPerLevel[1] = 2;
 
-  ghostedAMR->Initialize(static_cast<int>(blocksPerLevel.size()), blocksPerLevel.data());
+  ghostedAMR->Initialize(blocksPerLevel);
   ghostedAMR->SetGridDescription(inputAMR->GetGridDescription());
   ghostedAMR->SetOrigin(inputAMR->GetOrigin());
 
@@ -392,13 +392,13 @@ bool AMRDataSetsAreEqual(vtkOverlappingAMR* computed, vtkOverlappingAMR* expecte
   unsigned int levelIdx = 0;
   for (; levelIdx < computed->GetNumberOfLevels(); ++levelIdx)
   {
-    if (computed->GetNumberOfDataSets(levelIdx) != expected->GetNumberOfDataSets(levelIdx))
+    if (computed->GetNumberOfBlocks(levelIdx) != expected->GetNumberOfBlocks(levelIdx))
     {
       return false;
     }
 
     unsigned int dataIdx = 0;
-    for (; dataIdx < computed->GetNumberOfDataSets(levelIdx); ++dataIdx)
+    for (; dataIdx < computed->GetNumberOfBlocks(levelIdx); ++dataIdx)
     {
       vtkUniformGrid* computedGrid = computed->GetDataSet(levelIdx, dataIdx);
       vtkUniformGrid* expectedGrid = expected->GetDataSet(levelIdx, dataIdx);

@@ -220,16 +220,15 @@ int vtkXMLUniformGridAMRReader::ReadPrimaryElement(vtkXMLDataElement* ePrimary)
   this->Metadata = vtkSmartPointer<vtkOverlappingAMR>::New();
 
   // iterate over the XML to fill up the AMRInformation with meta-data.
-  std::vector<unsigned int> blocks_per_level;
+  std::vector<unsigned int> blocksPerLevel;
   std::vector<vtkSpacingType> level_spacing;
   std::vector<std::vector<vtkAMRBox>> amr_boxes;
-  vtkReadMetaData(ePrimary, blocks_per_level, level_spacing, amr_boxes);
+  vtkReadMetaData(ePrimary, blocksPerLevel, level_spacing, amr_boxes);
 
-  if (!blocks_per_level.empty())
+  if (!blocksPerLevel.empty())
   {
     // initialize vtkOverlappingAMRMetaData.
-    this->Metadata->Initialize(
-      static_cast<int>(blocks_per_level.size()), reinterpret_cast<int*>(blocks_per_level.data()));
+    this->Metadata->Initialize(blocksPerLevel);
 
     double origin[3] = { 0, 0, 0 };
     if (!ePrimary->GetVectorAttribute("origin", 3, origin))
@@ -239,18 +238,18 @@ int vtkXMLUniformGridAMRReader::ReadPrimaryElement(vtkXMLDataElement* ePrimary)
     this->Metadata->SetOrigin(origin);
 
     const char* grid_description = ePrimary->GetAttribute("grid_description");
-    int iGridDescription = VTK_XYZ_GRID;
+    int iGridDescription = vtkStructuredData::VTK_STRUCTURED_XYZ_GRID;
     if (grid_description && strcmp(grid_description, "XY") == 0)
     {
-      iGridDescription = VTK_XY_PLANE;
+      iGridDescription = vtkStructuredData::VTK_STRUCTURED_XY_PLANE;
     }
     else if (grid_description && strcmp(grid_description, "YZ") == 0)
     {
-      iGridDescription = VTK_YZ_PLANE;
+      iGridDescription = vtkStructuredData::VTK_STRUCTURED_YZ_PLANE;
     }
     else if (grid_description && strcmp(grid_description, "XZ") == 0)
     {
-      iGridDescription = VTK_XZ_PLANE;
+      iGridDescription = vtkStructuredData::VTK_STRUCTURED_XZ_PLANE;
     }
     this->Metadata->SetGridDescription(iGridDescription);
 
@@ -384,10 +383,9 @@ void vtkXMLUniformGridAMRReader::ReadComposite(vtkXMLDataElement* element,
   else if (noamr)
   {
     // We process the XML to collect information about the structure.
-    std::vector<unsigned int> blocks_per_level;
-    vtkReadMetaData(element, blocks_per_level);
-    noamr->Initialize(
-      static_cast<int>(blocks_per_level.size()), reinterpret_cast<int*>(blocks_per_level.data()));
+    std::vector<unsigned int> blocksPerLevel;
+    vtkReadMetaData(element, blocksPerLevel);
+    noamr->Initialize(blocksPerLevel);
   }
 
   // Now, simply scan the xml for dataset elements and read them as needed.

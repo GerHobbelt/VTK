@@ -67,7 +67,7 @@ public:
   }
   void CreateOutput(vtkOverlappingAMR* oamr)
   {
-    std::vector<int> blocksPerLevel;
+    std::vector<unsigned int> blocksPerLevel;
     int gridDescription(-1);
     double origin[3] = { DBL_MAX, DBL_MAX, DBL_MAX };
     for (size_t i = 0; i < this->Levels.size(); i++)
@@ -93,7 +93,7 @@ public:
 
     std::vector<unsigned int> blockIds(
       blocksPerLevel.size(), 0); // keep track of the id at each level
-    oamr->Initialize(static_cast<int>(blocksPerLevel.size()), blocksPerLevel.data());
+    oamr->Initialize(blocksPerLevel);
     oamr->SetOrigin(origin);
     oamr->SetGridDescription(gridDescription);
     for (size_t i = 0; i < this->Levels.size(); i++)
@@ -964,7 +964,7 @@ void vtkTemporalFractal::AddTestArray(vtkOverlappingAMR* output)
   int level = 0;
   while (level < levels)
   {
-    int blocks = output->GetNumberOfDataSets(level);
+    int blocks = output->GetNumberOfBlocks(level);
     int block = 0;
     while (block < blocks)
     {
@@ -1028,7 +1028,7 @@ void vtkTemporalFractal::AddVectorArray(vtkOverlappingAMR* output)
   int level = 0;
   while (level < levels)
   {
-    int blocks = output->GetNumberOfDataSets(level);
+    int blocks = output->GetNumberOfBlocks(level);
     int block = 0;
     while (block < blocks)
     {
@@ -1176,7 +1176,7 @@ void vtkTemporalFractal::AddBlockIdArray(vtkOverlappingAMR* output)
   int blockId = 0;
   while (level < levels)
   {
-    int blocks = output->GetNumberOfDataSets(level);
+    int blocks = output->GetNumberOfBlocks(level);
     int block = 0;
     while (block < blocks)
     {
@@ -1210,7 +1210,7 @@ void vtkTemporalFractal::AddDepthArray(vtkOverlappingAMR* output)
   int level = 0;
   while (level < levels)
   {
-    int blocks = output->GetNumberOfDataSets(level);
+    int blocks = output->GetNumberOfBlocks(level);
     int block = 0;
     while (block < blocks)
     {

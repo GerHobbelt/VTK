@@ -252,13 +252,6 @@ int vtkAMRBaseReader::RequestInformation(
   }
 
   info->Set(CAN_HANDLE_PIECE_REQUEST(), 1);
-
-  // std::cout<<"Generate Meta Data: ";
-  // for(int levelIdx=0 ; levelIdx < this->Metadata->GetNumberOfLevels(); ++levelIdx )
-  //  {
-  //  std::cout << " \tL(" << levelIdx << ") = " << this->Metadata->GetNumberOfDataSets( levelIdx )
-  //  << " "; std::cout.flush(); } // END for levels
-  // std::cout<<endl;
   this->LoadedMetaData = true;
   return 1;
 }
@@ -294,9 +287,9 @@ void vtkAMRBaseReader::SetupBlockRequest(vtkInformation* outInf)
       : this->Metadata->GetNumberOfLevels() - 1;
     for (int level = 0; level <= maxLevel; level++)
     {
-      for (unsigned int id = 0; id < this->Metadata->GetNumberOfDataSets(level); id++)
+      for (unsigned int id = 0; id < this->Metadata->GetNumberOfBlocks(level); id++)
       {
-        int index = this->Metadata->GetCompositeIndex(static_cast<unsigned int>(level), id);
+        int index = this->Metadata->GetAbsoluteBlockIndex(static_cast<unsigned int>(level), id);
         this->BlockMap.push_back(index);
       }
     }
@@ -478,7 +471,7 @@ void vtkAMRBaseReader::LoadRequestedBlocks(vtkOverlappingAMR* output)
 
     unsigned int metaLevel;
     unsigned int metaIdx;
-    this->Metadata->GetOverlappingAMRMetaData()->ComputeIndexPair(blockIndex, metaLevel, metaIdx);
+    this->Metadata->ComputeIndexPair(blockIndex, metaLevel, metaIdx);
     unsigned int level = this->GetBlockLevel(blockIdx);
     assert(level == metaLevel);
 
@@ -529,7 +522,7 @@ void vtkAMRBaseReader::AssignAndLoadBlocks(vtkOverlappingAMR* output)
 
     unsigned int metaLevel;
     unsigned int metaIdx;
-    this->Metadata->GetOverlappingAMRMetaData()->ComputeIndexPair(blockIndex, metaLevel, metaIdx);
+    this->Metadata->ComputeIndexPair(blockIndex, metaLevel, metaIdx);
     unsigned int level = this->GetBlockLevel(blockIdx);
     assert(level == metaLevel);
 

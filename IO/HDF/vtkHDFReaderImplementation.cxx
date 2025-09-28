@@ -770,7 +770,7 @@ bool vtkHDFReader::Implementation::ReadLevelData(unsigned int level,
       // Iterate over all datasets, read data and assign attribute
       hsize_t dataOffset = 0;
       hsize_t dataSize = 0;
-      unsigned int numberOfDatasets = data->GetNumberOfDataSets(level);
+      unsigned int numberOfDatasets = data->GetNumberOfBlocks(level);
       for (unsigned int dataSetIndex = 0; dataSetIndex < numberOfDatasets; ++dataSetIndex)
       {
         const vtkAMRBox& amrBox = data->GetAMRBox(level, dataSetIndex);
@@ -964,10 +964,15 @@ bool vtkHDFReader::Implementation::ReadAMRTopology(vtkOverlappingAMR* data, unsi
       std::min(this->AMRInformation.BlocksPerLevel.size(), static_cast<size_t>(maxLevel));
   }
 
-  data->Initialize(
-    static_cast<int>(numberOfLoadedLevels), this->AMRInformation.BlocksPerLevel.data());
+  std::vector<unsigned int> blocksPerLevel;
+  blocksPerLevel.reserve(numberOfLoadedLevels);
+  for (size_t i = 0; i < numberOfLoadedLevels; i++)
+  {
+    blocksPerLevel.emplace_back(this->AMRInformation.BlocksPerLevel[i]);
+  }
+  data->Initialize(blocksPerLevel);
   data->SetOrigin(origin);
-  data->SetGridDescription(VTK_XYZ_GRID);
+  data->SetGridDescription(vtkStructuredData::VTK_STRUCTURED_XYZ_GRID);
 
   while (level < maxLevel)
   {
