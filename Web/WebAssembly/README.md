@@ -1,6 +1,6 @@
-# VTK WebAssembly JavaScript Interface
+# VTK WebAssembly JavaScript
 
-The `vtkWebAssemblyInterface.mjs` module provides JavaScript bindings to VTK's WebAssembly interface using Emscripten. It includes two key classes:
+The `vtkWebAssembly.mjs` module provides JavaScript bindings to VTK WebAssembly using Emscripten. It includes two key classes:
 
 - [`vtkStandaloneSession`](#vtkStandaloneSession): For standalone VTK WebAssembly apps capable of creating and manipulating VTK objects.
 - [`vtkRemoteSession`](#vtkRemoteSession): For remote VTK WebAssembly apps meant to sync with a VTK application on a remote server.
@@ -61,7 +61,7 @@ new vtkRemoteSession()
 | `updateObjectFromState(state: object) => void`                                 | Applies a JSON state to an object.                         |
 | `updateStateFromObject(objectId: number) => void`                              | Updates the state JSON from the object.                    |
 | `setSize(objectId: number, width: number, height: number) => boolean`          | Sets the size of a render window.                          |
-| `render(objectId: number) => boolea>         `                                 | Triggers a render operation.                               |
+| `render(objectId: number) => boolean`                                          | Triggers a render operation.                               |
 | `resetCamera(objectId: number) => boolean`                                     | Resets the camera for the given scene.                     |
 | `startEventLoop(objectId: number) => boolean`                                  | Begins the VTK interactor event loop.                      |
 | `stopEventLoop(objectId: number) => boolean`                                   | Stops the VTK interactor event loop.                       |
