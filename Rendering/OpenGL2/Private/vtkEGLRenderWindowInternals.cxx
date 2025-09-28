@@ -4,6 +4,7 @@
 #include "Private/vtkEGLRenderWindowInternals.h"
 
 #include "vtkLogger.h"
+#include "vtkStringScanner.h"
 
 #include <cassert>
 
@@ -126,22 +127,8 @@ vtkEGLRenderWindowInternals::vtkEGLRenderWindowInternals()
   char* EGLDefaultDeviceIndexEnv = std::getenv("VTK_DEFAULT_EGL_DEVICE_INDEX");
   if (EGLDefaultDeviceIndexEnv)
   {
-    try
-    {
-      int index = atoi(EGLDefaultDeviceIndexEnv);
-      if (index >= 0)
-      {
-        vtkEGLDisplayInitializationHelper::DefaultDeviceIndex = index;
-      }
-    }
-    catch (const std::out_of_range&)
-    {
-      vtkLog(ERROR, "VTK_DEFAULT_EGL_DEVICE_INDEX is out of range.");
-    }
-    catch (const std::invalid_argument&)
-    {
-      vtkLog(ERROR, "VTK_DEFAULT_EGL_DEVICE_INDEX is not a valid integer.");
-    }
+    VTK_FROM_CHARS_IF_ERROR_RETURN(
+      EGLDefaultDeviceIndexEnv, vtkEGLDisplayInitializationHelper::DefaultDeviceIndex, );
   }
 }
 
@@ -266,7 +253,8 @@ bool vtkEGLRenderWindowInternals::SetDeviceAsDisplay(int deviceIndex)
            "EGL_EXT_device_base EGL_EXT_platform_device EGL_EXT_platform_base extensions");
 
     vtkLog(WARNING, "Attempting to use the default egl display for the current platform...");
-    this->Display = eglGetDisplay(this->Config->GetDisplay());
+    this->Display =
+      eglGetDisplay(reinterpret_cast<EGLNativeDisplayType>(this->Config->GetDisplay()));
 
     if (vtkEGLDisplayInitializationHelper::Initialize(this->Display, &major, &minor) == EGL_FALSE)
     {
