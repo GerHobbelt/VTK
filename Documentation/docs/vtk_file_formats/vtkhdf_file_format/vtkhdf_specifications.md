@@ -1,4 +1,3 @@
-
 # VTKHDF format specification
 
 ## General Specification
@@ -556,7 +555,7 @@ Figure 6. - PartitionedDataSetCollection/MultiBlockDataset VTKHDF File Format
 </div>
 
 :::{hint}
-Each block should describe a valid VTKHDF root node for a supported data types. Composite data types are, and will, not be supported.
+Each block should describe a valid VTKHDF root node for a supported data types. Composite data types are not, and will not, be supported.
 :::
 
 ## Temporal Data
@@ -735,9 +734,9 @@ Figure 8. - Temporal OverlappingAMR VTKHDF File Format
 
 ## Limitations
 
-This specification and the reader available in VTK currently only
-supports ImageData, UnstructuredGrid, PolyData, Overlapping AMR, MultiBlockDataSet and Partitioned
-DataSet Collection. Other dataset types may be added later depending on interest and funding.
+This specification and the reader available in VTK currently only supports `ImageData`,
+`UnstructuredGrid`, `PolyData`, `Overlapping AMR`, `MultiBlockDataSet` and `Partitioned
+DataSet Collection`. Other dataset types may be added later depending on interest and funding.
 
 Unlike XML formats, VTKHDF does not support field names containing `/` and `.` characters,
 because of a limitation in the HDF5 format specification.
