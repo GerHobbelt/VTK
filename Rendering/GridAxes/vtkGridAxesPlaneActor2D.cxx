@@ -32,12 +32,7 @@ vtkGridAxesPlaneActor2D* vtkGridAxesPlaneActor2D::New(vtkGridAxesHelper* helper)
 
 //----------------------------------------------------------------------------
 vtkGridAxesPlaneActor2D::vtkGridAxesPlaneActor2D(vtkGridAxesHelper* helper)
-  : Face(vtkGridAxesPlaneActor2D::MIN_YZ)
-  , GenerateGrid(true)
-  , GenerateEdges(true)
-  , GenerateTicks(true)
-  , TickDirection(vtkGridAxesPlaneActor2D::TICK_DIRECTION_BOTH)
-  , Helper(helper)
+  : Helper(helper)
   , HelperManagedExternally(helper != nullptr)
 {
   if (helper == nullptr)
@@ -215,7 +210,7 @@ bool vtkGridAxesPlaneActor2D::UpdateEdges(vtkViewport*)
   const vtkTuple<vtkVector3d, 4>& gridPoints = this->Helper->GetPoints();
   for (int cc = 0; cc < 4; cc++)
   {
-    this->LineSegments.push_back(LineSegmentType(gridPoints[cc], gridPoints[(cc + 1) % 4]));
+    this->LineSegments.emplace_back(gridPoints[cc], gridPoints[(cc + 1) % 4]);
   }
   return true;
 }
@@ -239,7 +234,7 @@ bool vtkGridAxesPlaneActor2D::UpdateGrid(vtkViewport*)
     {
       points[0][activeAxes[cc]] = *iter;
       points[1][activeAxes[cc]] = *iter;
-      this->LineSegments.push_back(LineSegmentType(points[0], points[1]));
+      this->LineSegments.emplace_back(points[0], points[1]);
     }
   }
   return true;
@@ -317,7 +312,7 @@ bool vtkGridAxesPlaneActor2D::UpdateTicks(vtkViewport* viewport)
     {
       points[0][activeAxes[cc % 2]] = *iter;
       points[1][activeAxes[cc % 2]] = *iter;
-      this->LineSegments.push_back(LineSegmentType(points[0], points[1]));
+      this->LineSegments.emplace_back(points[0], points[1]);
     }
   }
 

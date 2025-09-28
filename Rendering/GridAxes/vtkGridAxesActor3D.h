@@ -50,44 +50,23 @@ public:
   vtkGetVector6Macro(GridBounds, double);
   ///@}
 
-  /**
-   * Values for FaceMask.
-   * Developer note: these are deliberately in the same order as
-   * vtkGridAxesHelper::Faces which is same order as faces in vtkVoxel.
-   */
-  enum FaceMasks
-  {
-    MIN_YZ = 0x01,
-    MIN_ZX = 0x02,
-    MIN_XY = 0x04,
-    MAX_YZ = 0x08,
-    MAX_ZX = 0x010,
-    MAX_XY = 0x020
-  };
-
   ///@{
   /**
    * Set the mask to select faces. The faces rendered can be a subset of the
    * faces selected using the FaceMask based on the BackfaceCulling and
    * FrontfaceCulling flags set on the Property.
+   *
+   * Defaults to 0.
    */
   virtual void SetFaceMask(unsigned int mask);
   vtkGetMacro(FaceMask, unsigned int);
   ///@}
 
-  enum LabelMasks
-  {
-    MIN_X = vtkGridAxesHelper::MIN_X,
-    MIN_Y = vtkGridAxesHelper::MIN_Y,
-    MIN_Z = vtkGridAxesHelper::MIN_Z,
-    MAX_X = vtkGridAxesHelper::MAX_X,
-    MAX_Y = vtkGridAxesHelper::MAX_Y,
-    MAX_Z = vtkGridAxesHelper::MAX_Z
-  };
-
   ///@{
   /**
    * Set the axis to label.
+   *
+   * Default is 0xff.
    */
   virtual void SetLabelMask(unsigned int mask);
   unsigned int GetLabelMask();
@@ -113,6 +92,8 @@ public:
   /**
    * Set to true to only label edges shared with 1 face. Note that
    * if all faces are being rendered, this will generate no labels.
+   *
+   * Default is true.
    */
   vtkSetMacro(LabelUniqueEdgesOnly, bool);
   vtkGetMacro(LabelUniqueEdgesOnly, bool);
@@ -121,6 +102,8 @@ public:
   ///@{
   /**
    * Turn off to not generate polydata for the plane's grid.
+   *
+   * Default is true.
    */
   void SetGenerateGrid(bool val);
   bool GetGenerateGrid();
@@ -131,6 +114,8 @@ public:
   /**
    * Turn off to not generate the polydata for the plane's edges. Which edges
    * are rendered is defined by the EdgeMask.
+   *
+   * Default is true.
    */
   void SetGenerateEdges(bool val);
   bool GetGenerateEdges();
@@ -141,6 +126,8 @@ public:
   /**
    * Turn off to not generate the markers for the tick positions. Which edges
    * are rendered is defined by the TickMask.
+   *
+   * Default is true.
    */
   void SetGenerateTicks(bool val);
   bool GetGenerateTicks();
@@ -174,6 +161,8 @@ public:
   /**
    * Get/Set the text to use for titles for the axis. Setting the title to an
    * empty string will hide the title label for that axis.
+   *
+   * Default is empty.
    */
   void SetTitle(int axis, const std::string& title);
   void SetXTitle(const std::string& title) { this->SetTitle(0, title); }
@@ -182,9 +171,12 @@ public:
   const std::string& GetTitle(int axis);
   ///@}
 
+  ///@{
   /**
    * Set whether the specified axis should use custom labels instead of
    * automatically determined ones.
+   *
+   * Default is false.
    */
   void SetUseCustomLabels(int axis, bool val);
   void SetXUseCustomLabels(bool val) { this->SetUseCustomLabels(0, val); }
@@ -200,6 +192,7 @@ public:
   void SetXLabel(vtkIdType index, double value) { this->SetLabel(0, index, value); }
   void SetYLabel(vtkIdType index, double value) { this->SetLabel(1, index, value); }
   void SetZLabel(vtkIdType index, double value) { this->SetLabel(2, index, value); }
+  ///@}
 
   //---------------------------------------------------------------------------
   // *** Properties to control the axis data labels ***
@@ -220,6 +213,8 @@ public:
   /**
    * Get/set the numerical notation, standard, scientific or mixed (0, 1, 2).
    * Accepted values are vtkAxis::AUTO, vtkAxis::FIXED, vtkAxis::CUSTOM.
+   *
+   * By default, this is set to vtkAxis::AUTO.
    */
   void SetNotation(int axis, int notation);
   void SetXNotation(int notation) { this->SetNotation(0, notation); }
@@ -271,16 +266,29 @@ public:
   ///@{
   /**
    * If true, the actor will always be rendered during the opaque pass.
+   *
+   * Defaults to false.
    */
   vtkSetMacro(ForceOpaque, bool);
   vtkGetMacro(ForceOpaque, bool);
   vtkBooleanMacro(ForceOpaque, bool);
   ///@}
 
+  ///@{
+  /**
+   * Standard render methods for different types of geometry
+   */
   int RenderOpaqueGeometry(vtkViewport*) override;
   int RenderTranslucentPolygonalGeometry(vtkViewport* viewport) override;
   int RenderOverlay(vtkViewport* viewport) override;
   int HasTranslucentPolygonalGeometry() override;
+  ///@}
+
+  /**
+   * Release any graphics resources that are being consumed by this prop.
+   * The parameter window could be used to determine which graphic
+   * resources to release.
+   */
   void ReleaseGraphicsResources(vtkWindow*) override;
 
   ///@{
@@ -308,18 +316,17 @@ private:
   vtkGridAxesActor3D(const vtkGridAxesActor3D&) = delete;
   void operator=(const vtkGridAxesActor3D&) = delete;
 
-  vtkMTimeType GetBoundsMTime;
-  double GridBounds[6];
-  unsigned int FaceMask;
-  unsigned int LabelMask;
-  bool LabelUniqueEdgesOnly;
+  vtkMTimeType GetBoundsMTime = 0;
+  double GridBounds[6] = { -1.0, 1.0, -1.0, 1.0, -1.0, 1.0 };
+  unsigned int FaceMask = 0;
+  bool LabelUniqueEdgesOnly = true;
   vtkTuple<bool, 3> UseCustomLabels;
   vtkTuple<vtkNew<vtkDoubleArray>, 3> CustomLabels;
-  vtkMTimeType CustomLabelsMTime;
+  vtkMTimeType CustomLabelsMTime = 0;
 
   vtkTuple<vtkNew<vtkGridAxesActor2D>, 6> GridAxes2DActors;
 
-  bool ForceOpaque;
+  bool ForceOpaque = false;
 };
 
 VTK_ABI_NAMESPACE_END

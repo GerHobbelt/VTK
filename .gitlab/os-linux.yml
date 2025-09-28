@@ -538,13 +538,13 @@
     variables:
         CMAKE_CONFIGURATION: fedora39_x86_64_mpi_python_qt_stdthread
 
-.fedora39_x86_64_mpi_python_vtkmoverride:
+.fedora39_x86_64_mpi_python_viskoresoverride:
     extends:
         - .fedora39_x86_64
         - .fedora_mpich_x86_64_addon
 
     variables:
-        CMAKE_CONFIGURATION: fedora39_x86_64_mpi_python_vtkmoverride
+        CMAKE_CONFIGURATION: fedora39_x86_64_mpi_python_viskoresoverride
 
 .fedora39_x86_64_tidy:
     extends:
@@ -719,6 +719,7 @@
     - git submodule foreach --recursive cmake -P "$PWD/.gitlab/ci/fetch_submodule.cmake"
     - git submodule sync --recursive
     - git submodule update --init --recursive
+    - cmake -P "$PWD/.gitlab/ci/fetch_tags.cmake"
     # Load any modules that may be necessary.
     - '[ -n "$MODULES" ] && . /etc/profile.d/modules.sh && module load $MODULES'
     # Load a venv
@@ -970,12 +971,6 @@
     stage: package
 
     script:
-        - .gitlab/ci/cmake.sh latest
-        - export PATH=$PWD/.gitlab/cmake/bin:$PATH
-        - cmake --version
-        - cmake -P .gitlab/ci/download_node.cmake
-        - export PATH=$PWD/.gitlab/node/bin:$PATH
-        - node --version
         - .gitlab/ci/create_webassembly_archive.sh $WASM_ARCHITECTURE
 
     interruptible: true

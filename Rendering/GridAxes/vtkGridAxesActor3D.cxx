@@ -6,6 +6,7 @@
 #include "vtkBoundingBox.h"
 #include "vtkDoubleArray.h"
 #include "vtkGridAxesActor2D.h"
+#include "vtkGridAxesHelper.h"
 #include "vtkMath.h"
 #include "vtkMatrix4x4.h"
 #include "vtkObjectFactory.h"
@@ -15,31 +16,15 @@
 #include <map>
 
 VTK_ABI_NAMESPACE_BEGIN
-//----------------------------------------------------------------------------
-// to use vtkVector2d in map.
-template <class T>
-static bool operator<(const vtkVector2<T>& x, const vtkVector2<T>& y)
-{
-  return std::pair<T, T>(x[0], x[1]) < std::pair<T, T>(y[0], y[1]);
-}
 
 vtkStandardNewMacro(vtkGridAxesActor3D);
 //----------------------------------------------------------------------------
 vtkGridAxesActor3D::vtkGridAxesActor3D()
-  : GetBoundsMTime(0)
-  , FaceMask(0)
-  , LabelMask(0)
-  , LabelUniqueEdgesOnly(true)
-  , UseCustomLabels(false)
-  , CustomLabelsMTime(0)
-  , ForceOpaque(false)
+  : UseCustomLabels(false)
 {
-  this->GridBounds[0] = this->GridBounds[2] = this->GridBounds[4] = 0.0;
-  this->GridBounds[1] = this->GridBounds[3] = this->GridBounds[5] = 1.0;
-
   for (int cc = 0; cc < 6; cc++)
   {
-    this->GridAxes2DActors[cc]->SetFace(cc);
+    this->GridAxes2DActors[cc]->SetFace((0x01 << cc));
     if (cc > 0)
     {
       // share the text properties among all planes.
@@ -60,7 +45,7 @@ vtkGridAxesActor3D::vtkGridAxesActor3D()
   }
 
   this->SetFaceMask(
-    vtkGridAxesActor3D::MIN_XY | vtkGridAxesActor3D::MIN_YZ | vtkGridAxesActor3D::MIN_ZX);
+    vtkGridAxesHelper::MIN_XY | vtkGridAxesHelper::MIN_YZ | vtkGridAxesHelper::MIN_ZX);
   this->SetLabelMask(0xff);
 }
 

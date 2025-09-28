@@ -20,18 +20,6 @@
 #include <vector>
 
 VTK_ABI_NAMESPACE_BEGIN
-namespace
-{
-// The point is assumed to be in Viewport coordinate system i.e X,Y pixels in
-// the viewport.
-template <class T>
-inline bool IsInViewport(vtkViewport* viewport, const vtkVector2<T>& point)
-{
-  vtkVector2d npos(point.GetX(), point.GetY());
-  viewport->ViewportToNormalizedViewport(npos[0], npos[1]);
-  return (npos[0] >= 0.0 && npos[0] <= 1.0 && npos[1] >= 0.0 && npos[1] <= 1.0);
-}
-}
 
 class vtkGridAxesActor2D::vtkLabels
 {
@@ -202,9 +190,6 @@ vtkStandardNewMacro(vtkGridAxesActor2D);
 vtkGridAxesActor2D::vtkGridAxesActor2D()
   : Labels(new vtkGridAxesActor2D::vtkLabels())
   , DoRender(false)
-  , Face(vtkGridAxesActor2D::MIN_YZ)
-  , LabelMask(0xFF)
-  , ForceOpaque(false)
 {
   this->PlaneActor.TakeReference(vtkGridAxesPlaneActor2D::New(this->Helper.Get()));
   for (int cc = 0; cc < 3; cc++)
@@ -554,9 +539,9 @@ void vtkGridAxesActor2D::UpdateLabelPositions(vtkViewport*)
     }
   }
   activeAxisHelpers[0]->SetUnscaledRange(
-    this->GridBounds[2 * activeAxes.GetX()], this->GridBounds[2 * activeAxes.GetX() + 1]);
+    this->GridBounds[2 * activeAxes.GetX()], this->GridBounds[(2 * activeAxes.GetX()) + 1]);
   activeAxisHelpers[1]->SetUnscaledRange(
-    this->GridBounds[2 * activeAxes.GetY()], this->GridBounds[2 * activeAxes.GetY() + 1]);
+    this->GridBounds[2 * activeAxes.GetY()], this->GridBounds[(2 * activeAxes.GetY()) + 1]);
 
   activeAxisHelpers[0]->Update();
   activeAxisHelpers[1]->Update();
@@ -657,10 +642,10 @@ void vtkGridAxesActor2D::UpdateTextActors(vtkViewport* viewport)
     }
 
     /// XXX: improve this.
-    vtkVector2i offset(vtkContext2D::FloatToInt(axisNormals[index].GetX() * 10 * tileScale[0] +
+    vtkVector2i offset(vtkContext2D::FloatToInt((axisNormals[index].GetX() * 10 * tileScale[0]) +
                          this->LabelDisplayOffset[axis]),
       vtkContext2D::FloatToInt(
-        axisNormals[index].GetY() * 10 * tileScale[1] + this->LabelDisplayOffset[axis]));
+        (axisNormals[index].GetY() * 10 * tileScale[1]) + this->LabelDisplayOffset[axis]));
 
     vtkLabels::ResizeLabels(
       this->Labels->TickLabels[index], numTicks, activeAxisHelpers[axis]->GetLabelProperties());
