@@ -7,10 +7,10 @@
  * vtkUniformGridAMR (AMR stands for Adaptive Mesh Refinement)
  * is a container for vtkUniformGrid. Each grid is added as a block of a given level.
  *
- * The structure of the container is described in a vtkAMRInformation object.
+ * The structure of the container is described in a vtkOverlappingAMRMetaData object.
  *
  * @sa
- * vtkOverlappingAMR, vtkNonOverlappingAMR, vtkAMRInformation, vtkUniformGridAMRDataIterator
+ * vtkOverlappingAMR, vtkNonOverlappingAMR, vtkOverlappingAMRMetaData, vtkUniformGridAMRDataIterator
  */
 
 #ifndef vtkUniformGridAMR_h
@@ -18,11 +18,14 @@
 
 #include "vtkCommonDataModelModule.h" // For export macro
 #include "vtkCompositeDataSet.h"
+#include "vtkNew.h"          // for vtkNew
+#include "vtkSmartPointer.h" // for vtkSmartPointer
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkCompositeDataIterator;
 class vtkUniformGrid;
-class vtkAMRInformation;
+class vtkAMRMetaData;
+class vtkOverlappingAMRMetaData; // VTK_DEPRECATED_IN_9_6_0
 class vtkAMRDataInternals;
 
 class VTKCOMMONDATAMODEL_EXPORT vtkUniformGridAMR : public vtkCompositeDataSet
@@ -79,7 +82,7 @@ public:
    * Get the (min/max) bounds of the AMR domain.
    */
   void GetBounds(double bounds[6]);
-  const double* GetBounds();
+  virtual const double* GetBounds();
   void GetMin(double min[3]);
   void GetMax(double max[3]);
   ///@}
@@ -146,37 +149,57 @@ public:
   static vtkUniformGridAMR* GetData(vtkInformationVector* v, int i = 0);
   ///@}
 
+  ///@{
+  /**
+   * Get/Set the AMR meta data
+   */
+  [[nodiscard]] vtkAMRMetaData* GetAMRMetaData();
+  void SetAMRMetaData(vtkAMRMetaData* metadata);
+  ///@}
+
 protected:
   vtkUniformGridAMR();
   ~vtkUniformGridAMR() override;
 
-  double Bounds[6];
+  ///@{
+  /**
+   * Get/Set the meta AMR data
+   * Deprecated, do not use.
+   */
+  VTK_DEPRECATED_IN_9_6_0("This function is deprecated and should not be used")
+  virtual vtkAMRDataInternals* GetAMRData() { return this->AMRData; }
+  VTK_DEPRECATED_IN_9_6_0("This function is deprecated and has no effect")
+  virtual void SetAMRData(vtkAMRDataInternals*){};
+  ///@}
 
   ///@{
   /**
-   * Get/Set the meta AMR meta data
+   * Noop and deprecated, use GetAMRData/SetAMRMetaData instead
    */
-  vtkGetObjectMacro(AMRData, vtkAMRDataInternals);
-  virtual void SetAMRData(vtkAMRDataInternals*);
+  VTK_DEPRECATED_IN_9_6_0(
+    "This function is deprecated and should not be inherited, use GetAMRMetaData() instead")
+  virtual vtkOverlappingAMRMetaData* GetAMRInfo() { return nullptr; };
+  VTK_DEPRECATED_IN_9_6_0(
+    "This function is deprecated and should not be inherited, use SetAMRMetaData() instead")
+  virtual void SetAMRInfo(vtkOverlappingAMRMetaData*){};
   ///@}
-
-  vtkAMRDataInternals* AMRData;
-
-  ///@{
-  /**
-   * Get/Set the meta AMR meta info
-   */
-  vtkGetObjectMacro(AMRInfo, vtkAMRInformation);
-  virtual void SetAMRInfo(vtkAMRInformation*);
-  ///@}
-
-  vtkAMRInformation* AMRInfo;
 
 private:
   vtkUniformGridAMR(const vtkUniformGridAMR&) = delete;
   void operator=(const vtkUniformGridAMR&) = delete;
 
   friend class vtkUniformGridAMRDataIterator;
+
+  double Bounds[6] = {
+    VTK_DOUBLE_MAX,
+    VTK_DOUBLE_MIN,
+    VTK_DOUBLE_MAX,
+    VTK_DOUBLE_MIN,
+    VTK_DOUBLE_MAX,
+    VTK_DOUBLE_MIN,
+  };
+  vtkNew<vtkAMRDataInternals> AMRData;
+  vtkSmartPointer<vtkAMRMetaData> AMRMetaData;
 };
 
 VTK_ABI_NAMESPACE_END

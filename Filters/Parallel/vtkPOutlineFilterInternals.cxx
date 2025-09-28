@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 #include "vtkPOutlineFilterInternals.h"
 
-#include "vtkAMRInformation.h"
 #include "vtkAppendPolyData.h"
 #include "vtkBoundingBox.h"
 #include "vtkCompositeDataIterator.h"
@@ -15,6 +14,7 @@
 #include "vtkOutlineCornerSource.h"
 #include "vtkOutlineSource.h"
 #include "vtkOverlappingAMR.h"
+#include "vtkOverlappingAMRMetaData.h"
 #include "vtkPolyData.h"
 #include "vtkSmartPointer.h"
 #include "vtkUniformGrid.h"
@@ -210,7 +210,7 @@ int vtkPOutlineFilterInternals::RequestData(vtkOverlappingAMR* input, vtkPolyDat
     for (unsigned int dataIdx = 0; dataIdx < num_datasets; ++dataIdx)
     {
       double bounds[6];
-      input->GetAMRInfo()->GetBounds(level, dataIdx, bounds);
+      input->GetBounds(level, dataIdx, bounds);
       appender->AddInputData(this->GenerateOutlineGeometry(bounds));
     }
   }

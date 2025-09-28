@@ -7,7 +7,6 @@
 #include "vtkCompositeDataReader.h"
 
 #include "vtkAMRBox.h"
-#include "vtkAMRInformation.h"
 #include "vtkDataAssembly.h"
 #include "vtkDataObjectTypes.h"
 #include "vtkDoubleArray.h"
@@ -22,6 +21,7 @@
 #include "vtkNonOverlappingAMR.h"
 #include "vtkObjectFactory.h"
 #include "vtkOverlappingAMR.h"
+#include "vtkOverlappingAMRMetaData.h"
 #include "vtkPartitionedDataSet.h"
 #include "vtkPartitionedDataSetCollection.h"
 #include "vtkStreamingDemandDrivenPipeline.h"
@@ -357,7 +357,7 @@ bool vtkCompositeDataReader::ReadCompositeData(vtkOverlappingAMR* oamr)
   oamr->SetOrigin(origin);
   for (int cc = 0; cc < num_levels; cc++)
   {
-    oamr->GetAMRInfo()->SetSpacing(cc, &spacing[3 * cc]);
+    oamr->SetSpacing(cc, &spacing[3 * cc]);
   }
 
   // read in the amr boxes0

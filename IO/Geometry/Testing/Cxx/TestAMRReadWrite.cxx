@@ -4,11 +4,11 @@
 // .SECTION Description
 //
 #include "vtkAMREnzoReader.h"
-#include "vtkAMRInformation.h"
 #include "vtkCompositeDataReader.h"
 #include "vtkCompositeDataWriter.h"
 #include "vtkNew.h"
 #include "vtkOverlappingAMR.h"
+#include "vtkOverlappingAMRMetaData.h"
 #include "vtkSetGet.h"
 #include "vtkSmartPointer.h"
 #include "vtkTestUtilities.h"
@@ -56,5 +56,6 @@ int TestAMRReadWrite(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
-  return (*amr1->GetAMRInfo() == *amr->GetAMRInfo()) ? EXIT_SUCCESS : EXIT_FAILURE;
+  return (*amr1->GetOverlappingAMRMetaData() == *amr->GetOverlappingAMRMetaData()) ? EXIT_SUCCESS
+                                                                                   : EXIT_FAILURE;
 }

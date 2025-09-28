@@ -4,7 +4,6 @@
 #include "vtkXMLUniformGridAMRReader.h"
 
 #include "vtkAMRBox.h"
-#include "vtkAMRInformation.h"
 #include "vtkAMRUtilities.h"
 #include "vtkCompositeDataPipeline.h"
 #include "vtkDataArraySelection.h"
@@ -14,6 +13,7 @@
 #include "vtkNonOverlappingAMR.h"
 #include "vtkObjectFactory.h"
 #include "vtkOverlappingAMR.h"
+#include "vtkOverlappingAMRMetaData.h"
 #include "vtkSmartPointer.h"
 #include "vtkUniformGrid.h"
 #include "vtkXMLDataElement.h"
@@ -227,7 +227,7 @@ int vtkXMLUniformGridAMRReader::ReadPrimaryElement(vtkXMLDataElement* ePrimary)
 
   if (!blocks_per_level.empty())
   {
-    // initialize vtkAMRInformation.
+    // initialize vtkOverlappingAMRMetaData.
     this->Metadata->Initialize(
       static_cast<int>(blocks_per_level.size()), reinterpret_cast<int*>(blocks_per_level.data()));
 
@@ -257,7 +257,7 @@ int vtkXMLUniformGridAMRReader::ReadPrimaryElement(vtkXMLDataElement* ePrimary)
     // pass refinement ratios.
     for (size_t cc = 0; cc < level_spacing.size(); cc++)
     {
-      this->Metadata->GetAMRInfo()->SetSpacing(static_cast<unsigned int>(cc), level_spacing[cc]);
+      this->Metadata->SetSpacing(static_cast<unsigned int>(cc), level_spacing[cc]);
     }
     //  pass amr boxes.
     for (size_t level = 0; level < amr_boxes.size(); level++)
@@ -267,7 +267,7 @@ int vtkXMLUniformGridAMRReader::ReadPrimaryElement(vtkXMLDataElement* ePrimary)
         const vtkAMRBox& box = amr_boxes[level][index];
         if (!box.Empty())
         {
-          this->Metadata->GetAMRInfo()->SetAMRBox(
+          this->Metadata->SetAMRBox(
             static_cast<unsigned int>(level), static_cast<unsigned int>(index), box);
         }
       }
@@ -379,7 +379,7 @@ void vtkXMLUniformGridAMRReader::ReadComposite(vtkXMLDataElement* element,
   {
     // we don;t have the parse the structure. Just pass the inform from
     // this->Metadata.
-    oamr->SetAMRInfo(this->Metadata->GetAMRInfo());
+    oamr->SetAMRMetaData(this->Metadata->GetAMRMetaData());
   }
   else if (noamr)
   {
