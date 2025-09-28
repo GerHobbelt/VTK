@@ -4043,7 +4043,7 @@ void vtkFoamEntryValue::ReadCompactLabelListList(vtkFoamIOobject& io)
 //   and we silently skip these
 void vtkFoamEntryValue::ReadDimensionSet(vtkFoamIOobject& io)
 {
-  const int nDimensions = 7; // There are 7 base dimensions
+  constexpr int nDimensions = 7; // There are 7 base dimensions
   this->MakeScalarList(nDimensions, 0.0);
   vtkFloatArray& dims = *(this->Superclass::ScalarListPtr);
 
@@ -8835,7 +8835,7 @@ vtkSmartPointer<vtkFloatArray> vtkOpenFOAMReaderPrivate::FillField(vtkFoamEntry&
       else if (entry.FirstValue().GetType() == vtkFoamToken::SCALARLIST)
       {
         vtkFloatArray& sl = entry.ScalarList();
-        nComponents = static_cast<int>(sl.GetSize());
+        nComponents = static_cast<int>(sl.GetNumberOfValues());
         tuple = sl.GetPointer(0);
       }
       else
@@ -8907,7 +8907,7 @@ vtkSmartPointer<vtkFloatArray> vtkOpenFOAMReaderPrivate::FillField(vtkFoamEntry&
 // Convert OpenFOAM dimension array to string representation
 std::string vtkOpenFOAMReaderPrivate::ConstructDimensions(const vtkFoamDict& dict) const
 {
-  const int nDimensions = 7; // There are 7 base dimensions
+  constexpr int nDimensions = 7; // There are 7 base dimensions
   static const char* units[7] = { "kg", "m", "s", "K", "mol", "A", "cd" };
 
   if (!this->Parent->GetAddDimensionsToArrayNames())
@@ -9148,7 +9148,7 @@ void vtkOpenFOAMReaderPrivate::GetVolFieldAtTimeStep(
 #endif
     return;
   }
-  else if (iData->GetSize() == 0)
+  else if (iData->GetNumberOfTuples() == 0)
   {
 #if VTK_OPENFOAM_TIME_PROFILING
     this->RequestDataTimeInMicroseconds += io.TimeInMicroseconds;
@@ -9681,7 +9681,7 @@ void vtkOpenFOAMReaderPrivate::GetPointFieldAtTimeStep(const std::string& varNam
 #endif
     return;
   }
-  else if (iData->GetSize() == 0)
+  else if (iData->GetNumberOfTuples() == 0)
   {
 #if VTK_OPENFOAM_TIME_PROFILING
     this->RequestDataTimeInMicroseconds += io.TimeInMicroseconds;
