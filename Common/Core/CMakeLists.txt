@@ -214,11 +214,13 @@ foreach (INSTANTIATION_VALUE_TYPE IN LISTS vtk_numeric_types)
     vtkCompositeImplicitBackendInstantiate
     vtkConstantImplicitBackendInstantiate
     vtkIndexedImplicitBackendInstantiate
+    vtkStridedImplicitBackendInstantiate
     vtkStructuredPointBackendInstantiate
     vtkAffineArrayInstantiate
     vtkCompositeArrayInstantiate
     vtkConstantArrayInstantiate
     vtkIndexedArrayInstantiate
+    vtkStridedArrayInstantiate
     vtkSOADataArrayTemplateInstantiate
     vtkStdFunctionArrayInstantiate
     vtkStructuredPointArrayInstantiate
@@ -252,6 +254,7 @@ set(classes
   vtkAnimationCue
   vtkArchiver
   vtkArray
+  vtkArrayComponents
   vtkArrayCoordinates
   vtkArrayExtents
   vtkArrayExtentsList
@@ -389,6 +392,7 @@ set(nowrap_template_classes
   vtkCompositeImplicitBackend
   vtkImplicitArray
   vtkIndexedImplicitBackend
+  vtkStridedImplicitBackend
   vtkStructuredPointBackend
   vtkTypeList)
 
@@ -629,6 +633,7 @@ set(nowrap_headers
   vtkIndexedArray.h
   vtkInherits.h
   vtkMathPrivate.hxx
+  vtkStridedArray.h
   vtkStdFunctionArray.h
   vtkStructuredPointArray.h
   vtkTypeName.h
