@@ -973,30 +973,12 @@ void vtkRenderer::ComputeVisiblePropBounds(double allBounds[6])
       {
         nothingVisible = 0;
 
-        if (bounds[0] < allBounds[0])
-        {
-          allBounds[0] = bounds[0];
-        }
-        if (bounds[1] > allBounds[1])
-        {
-          allBounds[1] = bounds[1];
-        }
-        if (bounds[2] < allBounds[2])
-        {
-          allBounds[2] = bounds[2];
-        }
-        if (bounds[3] > allBounds[3])
-        {
-          allBounds[3] = bounds[3];
-        }
-        if (bounds[4] < allBounds[4])
-        {
-          allBounds[4] = bounds[4];
-        }
-        if (bounds[5] > allBounds[5])
-        {
-          allBounds[5] = bounds[5];
-        }
+        allBounds[0] = std::min(bounds[0], allBounds[0]);
+        allBounds[1] = std::max(bounds[1], allBounds[1]);
+        allBounds[2] = std::min(bounds[2], allBounds[2]);
+        allBounds[3] = std::max(bounds[3], allBounds[3]);
+        allBounds[4] = std::min(bounds[4], allBounds[4]);
+        allBounds[5] = std::max(bounds[5], allBounds[5]);
       } // not bogus
     }
   }
@@ -1267,10 +1249,7 @@ void vtkRenderer::ResetCameraClippingRange(const double bounds[6])
   }
 
   // Do not let the range behind the camera throw off the calculation.
-  if (range[0] < 0.0)
-  {
-    range[0] = 0.0;
-  }
+  range[0] = std::max(range[0], 0.0);
 
   // Give ourselves a little breathing room
   range[0] = 0.99 * range[0] - (range[1] - range[0]) * this->ClippingRangeExpansion;
@@ -1298,10 +1277,7 @@ void vtkRenderer::ResetCameraClippingRange(const double bounds[6])
   // make sure the front clipping range is not too far from the far clippnig
   // range, this is to make sure that the zbuffer resolution is effectively
   // used
-  if (range[0] < this->NearClippingPlaneTolerance * range[1])
-  {
-    range[0] = this->NearClippingPlaneTolerance * range[1];
-  }
+  range[0] = std::max(range[0], this->NearClippingPlaneTolerance * range[1]);
 
   this->ActiveCamera->SetClippingRange(range);
 }
@@ -1522,8 +1498,7 @@ double vtkRenderer::GetZ(int x, int y)
     {
       vtkSelectionNode* selnode = sel->GetNode(pIdx);
       double adepth = selnode->GetProperties()->Get(vtkSelectionNode::ZBUFFER_VALUE());
-      if (adepth < closestDepth)
-        closestDepth = adepth;
+      closestDepth = std::min(adepth, closestDepth);
     }
 
     return closestDepth;
@@ -1911,31 +1886,19 @@ vtkAssemblyPath* vtkRenderer::PickProp(double selectionX1, double selectionY1, d
     this->PickResultProps = nullptr;
   }
 
-  this->PickX1 = (selectionX1 < selectionX2) ? selectionX1 : selectionX2;
-  this->PickY1 = (selectionY1 < selectionY2) ? selectionY1 : selectionY2;
-  this->PickX2 = (selectionX1 > selectionX2) ? selectionX1 : selectionX2;
-  this->PickY2 = (selectionY1 > selectionY2) ? selectionY1 : selectionY2;
+  this->PickX1 = std::min(selectionX1, selectionX2);
+  this->PickY1 = std::min(selectionY1, selectionY2);
+  this->PickX2 = std::max(selectionX1, selectionX2);
+  this->PickY2 = std::max(selectionY1, selectionY2);
 
   // Do not let pick area go outside the viewport
   int lowerLeft[2];
   int usize, vsize;
   this->GetTiledSizeAndOrigin(&usize, &vsize, lowerLeft, lowerLeft + 1);
-  if (this->PickX1 < lowerLeft[0])
-  {
-    this->PickX1 = lowerLeft[0];
-  }
-  if (this->PickY1 < lowerLeft[1])
-  {
-    this->PickY1 = lowerLeft[1];
-  }
-  if (this->PickX2 >= lowerLeft[0] + usize)
-  {
-    this->PickX2 = lowerLeft[0] + usize - 1;
-  }
-  if (this->PickY2 >= lowerLeft[1] + vsize)
-  {
-    this->PickY2 = lowerLeft[1] + vsize - 1;
-  }
+  this->PickX1 = std::max<double>(this->PickX1, lowerLeft[0]);
+  this->PickY1 = std::max<double>(this->PickY1, lowerLeft[1]);
+  this->PickX2 = std::min<double>(this->PickX2, lowerLeft[0] + usize - 1);
+  this->PickY2 = std::min<double>(this->PickY2, lowerLeft[1] + vsize - 1);
 
   // if degenerate then return nullptr
   if (this->PickX1 > this->PickX2 || this->PickY1 > this->PickY2)
@@ -2061,10 +2024,8 @@ void vtkRenderer::ExpandBounds(double bounds[6], vtkMatrix4x4* matrix)
   {
     for (int j = 0; j < 3; ++j)
     {
-      if (min[j] > pt[i][j])
-        min[j] = pt[i][j];
-      if (max[j] < pt[i][j])
-        max[j] = pt[i][j];
+      min[j] = std::min(min[j], pt[i][j]);
+      max[j] = std::max(max[j], pt[i][j]);
     }
   }
 
@@ -2206,6 +2167,8 @@ void vtkRenderer::SetEnvironmentUp(double vectorUpX, double vectorUpY, double ve
     this->EnvironmentRotationMatrix->SetElement(0, 1, vectorUpX);
     this->EnvironmentRotationMatrix->SetElement(1, 1, vectorUpY);
     this->EnvironmentRotationMatrix->SetElement(2, 1, vectorUpZ);
+
+    this->ComputeRotationMatrixForwardVector();
     this->Modified();
   }
 }
@@ -2250,6 +2213,8 @@ void vtkRenderer::SetEnvironmentRight(double vectorRightX, double vectorRightY, 
     this->EnvironmentRotationMatrix->SetElement(0, 0, vectorRightX);
     this->EnvironmentRotationMatrix->SetElement(1, 0, vectorRightY);
     this->EnvironmentRotationMatrix->SetElement(2, 0, vectorRightZ);
+
+    this->ComputeRotationMatrixForwardVector();
     this->Modified();
   }
 }
@@ -2258,5 +2223,26 @@ void vtkRenderer::SetEnvironmentRight(double vectorRightX, double vectorRightY, 
 void vtkRenderer::SetEnvironmentRight(double vectorRight[3])
 {
   this->SetEnvironmentRight(vectorRight[0], vectorRight[1], vectorRight[2]);
+}
+
+//------------------------------------------------------------------------------
+void vtkRenderer::ComputeRotationMatrixForwardVector()
+{
+  double up[3] = { this->EnvironmentRotationMatrix->GetElement(0, 1),
+    this->EnvironmentRotationMatrix->GetElement(1, 1),
+    this->EnvironmentRotationMatrix->GetElement(2, 1) };
+
+  double right[3] = { this->EnvironmentRotationMatrix->GetElement(0, 0),
+    this->EnvironmentRotationMatrix->GetElement(1, 0),
+    this->EnvironmentRotationMatrix->GetElement(2, 0) };
+
+  double forward[3];
+  vtkMath::Cross(right, up, forward);
+  vtkMath::Normalize(forward);
+
+  for (int i = 0; i < 3; ++i)
+  {
+    this->EnvironmentRotationMatrix->SetElement(i, 2, forward[i]);
+  }
 }
 VTK_ABI_NAMESPACE_END
