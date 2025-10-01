@@ -24,6 +24,7 @@ vtkImporter::vtkImporter() = default;
 //------------------------------------------------------------------------------
 vtkImporter::~vtkImporter()
 {
+  this->SetFileName(nullptr);
   this->SetRenderWindow(nullptr);
 
   if (this->Renderer)
@@ -112,6 +113,17 @@ void vtkImporter::PrintSelf(ostream& os, vtkIndent indent)
   {
     os << "(none)\n";
   }
+
+  os << indent << "Stream: ";
+  if (this->Stream)
+  {
+    this->Stream->PrintSelf(os, indent.GetNextIndent());
+  }
+  else
+  {
+    os << "(none)\n";
+  }
+  os << indent << "File Name: " << (this->FileName ? this->FileName : "(none)") << "\n";
 }
 
 //------------------------------------------------------------------------------

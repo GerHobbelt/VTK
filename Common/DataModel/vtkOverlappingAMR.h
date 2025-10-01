@@ -53,6 +53,7 @@ public:
    */
   int GetDataObjectType() VTK_FUTURE_CONST override { return VTK_OVERLAPPING_AMR; }
   vtkTypeMacro(vtkOverlappingAMR, vtkUniformGridAMR);
+  void PrintSelf(ostream& os, vtkIndent indent) override;
 
   ///@{
   /**
@@ -119,11 +120,19 @@ public:
    */
   static vtkOverlappingAMR* GetData(vtkInformation* info)
   {
-    return vtkOverlappingAMR::SafeDownCast(Superclass::GetData(info));
+    // VTK_DEPRECATED_IN_9_6_0:
+    // We cannot use Superclass directly because this method is deprecated
+    // When removing deprecated code, please Remove this command and replace
+    // `vtkAMRDataObject` by `Superclass` in the line below.
+    return vtkOverlappingAMR::SafeDownCast(vtkAMRDataObject::GetData(info));
   }
   static vtkOverlappingAMR* GetData(vtkInformationVector* v, int i = 0)
   {
-    return vtkOverlappingAMR::SafeDownCast(Superclass::GetData(v, i));
+    // VTK_DEPRECATED_IN_9_6_0:
+    // We cannot use Superclass directly because this method is deprecated
+    // When removing deprecated code, please Remove this command and replace
+    // `vtkAMRDataObject` by `Superclass` in the line below.
+    return vtkOverlappingAMR::SafeDownCast(vtkAMRDataObject::GetData(v, i));
   }
 
   /**
