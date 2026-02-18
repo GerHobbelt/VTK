@@ -98,6 +98,13 @@ public:
   ///@}
 
   /**
+   * Compute the average cell size for each cell type in the mesh, and store it in field data arrays
+   * (TriArea, QuadArea, TetVolume, PyrVolume, WedgeVolume, and HexVolume)
+   * and in static variables for use in quality measures that require it.
+   */
+  static void ComputeAverageCellSize(vtkDataSet* dataset);
+
+  /**
    * Enum which lists the Quality Measures Types.
    *
    * - AREA: Element area computed via Jacobian.
@@ -114,6 +121,7 @@ public:
    * - EDGE_RATIO: Ratio between the longest and the shortest edge.
    * - EQUIANGLE_SKEW: Angular deviation from ideal equiangle configuration.
    * - EQUIVOLUME_SKEW: Volume-based skewness measure.
+   * - INRADIUS: The radius of the largest sphere that fits snugly inside it.
    * - JACOBIAN: Minimum point-wise volume at corners or element center.
    * - MAX_ANGLE: Maximal (nonoriented) angle, expressed in degrees.
    * - MAX_ASPECT_FROBENIUS: Maximum Frobenius aspect of corner triangles or tetrahedra.
@@ -163,6 +171,7 @@ public:
     EQUIANGLE_SKEW = 29,
     EQUIVOLUME_SKEW = 30,
     JACOBIAN = 25,
+    INRADIUS = 37,
     MAX_ANGLE = 8,
     MAX_ASPECT_FROBENIUS = 5,
     MAX_EDGE_RATIO = 16,
@@ -187,7 +196,7 @@ public:
     TAPER = 18,
     VOLUME = 19,
     WARPAGE = 26,
-    TOTAL_QUALITY_MEASURE_TYPES = 37,
+    TOTAL_QUALITY_MEASURE_TYPES = 38,
     NONE = TOTAL_QUALITY_MEASURE_TYPES
   };
 
@@ -400,6 +409,10 @@ public:
   void SetTetQualityMeasureToAspectFrobenius()
   {
     this->SetTetQualityMeasure(QualityMeasureTypes::ASPECT_FROBENIUS);
+  }
+  void SetTetQualityMeasureToInradius()
+  {
+    this->SetTetQualityMeasure(QualityMeasureTypes::INRADIUS);
   }
   void SetTetQualityMeasureToMinAngle()
   {
@@ -677,6 +690,7 @@ public:
    * Calculate the distortion of a triangle.
    *
    * @note Supports only vtkTriangle, vtkQuadraticTriangle, and vtkBiQuadraticTriangle.
+   * @warning For vtkTriangle is will always return 1.0  because it's a 2-simplex.
    */
   static double TriangleDistortion(vtkCell* cell, bool linearApproximation = false);
 
@@ -746,7 +760,7 @@ public:
   /**
    * Calculate the scaled Jacobian of a triangle.
    *
-   * @note Supports only vtkTriangle.
+   * @note Supports only vtkTriangle, vtkQuadraticTriangle.
    */
   static double TriangleScaledJacobian(vtkCell* cell, bool linearApproximation = false);
 
@@ -1056,6 +1070,7 @@ public:
    * parent volume = 1 / 6 for a tetrahedron.
    *
    * @note Supports only vtkTetra and vtkQuadraticTetra.
+   * @warning For vtkTetra is will always return 1.0 because it's a 3-simplex.
    */
   static double TetDistortion(vtkCell* cell, bool linearApproximation = false);
 
@@ -1085,10 +1100,18 @@ public:
   static double TetEquivolumeSkew(vtkCell* cell, bool linearApproximation = false);
 
   /**
+   * Calculate the inradius of a tetrahedron.
+   * The inradius of a tetrahedron is the radius of the largest sphere that fits snugly inside it.
+   *
+   * @note Supports only vtkTetra, vtkQuadraticTetra.
+   */
+  static double TetInradius(vtkCell* cell, bool linearApproximation = false);
+
+  /**
    * Calculate the Jacobian of a tetrahedron.
    * The jacobian of a tetrahedron is the minimum point-wise volume at any corner.
    *
-   * @note Supports only vtkTetra.
+   * @note Supports only vtkTetra, vtkQuadraticTetra.
    */
   static double TetJacobian(vtkCell* cell, bool linearApproximation = false);
 
@@ -1146,7 +1169,7 @@ public:
    * The scaled jacobian of a tetrahedron is the minimum Jacobian divided
    * by the lengths of 3 edge vectors.
    *
-   * @note Supports only vtkTetra.
+   * @note Supports only vtkTetra and vtkQuadraticTetra.
    */
   static double TetScaledJacobian(vtkCell* cell, bool linearApproximation = false);
 
@@ -1506,7 +1529,6 @@ public:
    * @note Supports only vtkHexahedron.
    */
   static double HexTaper(vtkCell* cell, bool linearApproximation = false);
-
   /**
    * Calculate the volume of a hexahedron.
    * The volume of a hexahedron is the Jacobian at the hexahedron center.

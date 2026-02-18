@@ -22,7 +22,7 @@ var vtkEmscriptenTestUtilities = {
     hostPathFile = UTF8ToString(hostPathFile);
     const req = new XMLHttpRequest;
     req.overrideMimeType('text/plain; charset=x-user-defined');
-    req.open("GET", `file://${hostPathFile}`, false);
+    req.open("GET", `preload?file=${hostPathFile}`, false);
     try {
       req.send(null);
     } catch (e){
@@ -62,7 +62,17 @@ var vtkEmscriptenTestUtilities = {
       body: new Uint8Array(HEAPU8.subarray(data, data + nbytes)),
       keepAlive: true,
     };
-    window.pendingVTKPostRequests.push(fetch(url, payload));
+    if (typeof window == 'undefined') {
+      const req = new XMLHttpRequest;
+      req.open("POST", url, false);
+      try {
+        req.send(payload.body);
+      } catch (e){
+        console.error(`Failed to send data to ${url}: ${e}`);
+      }
+    } else {
+      window.pendingVTKPostRequests.push(fetch(url, payload));
+    }
   },
 
   /**
