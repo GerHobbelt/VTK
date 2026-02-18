@@ -37,6 +37,7 @@
 #include <viskores/cont/UnknownArrayHandle.h> // For viskores::cont::UnknownArrayHandle
 
 #include <memory> // For std::unique_ptr<>
+#include <mutex>  // For std::mutex
 
 namespace fromvtkm
 {
@@ -46,22 +47,31 @@ template <typename T>
 class ArrayHandleHelperBase;
 
 template <typename T>
-struct ArrayHandleHelperSwapper;
+class ArrayHandleHelperUnknown;
+
+template <typename ArrayHandleType>
+class ArrayHandleHelperRead;
+
+template <typename ArrayHandleType>
+class ArrayHandleHelperWrite;
 
 VTK_ABI_NAMESPACE_END
 } // fromvtkm
 
 VTK_ABI_NAMESPACE_BEGIN
 template <typename T>
-class vtkmDataArray : public vtkGenericDataArray<vtkmDataArray<T>, T>
+class vtkmDataArray : public vtkGenericDataArray<vtkmDataArray<T>, T, vtkArrayTypes::VTKmDataArray>
 {
   static_assert(std::is_arithmetic<T>::value, "T must be an integral or floating-point type");
 
-  using GenericDataArrayType = vtkGenericDataArray<vtkmDataArray<T>, T>;
-  using SelfType = vtkmDataArray<T>;
-  vtkTemplateTypeMacro(SelfType, GenericDataArrayType);
+  using GenericDataArrayType =
+    vtkGenericDataArray<vtkmDataArray<T>, T, vtkArrayTypes::VTKmDataArray>;
 
 public:
+  using SelfType = vtkmDataArray<T>;
+  vtkTemplateTypeMacro(SelfType, GenericDataArrayType);
+  using typename Superclass::ArrayTypeTag;
+  using typename Superclass::DataTypeTag;
   using typename Superclass::ValueType;
 
   static vtkmDataArray* New();
@@ -114,14 +124,24 @@ protected:
 
 private:
   // To access concept methods
-  friend Superclass;
-  friend fromvtkm::ArrayHandleHelperSwapper<T>;
+  friend class vtkGenericDataArray<SelfType, ValueType, ArrayTypeTag::value>;
+  friend fromvtkm::ArrayHandleHelperBase<T>;
+  friend fromvtkm::ArrayHandleHelperUnknown<T>;
+  template <typename ArrayHandleType>
+  friend class fromvtkm::ArrayHandleHelperRead;
+  template <typename ArrayHandleType>
+  friend class fromvtkm::ArrayHandleHelperWrite;
 
   mutable std::unique_ptr<fromvtkm::ArrayHandleHelperBase<T>> Helper;
+
+  mutable std::mutex Mutex;
 
   vtkmDataArray(const vtkmDataArray&) = delete;
   void operator=(const vtkmDataArray&) = delete;
 };
+
+// Declare vtkArrayDownCast implementations for vtkmDataArray:
+vtkArrayDownCast_TemplateFastCastMacro(vtkmDataArray);
 
 //=============================================================================
 template <typename T, typename S>
@@ -129,6 +149,16 @@ inline vtkmDataArray<typename viskores::VecTraits<T>::BaseComponentType>* make_v
   const viskores::cont::ArrayHandle<T, S>& ah)
 {
   auto ret = vtkmDataArray<typename viskores::VecTraits<T>::BaseComponentType>::New();
+  ret->SetVtkmArrayHandle(ah);
+  return ret;
+}
+
+//=============================================================================
+template <typename TCast, typename TReal, typename S>
+inline vtkmDataArray<typename viskores::VecTraits<TReal>::BaseComponentType>* make_vtkmDataArray(
+  const viskores::cont::ArrayHandle<TCast, viskores::cont::StorageTagCast<TReal, S>>& ah)
+{
+  auto ret = vtkmDataArray<typename viskores::VecTraits<TReal>::BaseComponentType>::New();
   ret->SetVtkmArrayHandle(ah);
   return ret;
 }

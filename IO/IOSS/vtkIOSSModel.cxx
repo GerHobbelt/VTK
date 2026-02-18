@@ -584,7 +584,7 @@ std::map<unsigned char, int64_t> GetElementCounts(
       case VTK_UNSTRUCTURED_GRID_BASE:
       {
         vtkNew<vtkCellTypes> cellTypesOfUnstructuredData;
-        ds->GetCellTypes(cellTypesOfUnstructuredData);
+        ds->GetDistinctCellTypes(cellTypesOfUnstructuredData);
         auto range = vtk::DataArrayValueRange(cellTypesOfUnstructuredData->GetCellTypesArray());
         std::copy(range.begin(), range.end(), std::inserter(cellTypes, cellTypes.end()));
         break;
@@ -1101,7 +1101,7 @@ struct vtkNodeBlock : vtkGroupingEntity
     nodeBlock->put_field_data("ids", this->Ids);
 
     // add mesh coordinates
-    using Dispatcher = vtkArrayDispatch::DispatchByValueTypeUsingArrays<vtkArrayDispatch::AllArrays,
+    using Dispatcher = vtkArrayDispatch::DispatchByArrayAndValueType<vtkArrayDispatch::AllArrays,
       vtkArrayDispatch::Reals>;
     PutFieldWorker<double> worker(3, this->Ids.size(), false /* createAOS */);
     for (size_t dsIndex = 0; dsIndex < this->DataSets.size(); ++dsIndex)

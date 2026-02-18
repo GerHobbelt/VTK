@@ -9,6 +9,7 @@
 #include "vtkCell.h"
 #include "vtkCellData.h"
 #include "vtkCellSizeFilter.h"
+#include "vtkCellTypeUtilities.h"
 #include "vtkCellTypes.h"
 #include "vtkCollection.h"
 #include "vtkDataArrayRange.h"
@@ -55,12 +56,12 @@ void AllocatePointAttributes(vtkPointData* inPD, vtkPointData* outPD, vtkIdType 
 unsigned char GetTopologicalDimension(vtkDataSet* ds)
 {
   vtkNew<vtkCellTypes> cTypes;
-  ds->GetCellTypes(cTypes);
+  ds->GetDistinctCellTypes(cTypes);
   unsigned char topoDim = 0;
   for (vtkIdType iC = 0; iC < cTypes->GetNumberOfTypes(); ++iC)
   {
     unsigned char dimC =
-      static_cast<unsigned char>(vtkCellTypes::GetDimension(cTypes->GetCellType(iC)));
+      static_cast<unsigned char>(vtkCellTypeUtilities::GetDimension(cTypes->GetCellType(iC)));
     topoDim = std::max(topoDim, dimC);
     if (topoDim >= MAX_CELL_DIM)
     {

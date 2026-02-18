@@ -4,6 +4,8 @@
 
 #include "vtkAOSDataArrayTemplate.h"
 #include "vtkCellData.h"
+#include "vtkCellTypeUtilities.h"
+#include "vtkCellTypes.h"
 #include "vtkCompositeDataSet.h"
 #include "vtkDataArray.h"
 #include "vtkDataAssembly.h"
@@ -57,7 +59,7 @@ bool IsMixedShape(vtkPolyData* grid)
 {
   // WARNING: This is inefficient
   vtkNew<vtkCellTypes> cell_types;
-  grid->GetCellTypes(cell_types);
+  grid->GetDistinctCellTypes(cell_types);
   return cell_types->GetNumberOfTypes() > 1;
 }
 
@@ -82,7 +84,7 @@ vtkCellArray* GetCells(vtkPolyData* polydata, int cellType)
       return polydata->GetVerts();
     default:
       vtkLog(ERROR, << "Unsupported cell type in polydata. Cell type: "
-                    << vtkCellTypes::GetClassNameFromTypeId(cellType));
+                    << vtkCellTypeUtilities::GetClassNameFromTypeId(cellType));
       return nullptr;
   }
 }
@@ -133,7 +135,7 @@ bool ConvertDataArrayToMCArray(vtkDataArray* data_array, int offset, int stride,
   int data_type_size = data_array->GetDataTypeSize();
   int array_type = data_array->GetArrayType();
 
-  if (array_type != vtkAbstractArray::AoSDataArrayTemplate)
+  if (array_type != vtkArrayTypes::AoSDataArrayTemplate)
   {
     vtkLog(ERROR,
       "Unsupported data array type: " << data_array->GetArrayTypeAsString() << " for array "
@@ -280,7 +282,7 @@ bool FillMixedShape(vtkUnstructuredGrid* dataset, conduit_cpp::Node& topologies_
   shape_map["polygonal"] = VTK_POLYGON;
 
   auto offsets = dataset->GetCells()->GetOffsetsArray();
-  auto shapes = dataset->GetCellTypesArray();
+  auto shapes = dataset->GetCellTypes<vtkUnsignedCharArray>();
 
   vtkNew<vtkIdTypeArray> sizes;
   sizes->SetName("vtkCellSizes");
@@ -395,7 +397,7 @@ bool FillTopology(T* dataset, conduit_cpp::Node& conduit_node, const std::string
         break;
       default:
         vtkLogF(ERROR, "Unsupported cell type in %s. Cell type: %s", datasetType,
-          vtkCellTypes::GetClassNameFromTypeId(cell_type));
+          vtkCellTypeUtilities::GetClassNameFromTypeId(cell_type));
         return false;
     }
   }
