@@ -23,7 +23,7 @@ int TestSTLReader(int argc, char* argv[])
 
   std::string inputFilename = argv[1];
 
-  vtkSmartPointer<vtkSTLReader> reader = vtkSmartPointer<vtkSTLReader>::New();
+  vtkNew<vtkSTLReader> reader;
   reader->SetFileName(inputFilename.c_str());
   reader->Update();
 
