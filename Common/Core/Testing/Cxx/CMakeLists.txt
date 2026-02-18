@@ -149,7 +149,6 @@ vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   TestSCN.cxx
   TestSMP.cxx
   TestSmartPointer.cxx
-  TestScaledSOADataArrayTemplate.cxx
   TestSOADataArray.cxx
   TestSortDataArray.cxx
   TestSparseArrayValidation.cxx
@@ -159,6 +158,7 @@ vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   TestTimePointUtility.cxx
   TestValueFromString.cxx
   TestVariant.cxx
+  TestVariantArray.cxx
   TestVariantComparison.cxx
   TestVariantConversionFromString.cxx
   TestWeakPointer.cxx
@@ -185,7 +185,6 @@ vtk_add_test_cxx(vtkCommonCoreCxxTests tests
   TestIndexedArray.cxx
   TestIndexedImplicitBackend.cxx
   TestStridedArray.cxx
-  TestStdFunctionArray.cxx
   TestStructuredPointArray.cxx)
 
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
