@@ -12,6 +12,7 @@
 #include "vtkHardwareWindow.h"
 #include "vtkImageData.h"
 #include "vtkObjectFactory.h"
+#include "vtkOverrideAttribute.h"
 #include "vtkPointData.h"
 #include "vtkRendererCollection.h"
 #include "vtkSmartPointer.h"
@@ -124,6 +125,14 @@ vtkWebGPURenderWindow::~vtkWebGPURenderWindow()
   }
   this->SetHardwareWindow(nullptr);
   this->WGPUConfiguration = nullptr;
+}
+
+//------------------------------------------------------------------------------
+vtkOverrideAttribute* vtkWebGPURenderWindow::CreateOverrideAttributes()
+{
+  auto* renderingBackendAttribute =
+    vtkOverrideAttribute::CreateAttributeChain("RenderingBackend", "WebGPU", nullptr);
+  return renderingBackendAttribute;
 }
 
 //------------------------------------------------------------------------------
@@ -435,7 +444,8 @@ void vtkWebGPURenderWindow::InitializeRendererComputePipelines()
     else
     {
       vtkWarningMacro(<< "Renderer is not a vtkWebGPURenderer. Cannot initialize compute "
-                         "pipelines. Please ensure VTK_GRAPHICS_BACKEND is set to 'WEBGPU' ");
+                         "pipelines. Please ensure object factory preferences include "
+                         "'RenderingBackend=WebGPU'.");
     }
   }
 }
