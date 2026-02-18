@@ -550,7 +550,8 @@ public:
    * @return `true` if internal model is correctly filled, `false` otherwise.
    */
   bool LoadModelMetaDataFromFile(VTK_FILEPATH const std::string& FileName);
-  bool LoadModelMetaDataFromStream(vtkResourceStream* stream, vtkURILoader* loader = nullptr);
+  bool LoadModelMetaDataFromStream(
+    vtkResourceStream* stream, vtkURILoader* loader = nullptr, bool quiet = false);
   ///@}
 
   /**
@@ -583,6 +584,9 @@ public:
    */
   const std::vector<std::string>& GetUsedExtensions();
 
+  /**
+   * Get if the current model contains binary data
+   */
   bool GetIsBinary();
 
   /**

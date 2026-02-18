@@ -414,7 +414,7 @@ bool vtkHDFReader::CanReadFile(vtkResourceStream* stream)
   stream->Seek(0, vtkResourceStream::SeekDirection::Begin);
   vtkNew<vtkHDFReader> dummy;
   vtkHDFReader::Implementation impl(dummy);
-  bool ret = impl.Open(stream);
+  bool ret = impl.Open(stream, true);
   impl.Close();
   return ret;
 }
@@ -1568,6 +1568,7 @@ int vtkHDFReader::Read(vtkInformation* outInfo, vtkPartitionedDataSetCollection*
 
     vtkDataObject* dataObject = nullptr;
     vtkPartitionedDataSet* pds = pdc->GetPartitionedDataSet(dsIndex);
+    pdc->GetMetaData(dsIndex)->Set(vtkCompositeDataSet::NAME(), datasetName);
 
     // Use partitions if already available
     int piece = outInfo->Get(vtkStreamingDemandDrivenPipeline::UPDATE_PIECE_NUMBER());
@@ -1831,7 +1832,7 @@ int vtkHDFReader::Read(vtkInformation* vtkNotUsed(outInfo), vtkOverlappingAMR* d
   }
 
   // Read AMR topology
-  if (!this->Impl->ReadAMRTopology(data, Origin, this->GetHasTemporalData()))
+  if (!this->Impl->ReadAMRTopology(data, maxLevel, Origin, this->GetHasTemporalData()))
   {
     return 1;
   }

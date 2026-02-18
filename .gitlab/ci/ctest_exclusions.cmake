@@ -1,4 +1,6 @@
 set(test_exclusions
+  # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19896
+  "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
   # Flaky when run with threads enabled. See #19471.
   "^VTK::FiltersCellGridCxx-TestCellGridEvaluator$"
   # https://gitlab.kitware.com/vtk/vtk/-/issues/19427
@@ -58,7 +60,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_x86_64" OR
     # Test image looks "dim"; image rendering seems to be common
     # (some also have vertical line rendering differences)
     "^VTK::FiltersModelingPython-TestCookieCutter$"
-    "^VTK::RenderingCoreCxx-TestTextureRGBADepthPeeling$" # seems to just not work here
+    "^VTK::RenderingCoreCxx-OpenGL-TestTextureRGBADepthPeeling$" # seems to just not work here
 
     # Flaky timeouts https://gitlab.kitware.com/vtk/vtk/-/issues/18861
     "^VTK::InteractionWidgetsCxx-TestPickingManagerSeedWidget$"
@@ -66,9 +68,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_x86_64" OR
     # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19040
     "^VTK::ViewsInfovisCxx-TestGraphLayoutView$"
     "^VTK::ViewsInfovisCxx-TestRenderView$"
-
-    # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19896
-    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
     )
 endif ()
 
@@ -101,9 +100,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "el8")
     # Intermittent flakiness; may be related to CI runner OpenGL config.
     # Appears as a colormap or color-range failure:
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
-
-    # Flaky failures https://gitlab.kitware.com/vtk/vtk/-/issues/19896
-    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
     )
 endif ()
 
@@ -298,7 +294,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "offscreen")
     "^VTK::GUISupportQtCxx"
     "^VTK::GUISupportQtQuickCxx"
     "^VTK::GUISupportQtSQLCxx-TestQtSQLDatabase$"
-    "^VTK::RenderingCoreCxx-TestInteractorTimers$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestInteractorTimers$"
     "^VTK::RenderingExternalCxx-TestGLUTRenderWindow$"
     "^VTK::RenderingQtCxx-TestQtInitialization$"
     "^VTK::RenderingTkPython"
@@ -346,7 +342,7 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows")
     "^VTK::FiltersCellGridPython-TestUnstructuredGridToCellGrid$"
 
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19400
-    "^VTK::RenderingCoreCxx-TestResizingWindowToImageFilter$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestResizingWindowToImageFilter$"
   )
 endif ()
 
@@ -380,9 +376,6 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora[0-9]*_aarch64")
     # Baseline failures.
     "^VTK::InteractionWidgetsPython-TestTensorWidget2$"
     "^VTK::RenderingExternalCxx-TestGLUTRenderWindow$" # also leaks
-
-    # https://gitlab.kitware.com/vtk/vtk/-/issues/19896
-    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
 
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19578
     "^VTK::FiltersGeneralCxx-TestContourTriangulatorHoles$")
@@ -429,7 +422,13 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "macos")
     "^VTK::IOIOSSCxx-TestIOSSApplyDisplacementsCGNS$"
     "^VTK::IOADIOS2Cxx-TestADIOS2BPReaderSingleTimeStep$"
     "^VTK::CommonDataModelPython-TestClipPolyhedra$"
-    "^VTK::ImagingCoreCxx-TestStencilWithPolyDataContour$")
+    "^VTK::ImagingCoreCxx-TestStencilWithPolyDataContour$"
+
+    # edge rendering issues (OpenGL support abandoned on macos)
+    "^VTK::FiltersMeshingPython-TestVoronoi3D-Lissajous$"
+    "^VTK::FiltersMeshingPython-TestVoronoi3D2$"
+    "^VTK::FiltersMeshingPython-TestVoronoi2D3$"
+    "^VTK::FiltersMeshingPython-TestVoronoi2D$")
 
   if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "arm64")
     # Unknown NSInternalInconsistencyException when using macos arm64
@@ -484,7 +483,7 @@ if (("$ENV{CMAKE_CONFIGURATION}" MATCHES "offscreen" AND "$ENV{CMAKE_CONFIGURATI
     "^VTK::InteractionStylePython-TestStyleJoystickCamera$"
     "^VTK::InteractionStylePython-TestStyleRubberBandZoomPerspective$"
     "^VTK::InteractionStylePython-TestStyleTrackballCamera$"
-    "^VTK::RenderingCoreCxx-TestInteractorTimers$")
+    "^VTK::RenderingCoreCxx-OpenGL-TestInteractorTimers$")
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "linux" AND "$ENV{CMAKE_CONFIGURATION}" MATCHES "wheel" AND "$ENV{CMAKE_CONFIGURATION}" MATCHES "egl")
@@ -589,22 +588,96 @@ endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)")
   list(APPEND test_exclusions
+    # All OpenGL tests that fail are tracked in
     # https://gitlab.kitware.com/vtk/vtk/-/issues/19343
-    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperMixedGeometryEdges$"
-    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperPartialFieldData$"
-    "^VTK::RenderingCoreCxx-TestCompositePolyDataMapperVertices$"
-    "^VTK::RenderingCoreCxx-TestEdgeFlags$"
-    "^VTK::RenderingCoreCxx-TestLabeledContourMapperWithActorMatrix$"
-    # https://gitlab.kitware.com/vtk/vtk/-/issues/19580
-    "^VTK::RenderingCoreCxx-TestMixedGeometryCellScalars$"
-    "^VTK::RenderingCoreCxx-TestPolyDataMapperNormals$"
-    "^VTK::RenderingCoreCxx-TestTextureWrap$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestCompositePolyDataMapperMixedGeometryEdges$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestCompositePolyDataMapperPartialFieldData$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestCompositePolyDataMapperVertices$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestEdgeFlags$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestLabeledContourMapperWithActorMatrix$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestMixedGeometry_1$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestMixedGeometry_2$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestNViewportsNActorsNMappersNInputs$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestPolyDataMapperClipPlanes$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestPolyDataMapperNormals$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestReadPixels$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestSurfacePlusEdges$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestTextureWrap$"
+    "^VTK::RenderingCoreCxx-OpenGL-TestWireframe$"
+    # RenderingCoreCxx tests that fail with WebGPU.
+    # see https://gitlab.kitware.com/vtk/vtk/-/issues/19921
+    "^VTK::RenderingCoreCxx-WebGPU-TestAreaSelections$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestBackfaceTexture$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestBareScalarsToColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperBlockOpacities$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperBlockTextures$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperCameraShiftScale$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperCustomShader$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperMixedGeometryCellScalars$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperMixedGeometryEdges$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperPickability$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperPicking$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperSpheres$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperToggleScalarVisibilities$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperVertices$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestDirectScalarsToColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestEdgeFlags$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestEdgeOpacity$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestEdgeThickness$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestFollowerPicking$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperBackfaceColor$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperPicking$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperPointSize$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperTreeIndexing$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGradientBackground$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGradientBackgroundWithTiledViewport$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGradientBackgroundWithTiledViewports$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestImageAndAnnotations$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestInteractorStyleImageProperty$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestLabeledContourMapper$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestLabeledContourMapperNoLabels$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestLabeledContourMapperWithActorMatrix$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestMapVectorsAsRGBColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestMapVectorsToColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestMixedGeometryCellScalars$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestOffAxisStereo$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestOpacity$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPickTextActor$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPointSelection$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPointSelectionWithCellData$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPolyDataMapperNormals$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderPointsAsSpheres$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderPointsAsSpheresOrthoCamera$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderLinesAsTubes$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderLinesAsTubesOrthoCamera$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestResizingWindowToImageFilter$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestSelectVisiblePoints$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestSplitViewportStereoHorizontal$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestStereoBackgroundLeft$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestStereoBackgroundRight$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestStereoEyeSeparation$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTexturedBackground$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTexturedCylinder$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTextureSize$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTextureWrap$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTilingCxx$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTransformCoordinateUseDouble$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentImageActorAlphaBlending$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentImageActorDepthPeeling$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTAlphaBlending$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTDepthPeeling$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTTextureAlphaBlending$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTTextureDepthPeeling$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsColorsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsNormalsColorsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsNormalsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestWindowToImageFilter$"
     "^VTK::RenderingOpenGL2Cxx-TestCoincident$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositeDataOverlappingCells$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositeDataPointGaussian$"
     "^VTK::RenderingOpenGL2Cxx-TestCompositeDataPointGaussianSelection$"
     "^VTK::RenderingOpenGL2Cxx-TestFlipRenderFramebuffer$"
-    "^VTK::RenderingOpenGL2Cxx-TestFluidMapper$"
     "^VTK::RenderingOpenGL2Cxx-TestFramebufferHDR$" # flaky
     "^VTK::RenderingOpenGL2Cxx-TestGaussianBlurPass$"
     "^VTK::RenderingOpenGL2Cxx-TestGlyph3DMapperEdges$"
@@ -634,9 +707,79 @@ if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "^wasm(32|64)")
     "^VTK::RenderingOpenGL2Cxx-TestWindowBlits$")
 endif ()
 
-if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora42_webgpu")
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "fedora42_x86_64_webgpu")
   list(APPEND test_exclusions
-    "^VTK::RenderingWebGPUCxx-TestComputeFrustumCulling") # Crashes randomly with mesa-vulkan-drivers
+    # RenderingCoreCxx tests that fail with WebGPU.
+    # see https://gitlab.kitware.com/vtk/vtk/-/issues/19921
+    "^VTK::RenderingCoreCxx-WebGPU-TestAreaSelections$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestBackfaceTexture$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestBareScalarsToColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestBlockOpacity$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperBlockOpacities$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperBlockTextures$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperCameraShiftScale$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperCustomShader$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperMixedGeometryCellScalars$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperMixedGeometryEdges$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperPickability$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperPicking$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperSpheres$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperToggleScalarVisibilities$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestCompositePolyDataMapperVertices$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestDirectScalarsToColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestEdgeFlags$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestEdgeOpacity$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestEdgeThickness$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestFollowerPicking$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperBackfaceColor$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperPointSize$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGlyph3DMapperTreeIndexing$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGradientBackground$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGradientBackgroundWithTiledViewport$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestGradientBackgroundWithTiledViewports$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestImageAndAnnotations$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestInteractorStyleImageProperty$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestLabeledContourMapper$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestLabeledContourMapperNoLabels$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestLabeledContourMapperWithActorMatrix$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestMapVectorsAsRGBColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestMapVectorsToColors$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestMixedGeometryCellScalars$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestOffAxisStereo$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestOpacity$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPickTextActor$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPointSelection$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPointSelectionWithCellData$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestPolyDataMapperNormals$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderPointsAsSpheres$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderPointsAsSpheresOrthoCamera$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderLinesAsTubes$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestRenderLinesAsTubesOrthoCamera$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestResizingWindowToImageFilter$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestSplitViewportStereoHorizontal$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestStereoBackgroundLeft$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestStereoBackgroundRight$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestStereoEyeSeparation$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTexturedBackground$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTexturedCylinder$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTextureSize$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTextureWrap$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTilingCxx$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTransformCoordinateUseDouble$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentImageActorAlphaBlending$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentImageActorDepthPeeling$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTAlphaBlending$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTDepthPeeling$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTTextureAlphaBlending$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTranslucentLUTTextureDepthPeeling$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsColorsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsNormalsColorsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsNormalsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestTStripsTCoords$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestVertexVisibility$"
+    "^VTK::RenderingCoreCxx-WebGPU-TestWindowToImageFilter$"
+    # Crashes randomly with mesa-vulkan-drivers
+    "^VTK::RenderingWebGPUCxx-TestComputeFrustumCulling$")
 endif ()
 
 if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "windows" AND

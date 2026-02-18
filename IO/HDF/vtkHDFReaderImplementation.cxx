@@ -72,11 +72,14 @@ std::vector<hsize_t> vtkHDFReader::Implementation::GetDimensions(const char* dat
 }
 
 //------------------------------------------------------------------------------
-bool vtkHDFReader::Implementation::Open(const char* fileName)
+bool vtkHDFReader::Implementation::Open(const char* fileName, bool quiet)
 {
   if (!fileName)
   {
-    vtkErrorWithObjectMacro(this->Reader, "Invalid filename: " << fileName);
+    if (!quiet)
+    {
+      vtkErrorWithObjectMacro(this->Reader, "Empty filename");
+    }
     return false;
   }
 
@@ -88,7 +91,7 @@ bool vtkHDFReader::Implementation::Open(const char* fileName)
       this->Close();
     }
 
-    if (!vtkHDFUtilities::Open(fileName, this->File))
+    if (!vtkHDFUtilities::Open(fileName, this->File, quiet))
     {
       return false;
     }
@@ -100,11 +103,14 @@ bool vtkHDFReader::Implementation::Open(const char* fileName)
 }
 
 //------------------------------------------------------------------------------
-bool vtkHDFReader::Implementation::Open(vtkResourceStream* stream)
+bool vtkHDFReader::Implementation::Open(vtkResourceStream* stream, bool quiet)
 {
   if (!stream)
   {
-    vtkErrorWithObjectMacro(this->Reader, "Stream is nullptr");
+    if (!quiet)
+    {
+      vtkErrorWithObjectMacro(this->Reader, "Stream is nullptr");
+    }
     return false;
   }
 
@@ -130,7 +136,7 @@ bool vtkHDFReader::Implementation::Open(vtkResourceStream* stream)
       memStream = this->LocalMemStream;
     }
 
-    if (!vtkHDFUtilities::Open(memStream, this->File))
+    if (!vtkHDFUtilities::Open(memStream, this->File, quiet))
     {
       return false;
     }
@@ -880,16 +886,17 @@ bool vtkHDFReader::Implementation::ReadAMRBoxRawValues(
 
 //------------------------------------------------------------------------------
 bool vtkHDFReader::Implementation::ReadAMRTopology(
-  vtkOverlappingAMR* data, double origin[3], bool isTemporalData)
+  vtkOverlappingAMR* data, unsigned int maxLevel, double origin[3], bool isTemporalData)
 {
-  if (this->AMRInformation.BlocksPerLevel.empty())
+  if (this->AMRInformation.BlocksPerLevel.empty() ||
+    maxLevel > this->AMRInformation.BlocksPerLevel.size())
   {
     return false;
   }
 
   std::vector<unsigned int> blocksPerLevel;
-  blocksPerLevel.reserve(this->AMRInformation.BlocksPerLevel.size());
-  for (size_t i = 0; i < this->AMRInformation.BlocksPerLevel.size(); i++)
+  blocksPerLevel.reserve(maxLevel);
+  for (size_t i = 0; i < maxLevel; i++)
   {
     blocksPerLevel.emplace_back(this->AMRInformation.BlocksPerLevel[i]);
   }
@@ -897,7 +904,7 @@ bool vtkHDFReader::Implementation::ReadAMRTopology(
   data->SetOrigin(origin);
   data->SetGridDescription(vtkStructuredData::VTK_STRUCTURED_XYZ_GRID);
 
-  for (unsigned int level = 0; level < this->AMRInformation.BlocksPerLevel.size(); level++)
+  for (unsigned int level = 0; level < maxLevel; level++)
   {
     std::string levelGroupName = "Level" + vtk::to_string(level);
     if (!this->ReadLevelTopology(level, levelGroupName, data, origin, isTemporalData))

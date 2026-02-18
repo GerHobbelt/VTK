@@ -40,12 +40,12 @@ public:
   /**
    * Opens this VTK HDF file and checks if it is valid.
    */
-  bool Open(VTK_FILEPATH const char* fileName);
+  bool Open(VTK_FILEPATH const char* fileName, bool quiet = false);
 
   /**
    * Opens this VTK HDF stream and checks if it is valid.
    */
-  bool Open(vtkResourceStream* stream);
+  bool Open(vtkResourceStream* stream, bool quiet = false);
 
   /**
    * Closes the VTK HDF file and releases any allocated resources.
@@ -208,7 +208,8 @@ public:
   /**
    * Read the AMR topology based on offset data on AMRBlocks.
    */
-  bool ReadAMRTopology(vtkOverlappingAMR* data, double origin[3], bool isTemporalData);
+  bool ReadAMRTopology(
+    vtkOverlappingAMR* data, unsigned int maxLevel, double origin[3], bool isTemporalData);
 
   /**
    * Get the temporal offset for a specific attribute
