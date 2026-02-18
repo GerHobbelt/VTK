@@ -1,17 +1,5 @@
-/*=========================================================================
-
-  Program:   Visualization Toolkit
-  Module:    vtkCocoaHardwareView.mm
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-     This software is distributed WITHOUT ANY WARRANTY; without even
-     the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-     PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 
 #import "vtkCocoaMacOSXSDKCompatibility.h" // Needed to support old SDKs
 #import <Cocoa/Cocoa.h>
@@ -47,7 +35,19 @@
 {
   // Set the metal layer
   [self setWantsLayer:YES];
+#if defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101100
+  if (@available(macOS 10.11, *))
+  {
+    [self setLayer:[CAMetalLayer layer]];
+  }
+  else
+  {
+    // Fallback for macOS < 10.11: use a plain CALayer
+    [self setLayer:[CALayer layer]];
+  }
+#else
   [self setLayer:[CAMetalLayer layer]];
+#endif
 
   // Force Cocoa into "multi threaded mode" because VTK spawns pthreads.
   // Apple's docs say: "If you intend to use Cocoa calls, you must force

@@ -1,17 +1,6 @@
-/*=========================================================================
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 
-  Program:   Visualization Toolkit
-  Module:    vtkXlibHardwareWindow.h
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-  This software is distributed WITHOUT ANY WARRANTY; without even
-  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
 /**
  * @class   vtkXlibHardwareWindow
  * @brief   represents a window in a windows GUI
@@ -23,14 +12,14 @@
 #include "vtkHardwareWindow.h"
 #include "vtkRenderingUIModule.h" // For export macro
 
-#include <X11/Xlib.h>  // Needed for X types used in the public interface
-#include <X11/Xutil.h> // Needed for X types used in the public interface
+#include "vtkWrappingHints.h" // For VTK_MARSHALAUTO
+#include "vtkX11Functions.h"  // Needed for X types used in the public interface
 
 VTK_ABI_NAMESPACE_BEGIN
 // Forward declarations
 class vtkImageData;
 
-class VTKRENDERINGUI_EXPORT vtkXlibHardwareWindow : public vtkHardwareWindow
+class VTKRENDERINGUI_EXPORT VTK_MARSHALAUTO vtkXlibHardwareWindow : public vtkHardwareWindow
 {
 public:
   static vtkXlibHardwareWindow* New();
@@ -44,24 +33,29 @@ public:
    * If unset, windows will open the default display (":0.0" unless
    * the DISPLAY environment variable is provided).
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   Display* GetDisplayId();
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   void SetDisplayId(Display* display);
   ///@}
 
   /**
    * Sets the parent of the window that WILL BE created.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   void SetParentId(Window);
 
   /**
    * Get this RenderWindow's X window id.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   Window GetWindowId();
 
   ///@{
   /**
    * Set this RenderWindow's X window id to a pre-existing window.
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_NOT_SUPPORTED)
   void SetWindowId(Window);
   void SetWindowId(void*) override;
   ///@}
@@ -95,15 +89,6 @@ public:
    */
   void SetPosition(int, int) override;
   using vtkHardwareWindow::SetPosition;
-  ///@}
-
-  ///@{
-  /*
-   * Set/get whether the window should be fullscreen or not.
-   */
-  vtkGetMacro(FullScreen, vtkTypeBool);
-  vtkSetMacro(FullScreen, vtkTypeBool);
-  vtkBooleanMacro(FullScreen, vtkTypeBool);
   ///@}
 
   ///@{
@@ -152,7 +137,7 @@ protected:
   ~vtkXlibHardwareWindow() override;
 
   // Helper members
-  XVisualInfo* GetDesiredVisualInfo();
+  vtkXVisualInfo* GetDesiredVisualInfo();
   void CloseDisplay();
 
   Display* DisplayId;
@@ -161,7 +146,6 @@ protected:
   Colormap ColorMap;
   vtkTypeBool OwnDisplay;
   vtkTypeBool OwnWindow;
-  vtkTypeBool FullScreen;
   vtkTypeBool CursorHidden;
 
   // we must keep track of the cursors we are using

@@ -4,7 +4,15 @@ set(headers)
 set(nowrap_headers)
 
 # Setup factory overrides and add window system specific render windows.
-if(VTK_USE_X)
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  if(NOT VTK_DEFAULT_RENDER_WINDOW_HEADLESS)
+    vtk_object_factory_declare(BASE vtkRenderWindowInteractor OVERRIDE
+                               vtkWebAssemblyRenderWindowInteractor)
+    vtk_object_factory_declare(BASE vtkHardwareWindow OVERRIDE
+                               vtkWebAssemblyHardwareWindow)
+  endif()
+  list(APPEND classes vtkWebAssemblyRenderWindowInteractor vtkWebAssemblyHardwareWindow)
+elseif(VTK_USE_X)
   # Add some custom overrides
   if(NOT VTK_DEFAULT_RENDER_WINDOW_HEADLESS)
     vtk_object_factory_declare(BASE vtkRenderWindowInteractor OVERRIDE
@@ -18,14 +26,14 @@ elseif(VTK_USE_Wayland)
     vtk_module_find_package(PACKAGE WAYLAND)
     set(WAYLAND_PROTOCOLS)
     wayland_generate_xdg_protocol(WAYLAND_PROTOCOLS)
-    # vtk_object_factory_declare( BASE vtkRenderWindowInteractor OVERRIDE
-    # vtkXRenderWindowInteractor)
+    vtk_object_factory_declare(BASE vtkRenderWindowInteractor OVERRIDE
+                               vtkWaylandRenderWindowInteractor)
     vtk_object_factory_declare(BASE vtkHardwareWindow OVERRIDE
                                vtkWaylandHardwareWindow)
     list(APPEND sources ${WAYLAND_PROTOCOLS})
   endif()
-  list(APPEND classes vtkWaylandHardwareWindow)
-elseif(WIN32)
+  list(APPEND classes vtkWaylandRenderWindowInteractor vtkWaylandHardwareWindow)
+elseif(VTK_USE_WIN32)
   # Add some custom overrides
   if(NOT VTK_DEFAULT_RENDER_WINDOW_HEADLESS)
     vtk_object_factory_declare(BASE vtkRenderWindowInteractor OVERRIDE
@@ -61,10 +69,10 @@ elseif(VTK_USE_COCOA)
     vtkCocoaRenderWindowInteractor.mm)
   list(APPEND headers
     vtkCocoaAutoreleasePool.h
-    vtkCocoaHardwareView.h
     vtkCocoaHardwareWindow.h
     vtkCocoaRenderWindowInteractor.h)
   list(APPEND nowrap_headers
+    vtkCocoaHardwareView.h
     vtkCocoaMacOSXSDKCompatibility.h)
   # Set specified Objective-C++ flags, if any.
   if(VTK_REQUIRED_OBJCXX_FLAGS)
@@ -90,11 +98,6 @@ elseif(APPLE_IOS)
       vtkIOSRenderWindowInteractor.mm PROPERTIES COMPILE_FLAGS
                                                  "${VTK_REQUIRED_OBJCXX_FLAGS}")
   endif()
-elseif(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  # Add some custom overrides
-  vtk_object_factory_declare(BASE vtkRenderWindowInteractor OVERRIDE
-                             vtkWebAssemblyRenderWindowInteractor)
-  list(APPEND classes vtkWebAssemblyRenderWindowInteractor)
 else() # use generic
   vtk_object_factory_declare(BASE vtkRenderWindowInteractor OVERRIDE
                              vtkGenericRenderWindowInteractor)
@@ -186,6 +189,8 @@ elseif(VTK_USE_Wayland)
       WARNING "WAYLAND::Cursor not found; custom cursors will be ignored."
     )
   endif()
+  vtk_module_find_package(PACKAGE X11)
+  vtk_module_link(VTK::RenderingUI PUBLIC X11::xkbcommon)
   set_property(
     SOURCE vtkWaylandHardwareWindow.cxx
     APPEND

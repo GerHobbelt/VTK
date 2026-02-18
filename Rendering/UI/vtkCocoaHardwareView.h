@@ -1,17 +1,6 @@
-/*=========================================================================
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 
-  Program:   Visualization Toolkit
-  Module:    vtkCocoaHardwareView.h
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-  This software is distributed WITHOUT ANY WARRANTY; without even
-  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
 /**
  * @class vtkCocoaHardwareView
  * @brief
@@ -38,6 +27,7 @@
 #define vtkCocoaHardwareView_h
 
 #import "vtkRenderingUIModule.h" // For export macro
+#import "vtkWrappingHints.h"     // For VTK_MARSHALAUTO
 #import <Cocoa/Cocoa.h>
 
 // Note: This file should be includable by both pure Objective-C and Objective-C++ source files.
@@ -60,6 +50,7 @@ typedef void* vtkCocoaRenderWindowInteractorRef;
 #endif
 
 VTKRENDERINGUI_EXPORT
+VTK_MARSHALAUTO
 @interface vtkCocoaHardwareView : NSView<NSDraggingDestination>
 {
 @private

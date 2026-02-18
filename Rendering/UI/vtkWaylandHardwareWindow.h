@@ -1,17 +1,6 @@
-/*=========================================================================
+// SPDX-FileCopyrightText: Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+// SPDX-License-Identifier: BSD-3-Clause
 
-  Program:   Visualization Toolkit
-  Module:    vtkWaylandHardwareWindow.h
-
-  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
-  All rights reserved.
-  See Copyright.txt or http://www.kitware.com/Copyright.htm for details.
-
-  This software is distributed WITHOUT ANY WARRANTY; without even
-  the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-  PURPOSE.  See the above copyright notice for more information.
-
-=========================================================================*/
 /**
  * @class   vtkWaylandHardwareWindow
  * @brief   represents a window in a Wayland GUI
@@ -30,6 +19,7 @@
 // Forward declarations for Wayland types to keep the header clean.
 // The actual headers will be included in the .cxx file.
 struct wl_array;
+struct wl_callback;
 struct wl_display;
 struct wl_compositor;
 struct wl_surface;
@@ -40,6 +30,7 @@ struct wl_shm;
 struct xdg_wm_base;
 struct xdg_surface;
 struct xdg_toplevel;
+struct zxdg_decoration_manager_v1;
 
 VTK_ABI_NAMESPACE_BEGIN
 
@@ -118,6 +109,11 @@ public:
     void* data, xdg_toplevel* xdg_toplevel, int32_t width, int32_t height, wl_array* states);
   static void XdgToplevelHandleClose(void* data, xdg_toplevel* xdg_toplevel);
 
+  static void FrameHandleDone(void* data, wl_callback* callback, uint32_t time);
+
+  // Request a redraw for the next frame.
+  void ScheduleRedraw();
+
 protected:
   vtkWaylandHardwareWindow();
   ~vtkWaylandHardwareWindow() override;
@@ -133,9 +129,13 @@ protected:
   xdg_wm_base* XdgWmBase = nullptr;
   xdg_surface* XdgSurface = nullptr;
   xdg_toplevel* XdgToplevel = nullptr;
+  zxdg_decoration_manager_v1* DecorationManager = nullptr;
 
   bool OwnDisplay = false;
   bool CursorHidden = false;
+
+  wl_callback* FrameCallback = nullptr;
+  bool RedrawPending = false;
 
 private:
   vtkWaylandHardwareWindow(const vtkWaylandHardwareWindow&) = delete;
