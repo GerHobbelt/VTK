@@ -1629,6 +1629,9 @@ int vtkPolygon::EarCutTriangulation(vtkIdList* outTris, int measure)
     return (this->SuccessfulTriangulation = 1);
   }
 
+  // If npts is 4 and ::SimpleTriangulation() failed, the quad is poorly shaped.
+  // Triangulate by the shorter diagonal
+
   // Establish a more convenient structure for the triangulation process
   vtkPolyVertexList poly(this->PointIds, this->Points, this->Tol * this->Tol, measure);
   vtkLocalPolyVertex* vtx;
@@ -1890,6 +1893,10 @@ int vtkPolygon::IntersectWithLine(const double p1[3], const double p2[3], double
   double closestPoint[3];
   double dist2;
   int npts = this->GetNumberOfPoints();
+  if (npts <= 0) // make sure there is something to pick
+  {
+    return 0;
+  }
 
   subId = 0;
   pcoords[0] = pcoords[1] = pcoords[2] = 0.0;
@@ -1926,7 +1933,18 @@ int vtkPolygon::TriangulateLocalIds(int vtkNotUsed(index), vtkIdList* ptIds)
   int success = this->EarCutTriangulation(ptIds);
   if (!success) // Indicate possible failure
   {
-    vtkDebugMacro(<< "Possible triangulation failure");
+    // Non-planar quads can cause the ear cut triangulation algorithm to fail.
+    // If that happens, use vtkQuad specifically to triangulate the quad.
+    if (this->PointIds->GetNumberOfIds() == 4)
+    {
+      vtkNew<vtkQuad> quad;
+      quad->DeepCopy(this);
+      quad->TriangulateLocalIds(0, ptIds);
+    }
+    else
+    {
+      vtkDebugMacro(<< "Possible triangulation failure");
+    }
   }
   return this->SuccessfulTriangulation;
 }
