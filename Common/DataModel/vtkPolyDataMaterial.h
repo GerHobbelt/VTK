@@ -13,9 +13,9 @@
 #include "vtkObject.h"
 #include "vtkSetGet.h" // For vtkTypeMacro
 #include <vector>      // for std::vector
-class vtkDataObject;
 
 VTK_ABI_NAMESPACE_BEGIN
+class vtkDataObject;
 
 /**
  * If the polydata has a texture, it should contain a TCOORDS point
@@ -31,6 +31,7 @@ VTK_ABI_NAMESPACE_BEGIN
  * @sa
  * vtkCityGMLReader,
  * vtkGLTFWriter
+ * vtkCesium3DTilesWriter
  * vtkIFCReader
  */
 class VTKCOMMONDATAMODEL_EXPORT vtkPolyDataMaterial : public vtkObject
@@ -39,26 +40,50 @@ public:
   vtkTypeMacro(vtkPolyDataMaterial, vtkObject);
   static vtkPolyDataMaterial* New();
 
-  static inline const char* TEXTURE_URI = "texture_uri";
-  static inline const char* DIFFUSE_COLOR = "diffuse_color";
-  static inline const char* SPECULAR_COLOR = "specular_color";
-  static inline const char* TRANSPARENCY = "transparency";
-  static inline const char* SHININESS = "shininess";
+  ///@{
+  /**
+   * Names for fields stored in the vtkPolyData. These names
+   * can be used for the 'name' parameter for SetField or GetField functions
+   */
+  static const char* GetTextureURIName() { return "texture_uri"; }
+  static const char* GetDiffuseColorName() { return "diffuse_color"; }
+  static const char* GetSpecularColorName() { return "specular_color"; }
+  static const char* GetTransparencyName() { return "transparency"; }
+  /**
+   * Field between 0 (matte, large highlight) and 1 (highly glossy,
+   * small/sharp highlight)
+   */
+  static const char* GetShininessName() { return "shininess"; }
+  ///@}
 
   ///@{
   /**
-   * Helper functions for setting field arrays. These are used to save
-   * texture paths or colors for polydata.
-   *
+   * Helper functions for setting/getting field arrays. These are used to save
+   * texture paths for vtkPolyData.
+   * Functions for string fields.
    */
   static void SetField(vtkDataObject* obj, const char* name, const char* value);
+  static void SetField(
+    vtkDataObject* obj, const char* name, const std::vector<std::string>& values);
+  /**
+   * It returns an empty vector if the field does not exists.
+   */
   static std::vector<std::string> GetField(vtkDataObject* obj, const char* name);
+  ///@}
+
+  ///@{
+  /**
+   * Helper functions for setting/getting field arrays. These are used to save
+   * colors for vtkPolyData.
+   * Functions for double fields.
+   */
   static void SetField(
     vtkDataObject* obj, const char* name, double* value, vtkIdType numberOfComponents);
+  /**
+   * It returns the defaultValue if the field does not exists.
+   */
   static std::vector<double> GetField(
-    vtkDataObject* obj, const char* name, const std::vector<double>& defaultResult);
-  static std::vector<float> GetField(
-    vtkDataObject* obj, const char* name, const std::vector<float>& defaultRes);
+    vtkDataObject* obj, const char* name, const std::vector<double>& defaultValue);
   ///@}
 
   void PrintSelf(ostream& os, vtkIndent indent) override;

@@ -38,6 +38,9 @@ set(VTK_VERSION
     "${VTK_MAJOR_VERSION}.${VTK_MINOR_VERSION}.${VTK_BUILD_VERSION}")
 determine_version("${CMAKE_CURRENT_SOURCE_DIR}" "${GIT_EXECUTABLE}" "VTK")
 
+option(VTK_USE_PCH "Use precompiled headers to speed up compilation" ON)
+mark_as_advanced(VTK_USE_PCH)
+
 option(VTK_IOS_BUILD "Build vtk.framework for iOS" OFF)
 mark_as_advanced(VTK_IOS_BUILD)
 if (VTK_IOS_BUILD)
@@ -109,6 +112,7 @@ include(vtkWrapSettings)
 include(vtkCrossCompiling)
 include(vtkObjectFactory)
 include(vtkOpenGLOptions)
+include(vtkModuleThirdParty)
 
 option(VTK_RELOCATABLE_INSTALL "Do not embed hard-coded paths into the install" ON)
 mark_as_advanced(VTK_RELOCATABLE_INSTALL)

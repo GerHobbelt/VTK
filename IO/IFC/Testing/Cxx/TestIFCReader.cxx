@@ -51,13 +51,13 @@ void AddCompositePolyDataMapper(
     if (poly)
     {
       auto diffuse = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::DIFFUSE_COLOR, std::vector<double>{ 1, 1, 1 });
+        poly, vtkPolyDataMaterial::GetDiffuseColorName(), std::vector<double>{ 1, 1, 1 });
       auto specular = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::SPECULAR_COLOR, std::vector<double>{ 1, 1, 1 });
+        poly, vtkPolyDataMaterial::GetSpecularColorName(), std::vector<double>{ 1, 1, 1 });
       double shininess = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::SHININESS, std::vector<double>{ 1 })[0];
+        poly, vtkPolyDataMaterial::GetShininessName(), std::vector<double>{ 1 })[0];
       double transparency = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::TRANSPARENCY, std::vector<double>{ 0 })[0];
+        poly, vtkPolyDataMaterial::GetTransparencyName(), std::vector<double>{ 0 })[0];
       mapper->SetBlockColor(flatIndex, diffuse.data());
       mapper->SetBlockOpacity(flatIndex, 1 - transparency);
 
@@ -92,13 +92,13 @@ void AddPolyDataMappers(
     if (poly)
     {
       auto diffuse = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::DIFFUSE_COLOR, std::vector<double>{ 1, 1, 1 });
+        poly, vtkPolyDataMaterial::GetDiffuseColorName(), std::vector<double>{ 1, 1, 1 });
       auto specular = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::SPECULAR_COLOR, std::vector<double>{ 1, 1, 1 });
+        poly, vtkPolyDataMaterial::GetSpecularColorName(), std::vector<double>{ 1, 1, 1 });
       double shininess = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::SHININESS, std::vector<double>{ 1 })[0];
+        poly, vtkPolyDataMaterial::GetShininessName(), std::vector<double>{ 1 })[0];
       double transparency = vtkPolyDataMaterial::GetField(
-        poly, vtkPolyDataMaterial::TRANSPARENCY, std::vector<double>{ 0 })[0];
+        poly, vtkPolyDataMaterial::GetTransparencyName(), std::vector<double>{ 0 })[0];
       vtkNew<vtkPolyDataMapper> mapper;
       mapper->SetInputDataObject(poly);
 
@@ -155,6 +155,7 @@ int TestIFCReader(int argc, char* argv[])
 
   vtkNew<vtkIFCReader> reader;
   reader->SetFileName(fname);
+  reader->IncludeCurvesOn();
   reader->Update();
   vtkPartitionedDataSetCollection* pdc = reader->GetOutput();
 

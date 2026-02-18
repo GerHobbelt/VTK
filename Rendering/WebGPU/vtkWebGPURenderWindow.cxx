@@ -9,22 +9,34 @@
 #include "Private/vtkWebGPURenderPipelineDescriptorInternals.h"
 #include "vtkCollectionRange.h"
 #include "vtkFloatArray.h"
+#include "vtkHardwareWindow.h"
 #include "vtkImageData.h"
 #include "vtkObjectFactory.h"
 #include "vtkPointData.h"
 #include "vtkRendererCollection.h"
+#include "vtkSmartPointer.h"
 #include "vtkTypeUInt32Array.h"
 #include "vtkUnsignedCharArray.h"
 #include "vtkWebGPUCommandEncoderDebugGroup.h"
 #include "vtkWebGPUConfiguration.h"
 #include "vtkWebGPUHelpers.h"
 #include "vtkWebGPURenderer.h"
+#ifdef _WIN32
+#include "vtkWin32HardwareWindow.h"
+#elif __APPLE__
+#include "vtkCocoaHardwareWindow.h"
+#elif VTK_USE_Wayland
+#include "vtkWaylandHardwareWindow.h"
+#else
+#include "vtkXlibHardwareWindow.h"
+#endif
 
 #include "vtksys/SystemTools.hxx"
 
 #include "CopyDepthTextureToBuffer.h"
 
 #include <sstream>
+#include <webgpu/webgpu_cpp.h>
 
 #if defined(__EMSCRIPTEN__)
 #include "emscripten/version.h"
@@ -78,6 +90,7 @@ struct InternalMapTextureAsyncData
 };
 }
 
+vtkStandardNewMacro(vtkWebGPURenderWindow);
 //------------------------------------------------------------------------------
 vtkWebGPURenderWindow::vtkWebGPURenderWindow()
 {
@@ -87,7 +100,12 @@ vtkWebGPURenderWindow::vtkWebGPURenderWindow()
 }
 
 //------------------------------------------------------------------------------
-vtkWebGPURenderWindow::~vtkWebGPURenderWindow() = default;
+vtkWebGPURenderWindow::~vtkWebGPURenderWindow()
+{
+  this->Finalize();
+  this->WGPUConfiguration = nullptr;
+  this->SetHardwareWindow(nullptr);
+}
 
 //------------------------------------------------------------------------------
 void vtkWebGPURenderWindow::PrintSelf(ostream& os, vtkIndent indent)
@@ -113,14 +131,74 @@ bool vtkWebGPURenderWindow::WGPUInit()
 }
 
 //------------------------------------------------------------------------------
+void vtkWebGPURenderWindow::CreateSurface()
+{
+  if (!this->HardwareWindow)
+  {
+    // vtkErrorMacro(<< "Cannot create surface without a hardware window.");
+    return;
+  }
+
+#ifdef _WIN32
+  if (auto* win32hw = vtkWin32HardwareWindow::SafeDownCast(this->HardwareWindow))
+  {
+    wgpu::SurfaceDescriptorFromWindowsHWND winSurfDesc;
+    winSurfDesc.hwnd = win32hw->GetWindowId();
+    winSurfDesc.hinstance = win32hw->GetApplicationInstance();
+    wgpu::SurfaceDescriptor surfDesc = {};
+    surfDesc.label = "VTK Win32 surface";
+    surfDesc.nextInChain = &winSurfDesc;
+    this->Surface = this->WGPUConfiguration->GetInstance().CreateSurface(&surfDesc);
+  }
+#elif defined VTK_USE_Wayland
+  if (auto* waylandhw = vtkWaylandHardwareWindow::SafeDownCast(this->HardwareWindow))
+  {
+    wgpu::SurfaceDescriptorFromWaylandSurface waylandSurfDesc;
+    waylandSurfDesc.surface = waylandhw->GetWindowId();
+    wgpu::SurfaceDescriptor surfDesc = {};
+    surfDesc.label = "VTK Wayland surface";
+    surfDesc.nextInChain = &waylandSurfDesc;
+    this->Surface = this->WGPUConfiguration->GetInstance().CreateSurface(&surfDesc);
+  }
+#elif defined __APPLE__
+  if (auto* cocoahw = vtkCocoaHardwareWindow::SafeDownCast(this->HardwareWindow))
+  {
+    wgpu::SurfaceDescriptorFromMetalLayer metalSurfDesc;
+    metalSurfDesc.layer = cocoahw->GetMetalLayer();
+    wgpu::SurfaceDescriptor surfDesc = {};
+    surfDesc.label = "VTK Cocoa surface";
+    surfDesc.nextInChain = &metalSurfDesc;
+    this->Surface = this->WGPUConfiguration->GetInstance().CreateSurface(&surfDesc);
+  }
+#else
+  if (auto* xlibhw = vtkXlibHardwareWindow::SafeDownCast(this->HardwareWindow))
+  {
+    xlibhw->SetWindowName("VTK Xlib window");
+    wgpu::SurfaceDescriptorFromXlibWindow xlibSurfDesc;
+    xlibSurfDesc.display = xlibhw->GetDisplayId();
+    xlibSurfDesc.window = xlibhw->GetWindowId();
+    wgpu::SurfaceDescriptor surfDesc = {};
+    surfDesc.label = "VTK Xlib surface";
+    surfDesc.nextInChain = &xlibSurfDesc;
+    this->Surface = this->WGPUConfiguration->GetInstance().CreateSurface(&surfDesc);
+  }
+#endif
+}
+
+//------------------------------------------------------------------------------
 void vtkWebGPURenderWindow::Initialize()
 {
+  this->CreateAWindow();
   if (!this->WindowSetup()) // calls WGPUInit after surface is created.
   {
     vtkLog(ERROR, "Unable to setup WebGPU.");
     return;
   }
 
+  if (this->WGPUInit())
+  {
+    this->CreateSurface();
+  }
   this->ConfigureSurface();
   this->CreateOffscreenColorAttachment();
   this->CreateIdsAttachment();
@@ -149,7 +227,11 @@ void vtkWebGPURenderWindow::WGPUFinalize()
 void vtkWebGPURenderWindow::Render()
 {
   vtkDebugMacro(<< __func__);
-
+  if (this->HardwareWindow != nullptr)
+  {
+    this->SyncWithHardware();
+    this->HardwareWindow->Render();
+  }
   this->Superclass::Render();
 }
 
@@ -304,7 +386,6 @@ void vtkWebGPURenderWindow::CreateCommandEncoder()
 {
   vtkWebGPUCheckUnconfigured(this);
   wgpu::CommandEncoderDescriptor encDesc = {};
-  std::stringstream label;
   encDesc.label = "vtkWebGPURenderWindow::CommandEncoder";
   if (auto device = this->WGPUConfiguration->GetDevice())
   {
@@ -2148,6 +2229,67 @@ vtkSmartPointer<vtkImageData> vtkWebGPURenderWindow::SaveAttachmentToVTI(
       break;
   }
   return image;
+}
+
+//-------------------------------------------------------------------------------------------------
+void vtkWebGPURenderWindow::CreateAWindow()
+{
+  if (!this->HardwareWindow)
+  {
+    this->HardwareWindow = vtkHardwareWindow::New();
+    this->HardwareWindow->Register(this);
+    if (this->Interactor)
+    {
+      this->HardwareWindow->SetInteractor(this->Interactor);
+    }
+  }
+  this->SyncWithHardware();
+  this->HardwareWindow->Create();
+}
+
+//-------------------------------------------------------------------------------------------------
+void vtkWebGPURenderWindow::SetInteractor(vtkRenderWindowInteractor* rwi)
+{
+  this->Superclass::SetInteractor(rwi);
+  if (this->HardwareWindow)
+  {
+    this->HardwareWindow->SetInteractor(rwi);
+  }
+}
+
+//-------------------------------------------------------------------------------------------------
+bool vtkWebGPURenderWindow::EnsureDisplay()
+{
+  if (!this->HardwareWindow)
+  {
+    this->HardwareWindow = vtk::TakeSmartPointer(vtkHardwareWindow::New());
+  }
+  if (this->Interactor && this->Interactor->GetHardwareWindow() != this->HardwareWindow)
+  {
+    this->HardwareWindow->SetInteractor(this->Interactor);
+  }
+  return this->HardwareWindow->EnsureDisplay();
+}
+
+//-------------------------------------------------------------------------------------------------
+void vtkWebGPURenderWindow::SyncWithHardware()
+{
+  if (!this->HardwareWindow)
+  {
+    return;
+  }
+  this->HardwareWindow->SetSize(this->GetSize());
+  this->HardwareWindow->SetCoverable(this->GetCoverable());
+}
+
+//-------------------------------------------------------------------------------------------------
+void* vtkWebGPURenderWindow::GetGenericDisplayId()
+{
+  if (this->HardwareWindow)
+  {
+    return this->HardwareWindow->GetGenericDisplayId();
+  }
+  return this->Superclass::GetGenericDisplayId();
 }
 
 VTK_ABI_NAMESPACE_END

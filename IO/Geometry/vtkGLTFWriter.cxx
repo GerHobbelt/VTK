@@ -84,6 +84,20 @@ inline size_t GetPaddingAt4Bytes(size_t size)
   return (4 - size % 4) % 4;
 }
 
+//------------------------------------------------------------------------------
+std::vector<float> GetField(
+  vtkDataObject* obj, const char* name, const std::vector<float>& defaultResult)
+{
+  std::vector<float> result;
+  std::vector<double> r, d;
+  std::transform(defaultResult.begin(), defaultResult.end(), std::back_inserter(d),
+    [](float f) { return static_cast<double>(f); });
+  r = vtkPolyDataMaterial::GetField(obj, name, d);
+  std::transform(r.begin(), r.end(), std::back_inserter(result),
+    [](double value) { return static_cast<float>(value); });
+  return result;
+}
+
 VTK_ABI_NAMESPACE_END
 }
 
@@ -796,14 +810,14 @@ void WriteMaterial(
     model["baseColorTexture"] = tex;
   }
 
-  std::vector<float> dcolor = vtkPolyDataMaterial::GetField(
-    pd, vtkPolyDataMaterial::DIFFUSE_COLOR, std::vector<float>{ 1, 1, 1 });
-  std::vector<float> scolor = vtkPolyDataMaterial::GetField(
-    pd, vtkPolyDataMaterial::SPECULAR_COLOR, std::vector<float>{ 0, 0, 0 });
-  float transparency = vtkPolyDataMaterial::GetField(
-    pd, vtkPolyDataMaterial::TRANSPARENCY, std::vector<float>{ 0 })[0];
+  std::vector<float> dcolor =
+    GetField(pd, vtkPolyDataMaterial::GetDiffuseColorName(), std::vector<float>{ 1, 1, 1 });
+  std::vector<float> scolor =
+    GetField(pd, vtkPolyDataMaterial::GetSpecularColorName(), std::vector<float>{ 0, 0, 0 });
+  float transparency =
+    GetField(pd, vtkPolyDataMaterial::GetTransparencyName(), std::vector<float>{ 0 })[0];
   float shininess =
-    vtkPolyDataMaterial::GetField(pd, vtkPolyDataMaterial::SHININESS, std::vector<float>{ 0 })[0];
+    GetField(pd, vtkPolyDataMaterial::GetShininessName(), std::vector<float>{ 0 })[0];
   model["baseColorFactor"].emplace_back(dcolor[0]);
   model["baseColorFactor"].emplace_back(dcolor[1]);
   model["baseColorFactor"].emplace_back(dcolor[2]);
@@ -974,7 +988,7 @@ void vtkGLTFWriter::WriteToStreamMultiBlock(ostream& output, vtkMultiBlockDataSe
           rendererNode["children"].emplace_back(nodes.size() - 1);
           size_t oldTextureCount = textures.size();
           std::vector<std::string> textureFileNames =
-            vtkPolyDataMaterial::GetField(pd, vtkPolyDataMaterial::TEXTURE_URI);
+            vtkPolyDataMaterial::GetField(pd, vtkPolyDataMaterial::GetTextureURIName());
           if (this->SaveTextures)
           {
             for (size_t i = 0; i < textureFileNames.size(); ++i)

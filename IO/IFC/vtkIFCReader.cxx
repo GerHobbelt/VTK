@@ -85,21 +85,21 @@ void setMaterial(vtkPolyData* polyData, ifcopenshell::geometry::taxonomy::style&
     }
   }
   vtkPolyDataMaterial::SetField(
-    polyData, vtkPolyDataMaterial::DIFFUSE_COLOR, color.components().data(), 3);
+    polyData, vtkPolyDataMaterial::GetDiffuseColorName(), color.components().data(), 3);
   if (material.specular && !material.use_surface_color)
   {
-    vtkPolyDataMaterial::SetField(
-      polyData, vtkPolyDataMaterial::SPECULAR_COLOR, material.specular.components().data(), 3);
+    vtkPolyDataMaterial::SetField(polyData, vtkPolyDataMaterial::GetSpecularColorName(),
+      material.specular.components().data(), 3);
   }
   if (material.has_specularity())
   {
     vtkPolyDataMaterial::SetField(
-      polyData, vtkPolyDataMaterial::SHININESS, &material.specularity, 1);
+      polyData, vtkPolyDataMaterial::GetShininessName(), &material.specularity, 1);
   }
   if (material.has_transparency())
   {
     vtkPolyDataMaterial::SetField(
-      polyData, vtkPolyDataMaterial::TRANSPARENCY, &material.transparency, 1);
+      polyData, vtkPolyDataMaterial::GetTransparencyName(), &material.transparency, 1);
   }
 }
 }
@@ -112,6 +112,7 @@ vtkIFCReader::vtkIFCReader()
 {
   this->FileName = nullptr;
   this->NumberOfThreads = 8;
+  this->IncludeCurves = false;
   this->SetNumberOfInputPorts(0);
 }
 
@@ -160,7 +161,8 @@ int vtkIFCReader::RequestData(
     // no need to use the transform
     settings.get<ifcopenshell::geometry::settings::UseWorldCoords>().value = true;
     settings.get<ifcopenshell::geometry::settings::OutputDimensionality>().value =
-      ifcopenshell::geometry::SURFACES_AND_SOLIDS;
+      (this->IncludeCurves ? ifcopenshell::geometry::CURVES_SURFACES_AND_SOLIDS
+                           : ifcopenshell::geometry::SURFACES_AND_SOLIDS);
     settings.get<ifcopenshell::geometry::settings::IteratorOutput>().value =
       ifcopenshell::geometry::TRIANGULATED;
     // Try to get the reader to work as fast as IfcConvert to glb which
