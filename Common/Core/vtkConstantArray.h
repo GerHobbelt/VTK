@@ -23,20 +23,36 @@
 VTK_ABI_NAMESPACE_BEGIN
 template <class ValueTypeT>
 class VTKCOMMONCORE_EXPORT vtkConstantArray
+#ifndef __VTK_WRAP__
   : public vtkImplicitArray<vtkConstantImplicitBackend<ValueTypeT>,
       vtkArrayTypes::VTK_CONSTANT_ARRAY>
 {
   using ImplicitArrayType =
     vtkImplicitArray<vtkConstantImplicitBackend<ValueTypeT>, vtkArrayTypes::VTK_CONSTANT_ARRAY>;
-
+#else // Fake the superclass for the wrappers.
+  : public vtkDataArray
+{
+  using ImplicitArrayType = vtkDataArray;
+#endif
 public:
   using SelfType = vtkConstantArray<ValueTypeT>;
   vtkImplicitArrayTypeMacro(SelfType, ImplicitArrayType);
+#ifndef __VTK_WRAP__
   using typename Superclass::ArrayTypeTag;
   using typename Superclass::DataTypeTag;
   using typename Superclass::ValueType;
+#else
+  using ValueType = ValueTypeT;
+#endif
 
   static vtkConstantArray* New();
+
+  // This macro expands to the set of method declarations that
+  // make up the interface of vtkImplicitArray, which is ignored
+  // by the wrappers.
+#if defined(__VTK_WRAP__) || defined(__WRAP_GCCXML__)
+  vtkCreateImplicitWrappedArrayInterface(ValueTypeT);
+#endif
 
   /**
    * A faster alternative to SafeDownCast for downcasting vtkAbstractArrays.
@@ -77,7 +93,8 @@ VTK_ABI_NAMESPACE_END
 // declarations for these functions such that the wrapper
 // can see them. The wrappers ignore vtkConstantArray.
 #define vtkCreateConstantWrappedArrayInterface(T)                                                  \
-  vtkCreateReadOnlyWrappedArrayInterface(T) void ConstructBackend(T value);                        \
+  vtkCreateImplicitWrappedArrayInterface(T);                                                       \
+  void ConstructBackend(T value);                                                                  \
   T GetConstantValue() const;
 
 #endif // vtkConstantArray_h
@@ -97,7 +114,16 @@ VTK_ABI_NAMESPACE_END
   VTK_ABI_NAMESPACE_BEGIN                                                                          \
   template class VTKCOMMONCORE_EXPORT vtkConstantArray<T>;                                         \
   VTK_ABI_NAMESPACE_END
-
+// We only provide these specializations for the 64-bit integer types, since
+// other types can reuse the double-precision mechanism in
+// vtkDataArray::GetRange without losing precision.
+#define VTK_CONSTANT_ARRAY_INSTANTIATE_VALUERANGE(T)                                               \
+  namespace vtkDataArrayPrivate                                                                    \
+  {                                                                                                \
+  VTK_ABI_NAMESPACE_BEGIN                                                                          \
+  VTK_INSTANTIATE_VALUERANGE_ARRAYTYPE(vtkConstantArray<T>, T);                                    \
+  VTK_ABI_NAMESPACE_END                                                                            \
+  }
 #elif defined(VTK_USE_EXTERN_TEMPLATE)
 #ifndef VTK_CONSTANT_ARRAY_EXTERN
 #define VTK_CONSTANT_ARRAY_EXTERN
@@ -115,6 +141,11 @@ namespace vtkDataArrayPrivate
 {
 VTK_ABI_NAMESPACE_BEGIN
 
+// These are instantiated in vtkGenericDataArrayValueRange${i}.cxx
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkConstantArray<long>, long)
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkConstantArray<unsigned long>, unsigned long)
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkConstantArray<long long>, long long)
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkConstantArray<unsigned long long>, unsigned long long)
 // These are instantiated by vtkConstantArrayInstantiate_double.cxx.inc, e.t.c.
 VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkConstantArray<float>, double)
 VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkConstantArray<double>, double)

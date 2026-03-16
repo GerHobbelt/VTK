@@ -159,13 +159,11 @@ class vtkImplicitArray
   : public vtkGenericDataArray<vtkImplicitArray<BackendT, ArrayType>,
       typename vtk::detail::implicit_array_traits<BackendT>::rtype, ArrayType>
 {
-  using trait = vtk::detail::implicit_array_traits<BackendT>;
-  static_assert(trait::can_read,
+  static_assert(vtk::detail::implicit_array_traits<BackendT>::can_read,
     "Supplied backend type does not have mandatory read trait. Must implement either map() const "
     "or operator() const.");
-  using ValueTypeT = typename trait::rtype;
-  using GenericDataArrayType =
-    vtkGenericDataArray<vtkImplicitArray<BackendT, ArrayType>, ValueTypeT, ArrayType>;
+  using GenericDataArrayType = vtkGenericDataArray<vtkImplicitArray<BackendT, ArrayType>,
+    typename vtk::detail::implicit_array_traits<BackendT>::rtype, ArrayType>;
 
 public:
   using SelfType = vtkImplicitArray<BackendT, ArrayType>;
@@ -494,93 +492,18 @@ private:
 
 // Declare vtkArrayDownCast implementations for implicit containers:
 vtkArrayDownCast_Template2FastCastMacro(vtkImplicitArray);
+
 VTK_ABI_NAMESPACE_END
+
+// This macro is used by the subclasses to create dummy
+// declarations for these functions such that the wrapper
+// can see them. The wrappers ignore vtkImplicitArray.
+#define vtkCreateImplicitWrappedArrayInterface(T)                                                  \
+  vtkCreateWrappedArrayReadInterface(T);                                                           \
+  bool SetNumberOfValues(vtkIdType number) override;
 
 #include "vtkImplicitArray.txx"
 
-#define vtkCreateReadOnlyWrappedArrayInterface(T)                                                  \
-  int GetDataType() const override;                                                                \
-  T GetDataTypeValueMin() const;                                                                   \
-  T GetDataTypeValueMax() const;                                                                   \
-  void GetTypedTuple(vtkIdType i, T* tuple) VTK_EXPECTS(0 <= i && i < GetNumberOfTuples());        \
-  T GetValue(vtkIdType id) const VTK_EXPECTS(0 <= id && id < GetNumberOfValues());                 \
-  T* GetValueRange(int comp) VTK_SIZEHINT(2);                                                      \
-  T* GetValueRange() VTK_SIZEHINT(2);
-
 #endif // vtkImplicitArray_h
 
-#define VTK_WRAP_TEMPLATE(...) __VA_ARGS__
-// See vtkGenericDataArray for similar section
-#ifdef VTK_USE_EXTERN_TEMPLATE
-
-#ifndef VTK_IMPLICIT_TEMPLATE_EXTERN
-#define VTK_IMPLICIT_TEMPLATE_EXTERN
-#ifdef _MSC_VER
-#pragma warning(push)
-// The following is needed when the following is declared
-// dllexport and is used from another class in vtkCommonCore
-#pragma warning(disable : 4910) // extern and dllexport incompatible
-#endif
-
-VTK_ABI_NAMESPACE_BEGIN
-template <typename ValueType>
-class vtkStructuredPointBackend;
-VTK_ABI_NAMESPACE_END
-
-namespace vtkDataArrayPrivate
-{
-VTK_ABI_NAMESPACE_BEGIN
-template <typename A, typename R, typename T>
-VTKCOMMONCORE_EXPORT bool DoComputeScalarRange(
-  A*, R*, T, const unsigned char* ghosts, unsigned char ghostsToSkip);
-template <typename A, typename R>
-VTKCOMMONCORE_EXPORT bool DoComputeVectorRange(
-  A*, R[2], AllValues, const unsigned char* ghosts, unsigned char ghostsToSkip);
-template <typename A, typename R>
-VTKCOMMONCORE_EXPORT bool DoComputeVectorRange(
-  A*, R[2], FiniteValues, const unsigned char* ghosts, unsigned char ghostsToSkip);
-VTK_ABI_NAMESPACE_END
-} // namespace vtkDataArrayPrivate
-
-#define VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(BackendT, ArrayTypeValue)                      \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<float>, ArrayTypeValue>), double)                  \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<double>, ArrayTypeValue>), double)                 \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<char>, ArrayTypeValue>), double)                   \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<signed char>, ArrayTypeValue>), double)            \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<unsigned char>, ArrayTypeValue>), double)          \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<short>, ArrayTypeValue>), double)                  \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<unsigned short>, ArrayTypeValue>), double)         \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<int>, ArrayTypeValue>), double)                    \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<unsigned int>, ArrayTypeValue>), double)           \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<long>, ArrayTypeValue>), double)                   \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<unsigned long>, ArrayTypeValue>), double)          \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<long long>, ArrayTypeValue>), double)              \
-  VTK_DECLARE_VALUERANGE_ARRAYTYPE(                                                                \
-    VTK_WRAP_TEMPLATE(vtkImplicitArray<BackendT<unsigned long long>, ArrayTypeValue>), double)
-
-namespace vtkDataArrayPrivate
-{
-VTK_ABI_NAMESPACE_BEGIN
-VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(
-  vtkStructuredPointBackend, vtkArrayTypes::VTK_STRUCTURED_POINT_ARRAY)
-VTK_ABI_NAMESPACE_END
-}
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-#endif // VTK_IMPLICIT_TEMPLATE_EXTERN
-
-#endif // VTK_USE_EXTERN_TEMPLATE
+// VTK-HeaderTest-Exclude: vtkImplicitArray.h

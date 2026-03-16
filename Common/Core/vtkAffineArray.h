@@ -22,19 +22,35 @@
 VTK_ABI_NAMESPACE_BEGIN
 template <class ValueTypeT>
 class VTKCOMMONCORE_EXPORT vtkAffineArray
+#ifndef __VTK_WRAP__
   : public vtkImplicitArray<vtkAffineImplicitBackend<ValueTypeT>, vtkArrayTypes::VTK_AFFINE_ARRAY>
 {
   using ImplicitArrayType =
     vtkImplicitArray<vtkAffineImplicitBackend<ValueTypeT>, vtkArrayTypes::VTK_AFFINE_ARRAY>;
-
+#else // Fake the superclass for the wrappers.
+  : public vtkDataArray
+{
+  using ImplicitArrayType = vtkDataArray;
+#endif
 public:
   using SelfType = vtkAffineArray<ValueTypeT>;
   vtkImplicitArrayTypeMacro(SelfType, ImplicitArrayType);
+#ifndef __VTK_WRAP__
   using typename Superclass::ArrayTypeTag;
   using typename Superclass::DataTypeTag;
   using typename Superclass::ValueType;
+#else
+  using ValueType = ValueTypeT;
+#endif
 
   static vtkAffineArray* New();
+
+  // This macro expands to the set of method declarations that
+  // make up the interface of vtkImplicitArray, which is ignored
+  // by the wrappers.
+#if defined(__VTK_WRAP__) || defined(__WRAP_GCCXML__)
+  vtkCreateImplicitWrappedArrayInterface(ValueTypeT);
+#endif
 
   /**
    * A faster alternative to SafeDownCast for downcasting vtkAbstractArrays.
@@ -86,7 +102,8 @@ VTK_ABI_NAMESPACE_END
 // declarations for these functions such that the wrapper
 // can see them. The wrappers ignore vtkAffineArray.
 #define vtkCreateAffineWrappedArrayInterface(T)                                                    \
-  vtkCreateReadOnlyWrappedArrayInterface(T) void ConstructBackend(T slope, T intercept);           \
+  vtkCreateImplicitWrappedArrayInterface(T);                                                       \
+  void ConstructBackend(T slope, T intercept);                                                     \
   T GetSlope() const;                                                                              \
   T GetIntercept() const;
 
@@ -107,7 +124,16 @@ VTK_ABI_NAMESPACE_END
   VTK_ABI_NAMESPACE_BEGIN                                                                          \
   template class VTKCOMMONCORE_EXPORT vtkAffineArray<T>;                                           \
   VTK_ABI_NAMESPACE_END
-
+// We only provide these specializations for the 64-bit integer types, since
+// other types can reuse the double-precision mechanism in
+// vtkDataArray::GetRange without losing precision.
+#define VTK_AFFINE_ARRAY_INSTANTIATE_VALUERANGE(T)                                                 \
+  namespace vtkDataArrayPrivate                                                                    \
+  {                                                                                                \
+  VTK_ABI_NAMESPACE_BEGIN                                                                          \
+  VTK_INSTANTIATE_VALUERANGE_ARRAYTYPE(vtkAffineArray<T>, T);                                      \
+  VTK_ABI_NAMESPACE_END                                                                            \
+  }
 #elif defined(VTK_USE_EXTERN_TEMPLATE)
 #ifndef VTK_AFFINE_ARRAY_EXTERN
 #define VTK_AFFINE_ARRAY_EXTERN
@@ -124,7 +150,11 @@ VTK_ABI_NAMESPACE_END
 namespace vtkDataArrayPrivate
 {
 VTK_ABI_NAMESPACE_BEGIN
-
+// These are instantiated in vtkGenericDataArrayValueRange${i}.cxx
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkAffineArray<long>, long)
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkAffineArray<unsigned long>, unsigned long)
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkAffineArray<long long>, long long)
+VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkAffineArray<unsigned long long>, unsigned long long)
 // These are instantiated by vtkAffineArrayInstantiate_double.cxx.inc, e.t.c.
 VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkAffineArray<float>, double)
 VTK_DECLARE_VALUERANGE_ARRAYTYPE(vtkAffineArray<double>, double)
