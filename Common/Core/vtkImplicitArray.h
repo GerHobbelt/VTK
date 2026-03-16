@@ -524,17 +524,8 @@ VTK_ABI_NAMESPACE_END
 
 VTK_ABI_NAMESPACE_BEGIN
 template <typename ValueType>
-struct vtkAffineImplicitBackend;
-template <typename ValueType>
-class vtkCompositeImplicitBackend;
-template <typename ValueType>
-struct vtkConstantImplicitBackend;
-template <typename ValueType>
 class vtkStructuredPointBackend;
-template <typename ValueType>
-class vtkIndexedImplicitBackend;
 VTK_ABI_NAMESPACE_END
-#include <functional>
 
 namespace vtkDataArrayPrivate
 {
@@ -583,66 +574,7 @@ namespace vtkDataArrayPrivate
 {
 VTK_ABI_NAMESPACE_BEGIN
 VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(
-  vtkAffineImplicitBackend, vtkArrayTypes::VTK_AFFINE_ARRAY)
-VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(
-  vtkConstantImplicitBackend, vtkArrayTypes::VTK_CONSTANT_ARRAY)
-VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(
-  vtkCompositeImplicitBackend, vtkArrayTypes::VTK_COMPOSITE_ARRAY)
-VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(
   vtkStructuredPointBackend, vtkArrayTypes::VTK_STRUCTURED_POINT_ARRAY)
-VTK_DECLARE_VALUERANGE_IMPLICIT_BACKENDTYPE(
-  vtkIndexedImplicitBackend, vtkArrayTypes::VTK_INDEXED_ARRAY)
-
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(
-    vtkImplicitArray<std::function<float(int)>, /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(
-    vtkImplicitArray<std::function<double(int)>, /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(
-    vtkImplicitArray<std::function<char(int)>, /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<signed char(int)>,
-                                   /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<unsigned char(int)>,
-    /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(
-    vtkImplicitArray<std::function<short(int)>, /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<unsigned short(int)>,
-    /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(
-    vtkImplicitArray<std::function<int(int)>, /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<unsigned int(int)>,
-    /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(
-    vtkImplicitArray<std::function<long(int)>, /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<unsigned long(int)>,
-    /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<long long(int)>,
-                                   /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
-VTK_DECLARE_VALUERANGE_ARRAYTYPE(
-  VTK_WRAP_TEMPLATE(vtkImplicitArray<std::function<unsigned long long(int)>,
-    /* vtkArrayTypes::VTK_STD_FUNCTION_ARRAY */ 15>),
-  double)
 VTK_ABI_NAMESPACE_END
 }
 

@@ -369,16 +369,21 @@ set(classes
   vtkXMLFileOutputWindow)
 
 set(template_classes
+  vtkAffineArray
   vtkAOSDataArrayTemplate
   vtkArrayDispatch
   vtkArrayInterpolate
   vtkArrayIteratorTemplate
   vtkArrayPrint
+  vtkCompositeArray
+  vtkConstantArray
   vtkDenseArray
   vtkGenericDataArray
+  vtkIndexedArray
   vtkScaledSOADataArrayTemplate
   vtkSOADataArrayTemplate
   vtkSparseArray
+  vtkStdFunctionArray
   vtkThreadedTaskQueue
   vtkTypedArray)
 
@@ -604,11 +609,8 @@ else ()
 endif ()
 
 set(nowrap_headers
-  vtkAffineArray.h
   vtkAffineImplicitBackend.h
   vtkCollectionRange.h
-  vtkCompositeArray.h
-  vtkConstantArray.h
   vtkConstantImplicitBackend.h
   vtkDataArrayAccessor.h
   vtkDataArrayTupleRange_AOS.h
@@ -617,11 +619,9 @@ set(nowrap_headers
   vtkDataArrayValueRange_Generic.h
   vtkHashCombiner.h
   vtkImplicitArrayTraits.h
-  vtkIndexedArray.h
   vtkInherits.h
   vtkMathPrivate.hxx
   vtkStridedArray.h
-  vtkStdFunctionArray.h
   vtkStructuredPointArray.h
   vtkTypeName.h
   ${vtk_smp_nowrap_headers}
