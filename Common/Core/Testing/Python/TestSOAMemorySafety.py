@@ -26,7 +26,7 @@ class TestSOAMemorySafety(Testing.vtkTest):
 
     def testBufferChangedEventOnSetArray(self):
         """Test that BufferChangedEvent fires when SetArray() replaces a buffer."""
-        arr = vtkSOADataArrayTemplate['float64']()
+        arr = vtkSOADataArrayTemplate[numpy.float64]()
         arr.SetNumberOfComponents(2)
 
         # Set up initial SOA data
@@ -51,7 +51,7 @@ class TestSOAMemorySafety(Testing.vtkTest):
 
     def testBufferChangedEventOnReallocateTuples(self):
         """Test that BufferChangedEvent fires when ReallocateTuples() changes buffer."""
-        arr = vtkSOADataArrayTemplate['float64']()
+        arr = vtkSOADataArrayTemplate[numpy.float64]()
         arr.SetNumberOfComponents(2)
 
         # Set up initial SOA data
@@ -66,15 +66,15 @@ class TestSOAMemorySafety(Testing.vtkTest):
 
         arr.AddObserver(vtkCommand.BufferChangedEvent, on_buffer_changed)
 
-        # Resize should fire BufferChangedEvent (triggers ReallocateTuples)
-        arr.Resize(100)
+        # ReserveTuples should fire BufferChangedEvent (triggers ReallocateTuples)
+        arr.ReserveTuples(100)
 
         self.assertTrue(event_fired[0],
             "BufferChangedEvent should fire when ReallocateTuples() changes buffer")
 
     def testVTKSOAArrayObserverDetectsBufferChange(self):
         """Test that VTKSOAArray re-initializes after buffer changes."""
-        arr = vtkSOADataArrayTemplate['float64']()
+        arr = vtkSOADataArrayTemplate[numpy.float64]()
         arr.SetNumberOfComponents(2)
 
         # Set up SOA data
@@ -113,7 +113,7 @@ class TestSOAMemorySafety(Testing.vtkTest):
 
     def testVTKSOAArrayObserverDetectsResize(self):
         """Test that VTKSOAArray re-initializes after resize."""
-        arr = vtkSOADataArrayTemplate['float64']()
+        arr = vtkSOADataArrayTemplate[numpy.float64]()
         arr.SetNumberOfComponents(2)
 
         # Set up SOA data
@@ -129,8 +129,8 @@ class TestSOAMemorySafety(Testing.vtkTest):
         # Track observer ID
         observer_id = arr._observer_id
 
-        # Resizing triggers BufferChangedEvent, invalidating cache
-        arr.Resize(100)
+        # ReserveTuples triggers BufferChangedEvent, invalidating cache
+        arr.ReserveTuples(100)
 
         # Observer should have removed itself after firing
         self.assertIsNone(observer_id[0],
@@ -168,7 +168,7 @@ class TestSOAMemorySafety(Testing.vtkTest):
 
     def testVTKSOAArrayStoresBufferReferences(self):
         """Test that VTKSOAArray stores buffer references."""
-        arr = vtkSOADataArrayTemplate['float64']()
+        arr = vtkSOADataArrayTemplate[numpy.float64]()
         arr.SetNumberOfComponents(2)
 
         # Set up SOA data
@@ -188,7 +188,7 @@ class TestSOAMemorySafety(Testing.vtkTest):
         """Test that observer is cleaned up when VTKSOAArray is deleted."""
         import gc
 
-        arr = vtkSOADataArrayTemplate['float64']()
+        arr = vtkSOADataArrayTemplate[numpy.float64]()
         arr.SetNumberOfComponents(2)
 
         # Set up SOA data (must use SetArray for SOA mode)
@@ -205,7 +205,7 @@ class TestSOAMemorySafety(Testing.vtkTest):
         gc.collect()
 
         # Create a new array to verify no lingering issues
-        arr2 = vtkSOADataArrayTemplate['float64']()
+        arr2 = vtkSOADataArrayTemplate[numpy.float64]()
         arr2.SetNumberOfComponents(1)
         arr2.SetNumberOfTuples(5)
         self.assertEqual(arr2.GetNumberOfTuples(), 5)
