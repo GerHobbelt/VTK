@@ -1339,7 +1339,7 @@ int vtkPolyVertexList::CanRemoveVertex(vtkLocalPolyVertex* currentVtx)
         currentSign = sign;
       }
     } // if crossing occurs
-  }   // for the rest of the loop
+  } // for the rest of the loop
 
   if (!oneNegative)
   {
@@ -1628,8 +1628,17 @@ int vtkPolygon::EarCutTriangulation(vtkIdList* outTris, int measure)
   // vertex. Place the structure into a priority queue (those
   // vertices with smallest measure are to be removed first).
   //
-  vtkNew<vtkPriorityQueue> VertexQueue;
-  VertexQueue->Allocate(poly.NumberOfVerts);
+  // Reuse the per-instance priority queue (lazily created, owned as a member so
+  // it is freed with this vtkPolygon and never outlives teardown). Reset() clears
+  // it while keeping its backing storage, so triangulating many polygons through
+  // one (reused) vtkPolygon does not allocate per polygon. The pop order is
+  // identical to a freshly allocated queue, so the output is unchanged.
+  if (!this->EarClipQueue)
+  {
+    this->EarClipQueue = vtkSmartPointer<vtkPriorityQueue>::New();
+  }
+  vtkPriorityQueue* VertexQueue = this->EarClipQueue;
+  VertexQueue->Reset();
   vtkLocalPolyVertex* vtx = poly.Head;
   for (int i = 0; i < poly.NumberOfVerts; i++, vtx = vtx->next)
   {
@@ -2424,7 +2433,7 @@ int vtkPolygon::IntersectConvex2DCells(
         return 2;
       }
     } // if edge intersection
-  }   // over all edges
+  } // over all edges
 
   // Loop over edges of first polygon and intersect against second polygon
   numPts = cell1->Points->GetNumberOfPoints();
@@ -2446,7 +2455,7 @@ int vtkPolygon::IntersectConvex2DCells(
         return 2;
       }
     } // if edge intersection
-  }   // over all edges
+  } // over all edges
 
   // Evaluate what we got
   if (idx == 1)
