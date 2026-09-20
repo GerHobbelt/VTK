@@ -386,9 +386,9 @@ PyObject* PyVTKTemplate_NameFromKey(PyObject* self, PyObject* key)
     }
     else if (PyObject_HasAttrString(o, "char"))
     {
-      // assume this is a numpy dtype
+      // assume this is a numpy dtype: key on its underlying C type character
       o = PyObject_GetAttrString(o, "char");
-      if (PyUnicode_Check(o))
+      if (o != nullptr && PyUnicode_Check(o))
       {
         tname = PyUnicode_AsUTF8AndSize(o, nullptr);
       }
@@ -397,14 +397,26 @@ PyObject* PyVTKTemplate_NameFromKey(PyObject* self, PyObject* key)
     {
       // else convert into an ASCII string
       o = PyObject_Str(o);
-      if (PyBytes_Check(o))
+      if (o != nullptr && PyBytes_Check(o))
       {
         tname = PyBytes_AsString(o);
       }
-      else if (PyUnicode_Check(o))
+      else if (o != nullptr && PyUnicode_Check(o))
       {
         tname = PyUnicode_AsUTF8AndSize(o, nullptr);
       }
+    }
+
+    if (tname == nullptr)
+    {
+      // the key was not a type, a usable numpy dtype, or a valid type name;
+      // raise instead of dereferencing a null name below
+      if (!PyErr_Occurred())
+      {
+        PyErr_SetString(PyExc_TypeError, "template argument could not be converted to a type name");
+      }
+      Py_XDECREF(o);
+      return nullptr;
     }
 
     if ((*tname >= '0' && *tname <= '9') || (*tname == '-' && tname[1] >= '0' && tname[1] <= '9'))
@@ -490,6 +502,37 @@ PyObject* PyVTKTemplate_NameFromKey(PyObject* self, PyObject* key)
             typechar = typechars[j];
             break;
           }
+        }
+      }
+      // numpy binds its sized integer names to C 'long' first: "int64" is
+      // C 'long' on LP64, and "int32" is C 'long' on LLP64/ILP32.  The name
+      // table maps the sized names to 'long long' / 'int' unconditionally,
+      // so resolve them to the platform's C type here.  This keeps indexing
+      // by the scalar type (e.g. numpy.int64, whose type name is "int64")
+      // consistent with indexing by the dtype instance (numpy.dtype('int64'),
+      // whose 'char' is 'l' on LP64), which would otherwise disagree.  The
+      // 'l'/'m' fixup below then selects whichever long / long long / int
+      // instantiation actually exists.
+      if (sizeof(long) == 8)
+      {
+        if (strcmp(tname, "int64") == 0)
+        {
+          typechar = 'l'; // C long
+        }
+        else if (strcmp(tname, "uint64") == 0)
+        {
+          typechar = 'm'; // C unsigned long
+        }
+      }
+      else if (sizeof(long) == 4)
+      {
+        if (strcmp(tname, "int32") == 0)
+        {
+          typechar = 'l'; // C long
+        }
+        else if (strcmp(tname, "uint32") == 0)
+        {
+          typechar = 'm'; // C unsigned long
         }
       }
       if (typechar == 'l' || typechar == 'm')
@@ -665,23 +708,27 @@ PyObject* PyVTKTemplate_KeyFromName(PyObject* self, PyObject* arg)
         case 't': // "ushort"
           ptype = "uint16";
           break;
+        // The names below must round-trip: feeding the returned key back
+        // through PyVTKTemplate_NameFromKey has to select this same
+        // instantiation.  numpy binds sized names to C 'long' first, so the
+        // name for each C integer type depends on the size of 'long'.
         case 'i': // "intc"
-          ptype = "int32";
+          ptype = (sizeof(long) == 8 ? "int32" : "intc");
           break;
         case 'j': // "uintc"
-          ptype = "uint32";
+          ptype = (sizeof(long) == 8 ? "uint32" : "uintc");
           break;
-        case 'l': // "long" (or python "int")
-          ptype = "int";
+        case 'l': // "long"
+          ptype = (sizeof(long) == 8 ? "int64" : "int32");
           break;
         case 'm': // "ulong"
-          ptype = "uint";
+          ptype = (sizeof(long) == 8 ? "uint64" : "uint32");
           break;
         case 'x': // "longlong"
-          ptype = "int64";
+          ptype = (sizeof(long) == 8 ? "longlong" : "int64");
           break;
         case 'y': // "ulonglong"
-          ptype = "uint64";
+          ptype = (sizeof(long) == 8 ? "ulonglong" : "uint64");
           break;
         case 'f': // "single"
           ptype = "float32";
