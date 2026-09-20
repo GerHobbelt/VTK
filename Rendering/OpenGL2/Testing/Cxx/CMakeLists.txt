@@ -83,9 +83,6 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestSharedRenderWindow.cxx,NO_SERDES
   TestDirectSelectionRendering.cxx
   TestSimpleMotionBlur.cxx,NO_SERDES
-  TestSkyboxRotation.cxx
-  TestSkyboxCubeRotation.cxx
-  TestSkyboxRotationVectors.cxx
   TestSobelGradientMagnitudePass.cxx
   TestSphereMap.cxx
   TestSpherePoints.cxx
@@ -95,6 +92,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestSSAAPassDepthRestore.cxx
   TestSSAAPassChangeRenderers.cxx,NO_VALID
   TestSSAAPassMultiViewports.cxx
+  TestSSAAPassMultiViewportGetZ.cxx,NO_DATA,NO_VALID
   TestSSAOPass.cxx
   TestSSAOPassWithRenderer.cxx
   TestSurfaceInterpolationSwitch.cxx

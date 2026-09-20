@@ -233,6 +233,7 @@ Filters/Core/vtkStructuredGridAppend.h
 Filters/Core/vtkStructuredGridOutlineFilter.h
 Filters/Core/vtkSurfaceNets2D.h
 Filters/Core/vtkSurfaceNets3D.h
+Filters/Core/vtkSurfaceNetsAtlas.h
 Filters/Core/vtkSynchronizedTemplates2D.h
 Filters/Core/vtkSynchronizedTemplates3D.h
 Filters/Core/vtkSynchronizedTemplatesCutter3D.h
@@ -575,6 +576,7 @@ Rendering/OpenGL2/vtkEquirectangularToCubeMapTexture.h
 Rendering/OpenGL2/vtkFastLabeledDataMapper.h
 Rendering/OpenGL2/vtkFramebufferPass.h
 Rendering/OpenGL2/vtkGaussianBlurPass.h
+Rendering/OpenGL2/vtkHexagonalBokehBlurPass.h
 Rendering/OpenGL2/vtkHiddenLineRemovalPass.h
 Rendering/OpenGL2/vtkImageProcessingPass.h
 Rendering/OpenGL2/vtkLightingMapPass.h
