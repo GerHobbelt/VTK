@@ -27,6 +27,7 @@ set(VTK_MODULE_ENABLE_VTK_IOFFMPEG NO CACHE STRING "") # no ffmpeg
 set(VTK_MODULE_ENABLE_VTK_IOGDAL NO CACHE STRING "") # no gdal
 set(VTK_MODULE_ENABLE_VTK_IOLAS NO CACHE STRING "") # no liblas
 set(VTK_MODULE_ENABLE_VTK_IOMySQL NO CACHE STRING "") # no mysql
+set(VTK_MODULE_ENABLE_VTK_IONanoVDB NO CACHE STRING "") # no nanovdb
 set(VTK_MODULE_ENABLE_VTK_IOOCCT NO CACHE STRING "") # no open cascade
 set(VTK_MODULE_ENABLE_VTK_IOIFC NO CACHE STRING "") # no IFC based on IfcOpenShell
 set(VTK_MODULE_ENABLE_VTK_IOUSD NO CACHE STRING "") # no usd
@@ -42,7 +43,6 @@ set(VTK_MODULE_ENABLE_VTK_RenderingMatplotlib NO CACHE STRING "") # no matplotli
 set(VTK_MODULE_ENABLE_VTK_RenderingOpenVR NO CACHE STRING "") # no openvr
 set(VTK_MODULE_ENABLE_VTK_RenderingOpenXR NO CACHE STRING "") # no openxr
 set(VTK_MODULE_ENABLE_VTK_RenderingQt NO CACHE STRING "") # no qt
-set(VTK_MODULE_ENABLE_VTK_RenderingRayTracing NO CACHE STRING "") # no ospray or visrtx
 set(VTK_MODULE_ENABLE_VTK_RenderingTk NO CACHE STRING "") # no tk
 set(VTK_MODULE_ENABLE_VTK_RenderingZSpace NO CACHE STRING "") # no zspace
 # ├── ThirdParty

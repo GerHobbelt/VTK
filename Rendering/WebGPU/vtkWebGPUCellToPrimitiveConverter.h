@@ -26,6 +26,7 @@
 #include "vtkProperty.h"              // for VTK_SURFACE
 #include "vtkRenderingWebGPUModule.h" // for export macro
 #include "vtkSmartPointer.h"          // for vtkSmartPointer
+#include "vtkTimeStamp.h"             // for vtkTimeStamp
 
 #include "vtk_wgpu.h" // for wgpu::Buffer
 
@@ -220,15 +221,6 @@ protected:
   vtkWebGPUCellToPrimitiveConverter();
   ~vtkWebGPUCellToPrimitiveConverter() override;
 
-  // Timestamps help reuse previous resources as much as possible.
-  vtkTimeStamp TopologyBuildTimestamp[vtkWebGPUCellToPrimitiveConverter::NUM_TOPOLOGY_SOURCE_TYPES];
-  // compute pass speeds up cell to primitive conversions.
-  vtkSmartPointer<vtkWebGPUComputePass>
-    ComputePasses[vtkWebGPUCellToPrimitiveConverter::NUM_TOPOLOGY_SOURCE_TYPES];
-  // compute pipeline to execute the compute pass.
-  vtkSmartPointer<vtkWebGPUComputePipeline>
-    ComputePipelines[vtkWebGPUCellToPrimitiveConverter::NUM_TOPOLOGY_SOURCE_TYPES];
-
 private:
   vtkWebGPUCellToPrimitiveConverter(const vtkWebGPUCellToPrimitiveConverter&) = delete;
   void operator=(const vtkWebGPUCellToPrimitiveConverter&) = delete;
@@ -242,6 +234,15 @@ private:
   CreateCellToPrimitiveComputePassForCellType(
     vtkSmartPointer<vtkWebGPUConfiguration> wgpuConfiguration,
     TopologySourceType topologySourceType);
+
+  // Timestamps help reuse previous resources as much as possible.
+  vtkTimeStamp TopologyBuildTimestamp[vtkWebGPUCellToPrimitiveConverter::NUM_TOPOLOGY_SOURCE_TYPES];
+  // compute pass speeds up cell to primitive conversions.
+  vtkSmartPointer<vtkWebGPUComputePass>
+    ComputePasses[vtkWebGPUCellToPrimitiveConverter::NUM_TOPOLOGY_SOURCE_TYPES];
+  // compute pipeline to execute the compute pass.
+  vtkSmartPointer<vtkWebGPUComputePipeline>
+    ComputePipelines[vtkWebGPUCellToPrimitiveConverter::NUM_TOPOLOGY_SOURCE_TYPES];
 };
 
 VTK_ABI_NAMESPACE_END

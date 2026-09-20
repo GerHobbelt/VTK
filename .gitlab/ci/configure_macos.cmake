@@ -9,6 +9,7 @@ set(VTK_MODULE_ENABLE_VTK_IOFFMPEG NO CACHE STRING "") # ffmpeg
 set(VTK_MODULE_ENABLE_VTK_IOGDAL NO CACHE STRING "") # ffmpeg
 set(VTK_MODULE_ENABLE_VTK_IOLAS NO CACHE STRING "") # liblas, boost
 set(VTK_MODULE_ENABLE_VTK_IOMySQL NO CACHE STRING "") # mysql
+set(VTK_MODULE_ENABLE_VTK_IONanoVDB NO CACHE STRING "") # nanovdb
 set(VTK_MODULE_ENABLE_VTK_IOODBC NO CACHE STRING "") # odbc
 set(VTK_MODULE_ENABLE_VTK_IOOpenVDB NO CACHE STRING "") # OpenVDB
 set(VTK_MODULE_ENABLE_VTK_IOPDAL NO CACHE STRING "") # pdal
@@ -19,7 +20,6 @@ set(VTK_MODULE_ENABLE_VTK_RenderingFreeTypeFontConfig NO CACHE STRING "") # font
 set(VTK_MODULE_ENABLE_VTK_RenderingMatplotlib NO CACHE STRING "") # matplotlib
 set(VTK_MODULE_ENABLE_VTK_RenderingOpenVR NO CACHE STRING "") # openvr
 set(VTK_MODULE_ENABLE_VTK_RenderingOpenXR NO CACHE STRING "") # OpenXR
-set(VTK_MODULE_ENABLE_VTK_RenderingRayTracing NO CACHE STRING "") # ospray
 set(VTK_MODULE_ENABLE_VTK_RenderingZSpace NO CACHE STRING "") # zSpace
 set(VTK_MODULE_ENABLE_VTK_xdmf3 NO CACHE STRING "") # boost
 set(VTK_MODULE_ENABLE_VTK_IOOCCT NO CACHE STRING "") # occt
@@ -32,8 +32,17 @@ set(VTK_ENABLE_CATALYST OFF CACHE BOOL "") # catalyst
 # vtk issue: https://gitlab.kitware.com/vtk/vtk/-/issues/19903
 set(VTK_USE_PCH OFF CACHE BOOL "")
 
-# Add rpath entries for Xcode frameworks.
-set(CMAKE_BUILD_RPATH "$ENV{DEVELOPER_DIR}/Library/Frameworks" CACHE STRING "")
-set(CMAKE_INSTALL_RPATH "$ENV{DEVELOPER_DIR}/Library/Frameworks" CACHE STRING "")
+set(rpaths
+  # Add rpath entries for Xcode frameworks.
+  "$ENV{DEVELOPER_DIR}/Library/Frameworks")
+
+if ("$ENV{CMAKE_CONFIGURATION}" MATCHES "python")
+  list(APPEND rpaths
+    # Add rpath entry for the CI-downloaded Python.
+    "$ENV{GIT_CLONE_PATH}/.gitlab/python/Python.framework")
+endif ()
+
+set(CMAKE_BUILD_RPATH "${rpaths}" CACHE STRING "")
+set(CMAKE_INSTALL_RPATH "${rpaths}" CACHE STRING "")
 
 include("${CMAKE_CURRENT_LIST_DIR}/configure_common.cmake")
