@@ -81,7 +81,7 @@ g <groupName>  [... <groupNameN]
 
     group name, primarily for faces
 
-v <x> <y> <z> [<r> g> <b> [a]]
+v <x> <y> <z> [<r> <g> <b> [a]]
 
     vertex
 
@@ -419,7 +419,7 @@ int vtkOBJReader::RequestData(vtkInformation* vtkNotUsed(request),
           return 0;
         }
       }
-      else
+      else if (colorComponentReadCount > 0)
       {
         vtkWarningMacro(<< "Ignoring point color at L." << lineNumber
                         << " for missing color values");
