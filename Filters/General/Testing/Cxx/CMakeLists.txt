@@ -19,6 +19,7 @@ vtk_add_test_cxx(vtkFiltersGeneralCxxTests tests
   TestCellValidatorFilter.cxx,NO_VALID
   TestCleanUnstructuredGridStrategies.cxx,NO_VALID
   TestClipDatasetPolyhedrons.cxx,NO_VALID
+  TestClipInclusiveIsovalue.cxx,NO_VALID
   TestContourTriangulator.cxx
   TestContourTriangulatorBadData.cxx
   TestContourTriangulatorCutter.cxx
@@ -84,6 +85,7 @@ vtk_add_test_cxx(vtkFiltersGeneralCxxTests data_tests
   TestGradientAndVorticity.cxx,NO_VALID
   TestIconGlyphFilterGravity.cxx,LOOSE_VALID
   TestQuadraturePoints.cxx
+  TestTransformFilterCache.cxx,NO_VALID
   TestYoungsMaterialInterface.cxx
   )
 
