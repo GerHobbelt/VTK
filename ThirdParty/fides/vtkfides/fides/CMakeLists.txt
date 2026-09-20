@@ -103,15 +103,13 @@ vtk_module_link(VTK::fides
   PRIVATE
     adios2::adios2
     fides_rapidjson
-    # This is over-linking (just need ::worklet) but VTK doesn't forward the
-    # inner targets currently.
-    VTK::vtkviskores
+    VTK::vtkviskores_worklet
   )
 vtk_module_include(VTK::fides
   PUBLIC
     $<BUILD_INTERFACE:${FIDES_SOURCE_DIR}>
     $<BUILD_INTERFACE:${FIDES_BINARY_DIR}/fides>
-    $<INSTALL_INTERFACE:${_vtk_build_HEADERS_DESTINATION}/vtkfides/fides>
+    $<INSTALL_INTERFACE:${_vtk_build_HEADERS_DESTINATION}/vtkfides>
   )
 
 include(GenerateExportHeader)
