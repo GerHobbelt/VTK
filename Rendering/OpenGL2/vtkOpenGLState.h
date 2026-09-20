@@ -63,6 +63,7 @@ VTK_ABI_NAMESPACE_BEGIN
 class vtkOpenGLFramebufferObject;
 class vtkOpenGLRenderWindow;
 class vtkOpenGLShaderCache;
+class vtkOpenGLTextureNormalizationHelper;
 class vtkOpenGLVertexBufferObjectCache;
 class vtkTextureObject;
 class vtkTextureUnitManager;
@@ -393,6 +394,15 @@ public:
    */
   bool GetSupportsTextureNorm16() { return this->SupportsTextureNorm16; }
 
+  /**
+   * Get the texture normalization helper for GLES 3.0 without norm16 extension.
+   * Returns nullptr if no GPU-assisted conversion is available or on desktop OpenGL.
+   */
+  vtkOpenGLTextureNormalizationHelper* GetTextureNormalizationHelper()
+  {
+    return this->TextureNormalizationHelper;
+  }
+
 protected:
   vtkOpenGLState(); // set initial values
   ~vtkOpenGLState() override;
@@ -408,6 +418,7 @@ protected:
   void InitializeTextureInternalFormats();
 
   vtkTextureUnitManager* TextureUnitManager;
+  vtkOpenGLTextureNormalizationHelper* TextureNormalizationHelper = nullptr;
   std::map<const vtkTextureObject*, int> TextureResourceIds;
 
   /**

@@ -8,8 +8,8 @@
 #include "vtkOpenGLRenderUtilities.h"
 #include "vtkOpenGLRenderWindow.h"
 #include "vtkOpenGLShaderCache.h"
+#include "vtkOpenGLTextureNormalizationHelper.h"
 #include "vtkOpenGLVertexBufferObjectCache.h"
-#include "vtkRenderer.h"
 #include "vtkTextureUnitManager.h"
 
 // must be included after a vtkObject subclass
@@ -1535,10 +1535,24 @@ void vtkOpenGLState::Pop()
 
 // make the hardware openglstate match the
 // state ivars
-void vtkOpenGLState::Initialize(vtkOpenGLRenderWindow*)
+void vtkOpenGLState::Initialize(vtkOpenGLRenderWindow* renWin)
 {
   this->TextureUnitManager->Initialize();
   this->InitializeTextureInternalFormats();
+#ifdef GL_ES_VERSION_3_0
+  if (!this->SupportsTextureNorm16)
+  {
+    auto helper = vtkOpenGLTextureNormalizationHelper::Create(renWin);
+    if (helper)
+    {
+      this->TextureNormalizationHelper = helper.GetPointer();
+      // Register so the object survives when the temporary smart pointer is destroyed
+      this->TextureNormalizationHelper->Register(this);
+    }
+  }
+#else
+  (void)renWin; // not needed for desktop OpenGL
+#endif
   auto& cs = this->Stack.top();
 
   cs.Blend ? ::glEnable(GL_BLEND) : ::glDisable(GL_BLEND);
@@ -1994,6 +2008,11 @@ vtkOpenGLState::~vtkOpenGLState()
   this->SetTextureUnitManager(nullptr);
   this->VBOCache->Delete();
   this->ShaderCache->Delete();
+  if (this->TextureNormalizationHelper)
+  {
+    this->TextureNormalizationHelper->UnRegister(this);
+    this->TextureNormalizationHelper = nullptr;
+  }
 }
 
 void vtkOpenGLState::PushDrawFramebufferBinding()
@@ -2179,11 +2198,32 @@ void vtkOpenGLState::InitializeTextureInternalFormats()
   this->TextureInternalFormats[VTK_SIGNED_CHAR][0][4] = GL_RGBA8_SNORM;
 #endif
 
+#ifdef GL_ES_VERSION_3_0
+  // GL_EXT_texture_norm16 also provides signed 16-bit normalized formats.
+  // GL_R16_SNORM_EXT is not defined in GLES3/gl3.h, so use hex values directly.
+  if (this->SupportsTextureNorm16)
+  {
+    this->TextureInternalFormats[VTK_SHORT][0][1] = 0x8F98; // GL_R16_SNORM
+    this->TextureInternalFormats[VTK_SHORT][0][2] = 0x8F99; // GL_RG16_SNORM
+    this->TextureInternalFormats[VTK_SHORT][0][3] = 0x8F9A; // GL_RGB16_SNORM
+    this->TextureInternalFormats[VTK_SHORT][0][4] = 0x8F9B; // GL_RGBA16_SNORM
+  }
+  else
+  {
+#ifdef GL_R32F
+    this->TextureInternalFormats[VTK_SHORT][0][1] = GL_R32F;
+    this->TextureInternalFormats[VTK_SHORT][0][2] = GL_RG32F;
+    this->TextureInternalFormats[VTK_SHORT][0][3] = GL_RGB32F;
+    this->TextureInternalFormats[VTK_SHORT][0][4] = GL_RGBA32F;
+#endif
+  }
+#else
 #ifdef GL_R16_SNORM
   this->TextureInternalFormats[VTK_SHORT][0][1] = GL_R16_SNORM;
   this->TextureInternalFormats[VTK_SHORT][0][2] = GL_RG16_SNORM;
   this->TextureInternalFormats[VTK_SHORT][0][3] = GL_RGB16_SNORM;
   this->TextureInternalFormats[VTK_SHORT][0][4] = GL_RGBA16_SNORM;
+#endif
 #endif
 
 #ifdef GL_R8I
