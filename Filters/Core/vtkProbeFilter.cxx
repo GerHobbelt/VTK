@@ -76,6 +76,7 @@ vtkProbeFilter::vtkProbeFilter()
   this->Tolerance = 1.0;
   this->ComputeTolerance = true;
   this->SnapToCellWithClosestPoint = false;
+  this->SnappingRadius = std::numeric_limits<double>::infinity();
 }
 
 //------------------------------------------------------------------------------
@@ -488,7 +489,7 @@ public:
     auto& lastLength2 = tlData.LastLength2;
     auto& lastCellId = tlData.LastCellId;
     // local data
-    double x[3], dist2 = 0.0;
+    double x[3], dist2 = 0;
     vtkIdType closestPointFound;
     int inside;
     bool foundInCache, insideCellBounds;
@@ -543,8 +544,8 @@ public:
           if (cellLocatorStrategy)
           {
             // this location strategy uses a cell locator
-            lastCellId = cellLocatorStrategy->FindCell(x, nullptr, currentCell, -1,
-              this->Tol2 /*not used*/, lastSubId, lastPCoords, weights);
+            lastCellId = cellLocatorStrategy->FindCell(
+              x, nullptr, currentCell, -1, this->Tol2, lastSubId, lastPCoords, weights);
             // this strategy once it finds a cell where the given point is inside it stops
             // immediately, so currentCell contains the cell we want
           }
@@ -596,19 +597,19 @@ public:
         {
           if (this->ProbeFilter->SnapToCellWithClosestPoint && strategy)
           {
-            // Find the closest point and the cell that it belong to
-            constexpr double snappingRadius = std::numeric_limits<double>::infinity();
-            closestPointFound = strategy->FindClosestPointWithinRadius(x, snappingRadius,
-              lastClosestPoint, currentCell, lastCellId, lastSubId, dist2, inside);
+            // Find the closest point within the snapping radius and the cell that it belong to
+            closestPointFound =
+              strategy->FindClosestPointWithinRadius(x, this->ProbeFilter->SnappingRadius,
+                lastClosestPoint, currentCell, lastCellId, lastSubId, dist2, inside);
             if (closestPointFound)
             {
-              // pcoords, weights and subid are all valid, so we can compute the closest point
-              // using EvaluateLocation
-              this->Source->GetCell(lastCellId, currentCell);
-              // we don't need to calculate the closest point, but we do need to calculate the
-              // weights
-              currentCell->EvaluateLocation(lastSubId, lastPCoords, lastClosestPoint, weights);
-              // copy bounds
+              // Previously computed lastPCoords are not valid, so that we need to compute
+              // them and the weights from the lastClosestPoint.
+              currentCell->EvaluatePosition(
+                lastClosestPoint, nullptr, lastSubId, lastPCoords, dist2, weights);
+              // The use of the nullptr avoids the unnecessary recalculation of the closest point
+              // and set dist2 to zero, making it to be always accepted for any tolerance.
+              // copy bounds.
               lastBBox.SetBounds(currentCell->GetBounds());
               // compute lastLength2
               lastLength2 = lastBBox.GetDiagonalLength2();
@@ -673,19 +674,11 @@ void vtkProbeFilter::ProbeEmptyPoints(
 
   if (this->ComputeTolerance)
   {
-    // to compute a reasonable starting tolerance we use
-    // a fraction of the largest cell length we come across
-    // out of the first few cells. Tolerance is meant
-    // to be an epsilon for cases such as probing 2D
-    // cells where the XYZ may be a tad off the surface
-    // but "close enough"
-    double sLength2 = 0;
-    for (vtkIdType i = 0; i < 20 && i < source->GetNumberOfCells(); i++)
-    {
-      double cLength2 = source->GetCell(i)->GetLength2();
-      sLength2 = std::max(sLength2, cLength2);
-    }
-    // use 1% of the diagonal (1% has to be squared)
+    // To compute a reasonable starting tolerance we use a fraction of the largest cell length
+    // we come across after sampling 100 cells. Tolerance is meant to be an epsilon for cases,
+    // such as probing 2D cells where the XYZ may be a tad off the surface but "close enough".
+    double sLength2 = source->GetSampledMaxCellLength2(100);
+    // use 0.1% of the diagonal (CELL_TOLERANCE_FACTOR_SQR = 1e-6, since 0.1% has to be squared)
     tol2 = sLength2 * CELL_TOLERANCE_FACTOR_SQR;
   }
   else

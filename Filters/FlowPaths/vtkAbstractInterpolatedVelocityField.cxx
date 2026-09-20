@@ -23,7 +23,7 @@ VTK_ABI_NAMESPACE_BEGIN
 vtkCxxSetObjectMacro(vtkAbstractInterpolatedVelocityField, FindCellStrategy, vtkFindCellStrategy);
 
 //------------------------------------------------------------------------------
-const double vtkAbstractInterpolatedVelocityField::TOLERANCE_SCALE = 1.0E-8;
+const double vtkAbstractInterpolatedVelocityField::TOLERANCE_SCALE = 1.0E-12;
 const double vtkAbstractInterpolatedVelocityField::SURFACE_TOLERANCE_SCALE = 1.0E-5;
 
 //------------------------------------------------------------------------------
@@ -231,7 +231,7 @@ int vtkAbstractInterpolatedVelocityField::FunctionValues(vtkDataSet* dataset, do
   // Compute function values for the dataset
   f[0] = f[1] = f[2] = 0.0;
 
-  if (!this->FindAndUpdateCell(dataset, datasetInfoIter->Strategy, x))
+  if (!this->FindAndUpdateCell(*datasetInfoIter, x))
   {
     vectors = nullptr;
     return 0;
@@ -318,15 +318,16 @@ int vtkAbstractInterpolatedVelocityField::FunctionValues(vtkDataSet* dataset, do
 
 //------------------------------------------------------------------------------
 bool vtkAbstractInterpolatedVelocityField::FindAndUpdateCell(
-  vtkDataSet* dataset, vtkFindCellStrategy* strategy, double* x)
+  const vtkDataSetInformation& dsInfo, double* x)
 {
-  const double diagonalLength2 = dataset->GetLength2();
-  const double tol2 = diagonalLength2 *
-    (this->SurfaceDataset ? vtkAbstractInterpolatedVelocityField::SURFACE_TOLERANCE_SCALE
-                          : vtkAbstractInterpolatedVelocityField::TOLERANCE_SCALE);
-  const double tol = std::sqrt(tol2);
+  vtkDataSet* dataset = dsInfo.DataSet;
+  vtkFindCellStrategy* strategy = dsInfo.Strategy;
+  const double tol2 =
+    dsInfo.SampledMaxCellLength2 * vtkAbstractInterpolatedVelocityField::TOLERANCE_SCALE;
+  const auto radius =
+    std::sqrt(dsInfo.Length2 * vtkAbstractInterpolatedVelocityField::SURFACE_TOLERANCE_SCALE);
 
-  double dist2;
+  double dist2 = 0;
   int inside;
   vtkIdType closestPointFound;
   bool foundInCache = false;
@@ -334,11 +335,11 @@ bool vtkAbstractInterpolatedVelocityField::FindAndUpdateCell(
   if (this->Caching && this->LastCellId != -1)
   {
     // Use cache cell only if point is inside
-    int ret = this->CurrentCell->EvaluatePosition(
+    inside = this->CurrentCell->EvaluatePosition(
       x, this->LastClosestPoint, this->LastSubId, this->LastPCoords, dist2, this->Weights.data());
 
     // check if point is inside the cell
-    if (ret == 1)
+    if (inside == 1)
     {
       this->CacheHit++;
       foundInCache = true;
@@ -353,7 +354,7 @@ bool vtkAbstractInterpolatedVelocityField::FindAndUpdateCell(
       {
         // this location strategy uses a vtkStaticCellLocator which is a 3D grid with bins
         // and each bin has the cellIds that are inside this bin (robust but possibly slower)
-        this->LastCellId = strategy->FindCell(x, nullptr, this->CurrentCell, -1, tol2 /*not used*/,
+        this->LastCellId = strategy->FindCell(x, nullptr, this->CurrentCell, -1, tol2,
           this->LastSubId, this->LastPCoords, this->Weights.data());
         // this strategy once it finds a cell where the given point is inside it stops
         // immediately, so this->CurrentCell contains the cell we want
@@ -413,17 +414,16 @@ bool vtkAbstractInterpolatedVelocityField::FindAndUpdateCell(
       if (this->SurfaceDataset && strategy)
       {
         // if we are on a surface dataset, we can use the strategy to find the closest point
-        closestPointFound = strategy->FindClosestPointWithinRadius(x, tol, this->LastClosestPoint,
-          this->CurrentCell, this->LastCellId, this->LastSubId, dist2, inside);
-        // FindClosestPointWithinRadius does not return the correct CurrentCell, so in case we find
-        // something we need to extract it and calculate the weights
+        closestPointFound =
+          strategy->FindClosestPointWithinRadius(x, radius, this->LastClosestPoint,
+            this->CurrentCell, this->LastCellId, this->LastSubId, dist2, inside);
         if (closestPointFound == 1)
         {
-          dataset->GetCell(this->LastCellId, this->CurrentCell);
-          // pcoords, weights and subid are all valid, so we can compute the closest point
-          // using EvaluateLocation
-          this->CurrentCell->EvaluateLocation(
-            this->LastSubId, this->LastPCoords, this->LastClosestPoint, this->Weights.data());
+          // Previously computed lastPCoords are not valid, so we need to compute
+          // them along with the weights from the lastClosestPoint.
+          this->CurrentCell->EvaluatePosition(this->LastClosestPoint, nullptr, this->LastSubId,
+            this->LastPCoords, dist2, this->Weights.data());
+          // The use of the nullptr avoids the unnecessary recalculation of the closest point.
         }
         else
         {
@@ -540,6 +540,17 @@ void vtkAbstractInterpolatedVelocityField::CopyParameters(
     }
     this->AddToDataSetsInfo(datasetInfo.DataSet, strategy, datasetInfo.Vectors);
   }
+}
+
+//------------------------------------------------------------------------------
+vtkAbstractInterpolatedVelocityField::vtkDataSetInformation::vtkDataSetInformation(
+  vtkDataSet* dataSet, vtkFindCellStrategy* strategy, vtkDataArray* vectors)
+  : DataSet(dataSet)
+  , SampledMaxCellLength2(dataSet->GetSampledMaxCellLength2(100))
+  , Length2(dataSet->GetLength2())
+  , Strategy(strategy)
+  , Vectors(vectors)
+{
 }
 
 //------------------------------------------------------------------------------
