@@ -63,8 +63,9 @@ dummy:build:
 
 ## readthedocs documentation build
 readthedocs:build:
-    stage: test
+    stage: quick
     extends:
+        - .warning_policy
         - .readthedocs
         - .linux_x86_64_builder_tags
         - .make_sphinx_docs

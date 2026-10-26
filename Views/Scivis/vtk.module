@@ -1,0 +1,32 @@
+NAME
+  VTK::ViewsScivis
+LIBRARY_NAME
+  vtkViewsScivis
+GROUPS
+  Rendering
+SPDX_LICENSE_IDENTIFIER
+  BSD-3-Clause
+SPDX_COPYRIGHT_TEXT
+  Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+DEPENDS
+  VTK::CommonCore
+  VTK::CommonDataModel
+  VTK::CommonExecutionModel
+  VTK::FiltersParallel
+  VTK::InteractionWidgets
+  VTK::RenderingCore
+PRIVATE_DEPENDS
+  VTK::FiltersExtraction
+  VTK::InteractionStyle
+  VTK::RenderingAnnotation
+  VTK::RenderingUI
+  VTK::RenderingVolume
+  VTK::RenderingVolumeOpenGL2
+TEST_DEPENDS
+  VTK::FiltersSources
+  VTK::ImagingCore
+  VTK::InteractionStyle
+  VTK::IOImage
+  VTK::IOXML
+  VTK::RenderingAnnotation
+  VTK::TestingRendering

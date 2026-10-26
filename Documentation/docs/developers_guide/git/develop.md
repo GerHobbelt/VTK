@@ -414,11 +414,14 @@ methods:
 
   * `--named <regex>` or `-n <regex>`: Trigger jobs matching `<regex>` anywhere
     in their name. Job names may be seen on the merge request's Pipelines tab.
-  * `--stage <stage>` or `-s <stage>`: Only affect jobs in a given stage. Stage
-    names may be seen on the merge request's Pipelines tab. Note that the stage
-    names are determined by what is in the `.gitlab-ci.yml` file and may be
-    capitalized in the web page, so lowercasing the webpage's display name for
-    stages may be required.
+  * `--stage <stage>` or `-s <stage>`: Only affect jobs in a given stage.
+    When provided multiple times, all named stages are matched.  Stage names
+    may be seen on the merge request's pipeline page with the "Group jobs by"
+    option set to "Stages".  Note that the names are determined by what is in
+    the `.gitlab-ci.yml` file and may be capitalized in the web page, so
+    lowercasing the webpage's display name for stages may be required.
+  * `--tag <tag>` or `-t <tag>`: Only affect jobs with the specified tags.
+    When given multiple times, all tags must be present to match.
   * `--action <action>` or `-a <action>`: The action to perform on the jobs.
     Possible actions:
 
@@ -525,6 +528,16 @@ and ask for a merge.
 By convention, do not request a merge if any `-1` or `Rejected-by:`
 review comments have not been resolved and superseded by at least
 `+1` or `Acked-by:` review comments from the same user.
+
+Before merging, all of the [Continuous Integration](#continuous-integration)
+build jobs are expected to pass, this is enforced by the robot. Occasionally
+there may be internal issues with builds that cause failures unrelated to your
+changes. These can sometimes be resolved by restarting the build job or rebasing
+your changes to a commit where the problem is fixed. If you feel the failure is
+unrelated to your changes and beyond your control, you can request a bypass
+token by adding a comment to your MR with the
+`@utils/maintainers/bypass-vtk-vtk`. Once the bypass token is provided, `Do:
+merge` will behave as if the build jobs have passed.
 
 The `Do: merge` command accepts the following arguments:
 

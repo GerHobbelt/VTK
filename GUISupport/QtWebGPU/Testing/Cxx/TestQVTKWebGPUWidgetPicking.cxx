@@ -23,12 +23,11 @@
 
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <vector>
 
 namespace
 {
-void process_events_and_wait(int msec)
+void ProcessEventsAndWait(int msec)
 {
   QEventLoop loop;
   QTimer::singleShot(msec, &loop, SLOT(quit()));
@@ -47,7 +46,7 @@ int TestQVTKWebGPUWidgetPicking(int argc, char* argv[])
   vtkWebGPURenderWindow* renWin = widget.renderWindow();
   if (!renWin)
   {
-    std::cerr << "Failed to get render window from QVTKWebGPUWidget" << std::endl;
+    vtkLogF(ERROR, "Failed to get render window from QVTKWebGPUWidget");
     return EXIT_FAILURE;
   }
 
@@ -94,7 +93,7 @@ int TestQVTKWebGPUWidgetPicking(int argc, char* argv[])
 
   widget.resize(300, 300);
   widget.show();
-  process_events_and_wait(500);
+  ProcessEventsAndWait(500);
 
   vtkNew<vtkPropPicker> picker;
 
@@ -123,7 +122,7 @@ int TestQVTKWebGPUWidgetPicking(int argc, char* argv[])
     QApplication::processEvents();
   }
 
-  std::cout << "Hit " << hitCount << " out of " << NumSpheres << " spheres" << std::endl;
+  vtkLogF(INFO, "Hit %d out of %d spheres", hitCount, NumSpheres);
 
   // Pick at the center (should miss all spheres)
   picker->Pick(150, 150, 0.0, ren);
@@ -132,19 +131,17 @@ int TestQVTKWebGPUWidgetPicking(int argc, char* argv[])
   // Verify results
   if (hitCount < NumSpheres)
   {
-    std::cerr << "Expected to hit all " << NumSpheres << " spheres, but only hit " << hitCount
-              << std::endl;
-    // Note: This may fail depending on WebGPU picking implementation
-    // For now, we just warn but don't fail
+    // Not all spheres were hit, log a warning
+    vtkLogF(WARNING, "Expected to hit all %d spheres, but only hit %d", NumSpheres, hitCount);
   }
 
   if (missedActor != nullptr)
   {
-    std::cerr << "Expected to miss when picking at center, but hit an actor" << std::endl;
+    vtkLogF(ERROR, "Expected to miss when picking at center, but hit an actor");
     return EXIT_FAILURE;
   }
 
-  process_events_and_wait(500);
+  ProcessEventsAndWait(500);
 
   return EXIT_SUCCESS;
 }

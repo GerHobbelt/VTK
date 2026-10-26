@@ -79,6 +79,8 @@ public:
   struct wl_keyboard* Keyboard = nullptr;
   uint32_t PointerSerial = 0;
   uint32_t KeyboardSerial = 0;
+  uint32_t PrevKeyReleaseSerial = 0;
+  int KeyRepeatCount = 0;
 
   // Keyboard handling via xkbcommon
   struct xkb_context* XkbContext = nullptr;

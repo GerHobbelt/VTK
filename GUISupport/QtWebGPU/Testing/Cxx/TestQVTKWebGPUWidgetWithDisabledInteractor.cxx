@@ -6,10 +6,9 @@
 #include "QVTKWebGPUWidget.h"
 
 #include "vtkActor.h"
+#include "vtkLogger.h"
 #include "vtkNew.h"
 #include "vtkPolyDataMapper.h"
-#include "vtkRegressionTestImage.h"
-#include "vtkSmartPointer.h"
 #include "vtkSphereSource.h"
 #include "vtkTesting.h"
 #include "vtkWebGPURenderWindow.h"
@@ -17,14 +16,11 @@
 
 #include <QApplication>
 #include <QEventLoop>
-#include <QImage>
 #include <QTimer>
-
-#include <iostream>
 
 namespace
 {
-void process_events_and_wait(int msec)
+void ProcessEventsAndWait(int msec)
 {
   QEventLoop loop;
   QTimer::singleShot(msec, &loop, SLOT(quit()));
@@ -36,7 +32,7 @@ int TestQVTKWebGPUWidgetWithDisabledInteractor(int argc, char* argv[])
 {
   QApplication app(argc, argv);
 
-  auto vtktesting = vtkSmartPointer<vtkTesting>::New();
+  vtkNew<vtkTesting> vtktesting;
   vtktesting->AddArguments(argc, argv);
 
   // Create the QVTKWebGPUWidget
@@ -46,7 +42,7 @@ int TestQVTKWebGPUWidgetWithDisabledInteractor(int argc, char* argv[])
   vtkWebGPURenderWindow* renWin = widget.renderWindow();
   if (!renWin)
   {
-    std::cerr << "Failed to get render window from QVTKWebGPUWidget" << std::endl;
+    vtkLog(ERROR, "Failed to get render window from QVTKWebGPUWidget");
     return EXIT_FAILURE;
   }
 
@@ -55,11 +51,11 @@ int TestQVTKWebGPUWidgetWithDisabledInteractor(int argc, char* argv[])
   ren->SetBackground(0.2, 0.2, 0.2);
   ren->SetBackground2(0.7, 0.7, 0.7);
   renWin->AddRenderer(ren);
-  renWin->Render();
 
+  widget.setCustomDevicePixelRatio(1.0);
   widget.resize(100, 100);
   widget.show();
-  process_events_and_wait(500);
+  ProcessEventsAndWait(500);
 
   // Set interactor to not call Render() on the vtkRenderWindow. Clients might
   // set this to enforce a specified framerate by rendering only when a timer
@@ -85,28 +81,12 @@ int TestQVTKWebGPUWidgetWithDisabledInteractor(int argc, char* argv[])
   // earlier.
   widget.resize(300, 300);
   widget.show();
-  process_events_and_wait(500);
+  ProcessEventsAndWait(500);
 
-  // Get output image filename
-  const std::string tempDir(vtktesting->GetTempDirectory());
-  std::string fileName(vtktesting->GetValidImageFileName());
-  auto slashPos = fileName.rfind('/');
-  if (slashPos != std::string::npos)
-  {
-    fileName = fileName.substr(slashPos + 1);
-  }
-  fileName = tempDir + '/' + fileName;
+  // Perform regression test using the vtkRenderWindow directly.
+  vtktesting->SetRenderWindow(renWin);
 
-  // Capture widget using Qt. Don't use vtkTesting to capture the image, because
-  // this should test what the widget displays, not what VTK renders.
-  const QImage image = widget.grab().toImage();
-  if (!image.save(QString::fromStdString(fileName)))
-  {
-    std::cout << "ERROR: Saving image failed" << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  int retVal = vtktesting->RegressionTest(fileName, vtkRegressionTester::ErrorThreshold);
+  int retVal = vtktesting->RegressionTest(0.05);
   switch (retVal)
   {
     case vtkTesting::DO_INTERACTOR:
