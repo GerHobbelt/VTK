@@ -13,9 +13,7 @@ else()
     target_link_libraries(VTK::WebGPUImpl INTERFACE dawn::webgpu_dawn)
   else()
     set(VTK_USE_DAWN_WEBGPU OFF)
-    # Future: find wgpu-native or other implementations here and populate
-    # VTK::WebGPUImpl accordingly.
-    message(STATUS "WebGPU: no implementation found; using headers only")
+    message(STATUS "WebGPU: no implementation found; using vendored headers only")
   endif()
 endif()
 
@@ -42,10 +40,12 @@ set(classes
   vtkWebGPUHardwareSelector
   vtkWebGPUHelpers
   vtkWebGPUImageMapper
+  vtkWebGPUImageSliceMapper
   vtkWebGPULight
   vtkWebGPUPolyDataMapper
   vtkWebGPUPolyDataMapper2D
   vtkWebGPUProperty
+  vtkWebGPUProcTable
   vtkWebGPURenderPipelineCache
   vtkWebGPURenderTextureCache
   vtkWebGPURenderTextureDeviceResource
@@ -68,9 +68,11 @@ set(private_headers
   "Private/vtkWebGPUComputePassTextureStorageInternals.h"
   "Private/vtkWebGPUComputePassBufferStorageInternals.h"
   "Private/vtkWebGPUConfigurationInternals.h"
+  "Private/vtkWebGPUHandle.h"
   "Private/vtkWebGPUPipelineLayoutInternals.h"
   "Private/vtkWebGPUPointCloudMapperInternals.h"
   "Private/vtkWebGPUPolyDataMapper2DInternals.h"
+  "Private/vtkWebGPUProcLoader.h"
   "Private/vtkWebGPURenderPassCreateInfoInternals.h"
   "Private/vtkWebGPURenderPassDescriptorInternals.h"
   "Private/vtkWebGPURenderPipelineDescriptorInternals.h"
@@ -90,6 +92,7 @@ set(private_sources
   "Private/vtkWebGPUPipelineLayoutInternals.cxx"
   "Private/vtkWebGPUPointCloudMapperInternals.cxx"
   "Private/vtkWebGPUPolyDataMapper2DInternals.cxx"
+  "Private/vtkWebGPUProcLoader.cxx"
   "Private/vtkWebGPURenderPassCreateInfoInternals.cxx"
   "Private/vtkWebGPURenderPassDescriptorInternals.cxx"
   "Private/vtkWebGPURenderPipelineDescriptorInternals.cxx"
@@ -107,7 +110,7 @@ set(webgpu_overrides
   # NI: LabeledContourMapper
   HardwareSelector
   ImageMapper
-  # NI: ImageSliceMapper
+  ImageSliceMapper
   Glyph3DMapper
   # NI: HyperTreeGridMapper
   Light
@@ -242,13 +245,30 @@ vtk_module_add_module(VTK::RenderingWebGPU
   NOWRAP_HEADERS ${public_wgsl_shader_headers}
   PRIVATE_HEADERS  ${vtk_object_factory_header} ${vtk_wgpu_private_headers} ${private_wgsl_shader_headers} ${private_headers})
 
-# Dawn's C++ wrapper (webgpu_cpp.h) uses C++20 features (std::span, requires,
-# lambdas in unevaluated context). C++20 is propagated publicly because public
-# VTK::RenderingWebGPU headers include vtk_wgpu.h which pulls in webgpu_cpp.h.
-# Once the Handle refactoring removes wgpu:: types from public headers, this
-# can be changed to PRIVATE.
-vtk_module_compile_features(VTK::RenderingWebGPU
-  PUBLIC cxx_std_20)
+# VTK always compiles, and always exposes to consumers, its own vendored copy of
+# the WebGPU headers rather than whichever copy the implementation happens to
+# ship. VTK::webgpuheaders is listed as a public dependency in vtk.module, so its
+# include directory is searched before the implementation's, and it is a real
+# exported module so downstream find_package(VTK) resolves it.
+#
+# The vendored copy is the upstream webgpu-headers C API, not an implementation's
+# generated header, so no implementation can change the API VTK compiles against
+# underneath it. Implementation-specific extensions VTK uses are declared in
+# Rendering/WebGPU/Private/vtkWebGPUImplExtensions.h.
+#
+# dawn::webgpu_dawn is still linked for the library itself. It must be the
+# implementation's own target and not VTK::WebGPUImpl: the latter is created by
+# add_library(IMPORTED) at the top of this file and is neither exported nor
+# installed, so a PUBLIC link would write an unresolvable target into the
+# installed VTK config. vtk_module_export_find_packages() replays the
+# vtk_module_find_package(PACKAGE Dawn) call above for consumers, so
+# dawn::webgpu_dawn does exist downstream.
+if(VTK_USE_DAWN_WEBGPU)
+  vtk_module_link(VTK::RenderingWebGPU PUBLIC dawn::webgpu_dawn)
+endif()
+
+# The module compiles against the WebGPU C API only, so it no longer needs the
+# C++20 that the generated C++ wrapper required.
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   vtk_module_compile_options(VTK::RenderingWebGPU
