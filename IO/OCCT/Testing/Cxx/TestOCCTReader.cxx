@@ -13,8 +13,11 @@
 
 #include "vtkOCCTReader.h"
 
+namespace
+{
+
 // int argc, char* argv are required for vtkRegressionTestImage
-static int TestReader(int argc, char* argv[], const std::string& path, unsigned int format)
+int TestReader(int argc, char* argv[], const std::string& path, unsigned int format)
 {
   vtkNew<vtkOCCTReader> reader;
   reader->RelativeDeflectionOn();
@@ -50,6 +53,7 @@ static int TestReader(int argc, char* argv[], const std::string& path, unsigned 
 
   return retVal;
 }
+} // End Anonymous Namespace
 
 int TestOCCTReader(int argc, char* argv[])
 {
