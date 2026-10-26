@@ -44,13 +44,14 @@
 #include "vtkObject.h"
 #include "vtkViewsScivisModule.h" // For export macro
 #include "vtkWeakPointer.h"       // For ivars
+#include "vtkWrappingHints.h"     // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkAlgorithm;
 class vtkCompositeDataDisplayAttributes;
 class vtkCompositePolyDataMapper;
 
-class VTKVIEWSSCIVIS_EXPORT vtkBlockProperties : public vtkObject
+class VTKVIEWSSCIVIS_EXPORT VTK_MARSHALAUTO vtkBlockProperties : public vtkObject
 {
 public:
   static vtkBlockProperties* New();
@@ -71,6 +72,9 @@ public:
    * The color of the block at @a index, in place of the color the whole
    * representation is drawn in.  Has no effect while the representation is
    * coloring by an array.
+   *
+   * A block that has not been given a color or an opacity of its own reports
+   * the representation's.
    */
   void SetColor(unsigned int index, double r, double g, double b);
   void GetColor(unsigned int index, double color[3]);

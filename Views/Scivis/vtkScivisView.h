@@ -48,6 +48,7 @@
  * - GetOrientationMarkerWidget() for the axes marker's viewport and marker
  * - GetScalarBars() for the bars labelling what the colors mean
  * - GetSelector() for how a screen region becomes a selection
+ * - GetExporter() for writing the scene out as a picture or as geometry
  *
  * @par A family of its own:
  * This is not a vtkView, and it shows only vtkScivisRepresentations.  The
@@ -64,28 +65,31 @@
 #ifndef vtkScivisView_h
 #define vtkScivisView_h
 
-#include "vtkNew.h" // For ivars
+#include "vtkCommand.h" // For the event id
+#include "vtkNew.h"     // For ivars
 #include "vtkObject.h"
 #include "vtkSmartPointer.h"      // For ivars
 #include "vtkViewsScivisModule.h" // For export macro
-#include "vtkWrappingHints.h"     // For VTK_MARSHALEXCLUDE
+#include "vtkWrappingHints.h"     // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkInteractorObserver;
 class vtkInteractorStyleRubberBand3D;
 class vtkInteractorStyleTrackballCamera;
 class vtkLight;
+class vtkCamera;
 class vtkLightKit;
 class vtkLookupTableManager;
 class vtkOrientationMarkerWidget;
 class vtkScivisSelector;
+class vtkScivisExporter;
 class vtkRenderWindow;
 class vtkRenderWindowInteractor;
 class vtkRenderer;
 class vtkScivisRepresentation;
 class vtkScivisScalarBars;
 
-class VTKVIEWSSCIVIS_EXPORT vtkScivisView : public vtkObject
+class VTKVIEWSSCIVIS_EXPORT VTK_MARSHALAUTO vtkScivisView : public vtkObject
 {
 public:
   static vtkScivisView* New();
@@ -142,8 +146,10 @@ public:
    */
   void SetBackground(double r, double g, double b);
   double* GetBackground() VTK_SIZEHINT(3);
+  void GetBackground(double rgb[3]);
   void SetBackground2(double r, double g, double b);
   double* GetBackground2() VTK_SIZEHINT(3);
+  void GetBackground2(double rgb[3]);
   void SetGradientBackground(bool val);
   bool GetGradientBackground();
   ///@}
@@ -154,6 +160,7 @@ public:
    */
   void SetWindowSize(int w, int h);
   int* GetWindowSize() VTK_SIZEHINT(2);
+  void GetWindowSize(int size[2]);
   void SetWindowTitle(const char* title);
   const char* GetWindowTitle();
   ///@}
@@ -269,6 +276,7 @@ public:
    * view->GetScalarBars()->GetActor("Temperature", assoc)->SetTitle("T (K)");
    * @endcode
    */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkScivisScalarBars* GetScalarBars();
 
   /**
@@ -286,6 +294,91 @@ public:
    * @endcode
    */
   vtkScivisSelector* GetSelector();
+
+  /**
+   * Getting the scene out: a picture of it, or the geometry in it.  How a
+   * capture comes out -- how large, and whether its background is transparent
+   * -- is the exporter's, and application code drives it the same way:
+   *
+   * @code
+   * view->GetExporter()->SetMagnification(2);
+   * view->GetExporter()->SaveScreenshot("frame.png");
+   * view->GetExporter()->ExportScene("scene.gltf");
+   * @endcode
+   */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
+  vtkScivisExporter* GetExporter();
+
+  /**
+   * The camera the scene is viewed with, for anything finer than the framing
+   * and the standard directions below -- a parallel projection, a view angle,
+   * or a position worked out by the application.
+   */
+  vtkCamera* GetCamera();
+
+  ///@{
+  /**
+   * Look at the scene from a standard direction and frame it.
+   *
+   * The camera is left looking along the named axis with a sensible up vector,
+   * and then framed on everything the representations are drawing, as
+   * ResetCamera() does.  These follow the conventions ParaView uses:
+   *
+   * - ViewPositiveX() looks along +X, the right side, up +Z
+   * - ViewNegativeX() looks along -X, the left side, up +Z
+   * - ViewPositiveY() looks along +Y, the front, up +Z
+   * - ViewNegativeY() looks along -Y, the back, up +Z
+   * - ViewPositiveZ() looks along +Z, the top, up +Y
+   * - ViewNegativeZ() looks along -Z, the bottom, up +Y
+   * - ViewIsometric() looks from 45 degrees round and about 35 degrees up
+   *
+   * Like any other camera move -- one made through GetCamera(), or one the user
+   * makes by dragging -- these show up in the view's modified time, because the
+   * camera belongs to the renderer and the renderer's modified time is part of
+   * the view's.
+   */
+  void ViewPositiveX();
+  void ViewNegativeX();
+  void ViewPositiveY();
+  void ViewNegativeY();
+  void ViewPositiveZ();
+  void ViewNegativeZ();
+  void ViewIsometric();
+  ///@}
+
+  /**
+   * Look along @a look with @a up pointing up, and frame the scene.  The
+   * direction runs from the camera towards what it is looking at, so the
+   * standard directions above are this with one axis picked out.
+   */
+  void SetViewDirection(double look[3], double up[3]);
+  void SetViewDirection(
+    double lookX, double lookY, double lookZ, double upX, double upY, double upZ);
+
+  /**
+   * Events this view fires.
+   *
+   * BoundsChangedEvent is fired when the extent of what the representations are
+   * drawing changes, before anything is drawn, with the new bounds as call
+   * data.  It is how something that has to fit the scene -- axes around it, a
+   * scale bar measuring it -- is told to resize without polling for it.  Bounds
+   * come from the representations rather than from the renderer's props, so
+   * whatever is listening does not feed its own size back in.
+   */
+  enum
+  {
+    BoundsChangedEvent = vtkCommand::UserEvent + 1
+  };
+
+  /**
+   * The extent of what the visible representations are drawing, which is not
+   * the same as what the renderer would report: this is the data, and takes no
+   * account of annotations drawn around it.
+   *
+   * Returns false and leaves @a bounds untouched when nothing with data is
+   * being drawn.
+   */
+  bool GetSceneBounds(double bounds[6]);
 
   void Start();
 
@@ -348,14 +441,20 @@ private:
   class Internals;
   Internals* Implementation;
 
-  vtkNew<vtkOrientationMarkerWidget> OrientationWidget;
+  vtkNew<vtkOrientationMarkerWidget> OrientationMarkerWidget;
   vtkNew<vtkLightKit> LightKit;
   vtkSmartPointer<vtkLookupTableManager> LookupTableManager;
   vtkNew<vtkScivisScalarBars> ScalarBars;
+
+  // The scene bounds last reported, so that the event fires on a change
+  // rather than on every render.
+  double SceneBounds[6];
+  bool HasSceneBounds;
   // The headlight that lights the scene while the light kit is off.  Owning one
   // is what keeps vtkRenderer from inventing its own -- see the constructor.
   vtkNew<vtkLight> DefaultLight;
   vtkNew<vtkScivisSelector> Selector;
+  vtkNew<vtkScivisExporter> Exporter;
 
   // One instance of each built-in style, so switching modes preserves whatever
   // the application configured on them.

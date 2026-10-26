@@ -19,13 +19,24 @@ from vtkmodules.vtkImagingCore import vtkRTAnalyticSource
 # vtkDataObject provides the field association constants; importing
 # vtkCommonDataModel also registers the pythonic vtkSelection API used below.
 from vtkmodules.vtkCommonDataModel import vtkDataObject
-from vtkmodules.vtkViewsScivis import vtkScivisSelector, vtkScivisView
+from vtkmodules.vtkViewsScivis import (
+    vtkGridAxesRepresentation,
+    vtkScivisSelector,
+    vtkScivisView,
+)
 
 # --- VTK Setup ---
 view = vtkScivisView(use_light_kit=True)
 
 source = vtkRTAnalyticSource(whole_extent=(-10, 10, -10, 10, -10, 10))
 rep = view.show(source, color=(0.8, 0.7, 0.5), specular=0.3, specular_power=20)
+
+# Axes with no data of their own: they take their size from the view, which tells
+# them whenever the extent of what it is drawing changes.  They stay in the view
+# once added -- the checkbox below hides them rather than taking them out, so
+# they keep following the scene either way.
+axes = vtkGridAxesRepresentation(visibility=False)
+view += axes
 
 viewer = VtkViewer(view=view)
 
@@ -41,6 +52,10 @@ class GUIState:
     rep_color = [0.8, 0.7, 0.5]
     rep_opacity = 1.0
     show_edges = False
+    grid_axes = False
+    grid_axes_titles = ["X", "Y", "Z"]
+    grid_axes_padding = 0.0
+    grid_axes_font = 16
 
 
 state = GUIState()
@@ -144,6 +159,37 @@ def custom_gui():
         changed, state.show_edges = imgui.checkbox("Show Edges", state.show_edges)
         if changed:
             rep.representation = "surfacewithedges" if state.show_edges else "surface"
+
+    imgui.spacing()
+
+    if imgui.collapsing_header("Grid Axes", imgui.TreeNodeFlags_.default_open):
+        changed, state.grid_axes = imgui.checkbox("Show Grid Axes", state.grid_axes)
+        if changed:
+            axes.visibility = state.grid_axes
+
+        if state.grid_axes:
+            for i, (label, setter) in enumerate(
+                [("X Title", axes.SetXTitle),
+                 ("Y Title", axes.SetYTitle),
+                 ("Z Title", axes.SetZTitle)]
+            ):
+                changed, state.grid_axes_titles[i] = imgui.input_text(
+                    label, state.grid_axes_titles[i]
+                )
+                if changed:
+                    setter(state.grid_axes_titles[i])
+
+            changed, state.grid_axes_font = imgui.slider_int(
+                "Label Font", state.grid_axes_font, 8, 40
+            )
+            if changed:
+                axes.label_font_size = state.grid_axes_font
+
+            changed, state.grid_axes_padding = imgui.slider_float(
+                "Padding", state.grid_axes_padding, 0.0, 0.2
+            )
+            if changed:
+                axes.padding = state.grid_axes_padding
 
     imgui.end_child()
 

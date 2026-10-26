@@ -44,12 +44,14 @@
 #include "vtkNew.h" // For ivar
 #include "vtkScivisRepresentation.h"
 #include "vtkViewsScivisModule.h" // For export macro
+#include "vtkWrappingHints.h"     // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkTextActor;
 class vtkTextProperty;
 
-class VTKVIEWSSCIVIS_EXPORT vtkTextOverlayRepresentation : public vtkScivisRepresentation
+class VTKVIEWSSCIVIS_EXPORT VTK_MARSHALAUTO vtkTextOverlayRepresentation
+  : public vtkScivisRepresentation
 {
 public:
   static vtkTextOverlayRepresentation* New();
@@ -80,6 +82,21 @@ public:
    */
   void SetPosition(int x, int y);
   double* GetPosition() VTK_SIZEHINT(2);
+  ///@}
+
+  ///@{
+  /**
+   * How the text is drawn.
+   * For advanced style properties, use GetTextProperty() directly.
+   */
+  void SetFontSize(int size);
+  int GetFontSize();
+  void SetColor(double r, double g, double b);
+  double* GetColor() VTK_SIZEHINT(3);
+  void SetBold(bool bold);
+  bool GetBold();
+  void SetItalic(bool italic);
+  bool GetItalic();
   ///@}
 
   /**

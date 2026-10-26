@@ -108,6 +108,7 @@ Common/Core/vtkMarshalContext.h
 Common/Core/vtkMath.h
 Common/Core/vtkMathUtilities.h
 Common/Core/vtkMatrixUtilities.h
+Common/Core/vtkMemoryDescriptor.h
 Common/Core/vtkMersenneTwister.h
 Common/Core/vtkMeta.h
 Common/Core/vtkMinimalStandardRandomSequence.h
@@ -716,6 +717,7 @@ Rendering/Core/vtkTDxMotionEventInfo.h
 Rendering/Core/vtkUniforms.h
 Rendering/Core/vtkViewDependentErrorMetric.h
 Rendering/FreeType/vtkFreeTypeTools.h
+Rendering/FreeType/vtkFreeTypeToolsPrivate.h
 Rendering/FreeType/vtkMathTextUtilities.h
 Rendering/GridAxes/vtkGridAxesHelper.h
 Rendering/GridAxes/vtkGridAxesPlaneActor2D.h
@@ -780,7 +782,6 @@ Rendering/OpenGL2/vtkOpenGLRenderUtilities.h
 Rendering/OpenGL2/vtkOpenGLResourceFreeCallback.h
 Rendering/OpenGL2/vtkOpenGLShaderCache.h
 Rendering/OpenGL2/vtkOpenGLShaderDeclaration.h
-Rendering/OpenGL2/vtkOpenGLSphereMapper.h
 Rendering/OpenGL2/vtkOpenGLState.h
 Rendering/OpenGL2/vtkOpenGLStickMapper.h
 Rendering/OpenGL2/vtkOpenGLTextMapper.h
@@ -856,6 +857,7 @@ Rendering/WebGPU/vtkWebGPUComputeRenderBuffer.h
 Rendering/WebGPU/vtkWebGPUComputeRenderTexture.h
 Rendering/WebGPU/vtkWebGPUComputeTexture.h
 Rendering/WebGPU/vtkWebGPUComputeTextureView.h
+Rendering/WebGPU/vtkWebGPUDeepFramebuffer.h
 Rendering/WebGPU/vtkWebGPUHelpers.h
 Rendering/WebGPU/vtkWebGPUProcTable.h
 Rendering/WebXR/vtkWebXR.h

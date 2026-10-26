@@ -3,6 +3,8 @@ vtk_add_test_python(
   TestAOSArrayWrapping.py
   PythonSmoke.py
   TestArrayArguments.py
+  TestArrayScalarPromotion.py
+  TestArrayNumpyConsistency.py
   TestBufferChangedEvent.py
   TestArrays.py
   TestBuffer.py
@@ -52,6 +54,7 @@ vtk_add_test_python(
   TestTerminationCrash.py
   TestVariant.py
   TestVersion.py
+  TestDLPack.py
   TestVtkBufferNumpy.py
   TestWeakref.py
   TestCollectionPythonAPI.py

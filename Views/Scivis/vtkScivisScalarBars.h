@@ -45,13 +45,14 @@
 #include "vtkObject.h"
 #include "vtkViewsScivisModule.h" // For export macro
 #include "vtkWeakPointer.h"       // For ivar
+#include "vtkWrappingHints.h"     // For VTK_MARSHALAUTO
 
 VTK_ABI_NAMESPACE_BEGIN
 class vtkScalarBarActor;
 class vtkScalarBarWidget;
 class vtkScivisView;
 
-class VTKVIEWSSCIVIS_EXPORT vtkScivisScalarBars : public vtkObject
+class VTKVIEWSSCIVIS_EXPORT VTK_MARSHALAUTO vtkScivisScalarBars : public vtkObject
 {
 public:
   static vtkScivisScalarBars* New();
@@ -84,6 +85,36 @@ public:
   void SetDraggable(bool val);
   bool GetDraggable();
   vtkBooleanMacro(Draggable, bool);
+  ///@}
+
+  ///@{
+  /**
+   * How every bar is drawn: the size of its title and of the numbers beside it,
+   * their color, and how many numbers there are.
+   *
+   * These apply to every bar, including ones created later.
+   */
+  void SetTitleFontSize(int size);
+  int GetTitleFontSize();
+  void SetLabelFontSize(int size);
+  int GetLabelFontSize();
+  void SetTextColor(double r, double g, double b);
+  double* GetTextColor() VTK_SIZEHINT(3);
+  void SetNumberOfLabels(int count);
+  int GetNumberOfLabels();
+  ///@}
+
+  ///@{
+  /**
+   * How much of the viewport a bar takes up, as a fraction of it.  Bars are
+   * stacked down the right hand edge at BarWidth across and BarHeight tall,
+   * shrinking below BarHeight when there are more of them than there is room
+   * for.  Defaults are 0.08 and 0.5.
+   */
+  void SetBarWidth(double width);
+  double GetBarWidth();
+  void SetBarHeight(double height);
+  double GetBarHeight();
   ///@}
 
   /**
@@ -153,9 +184,22 @@ private:
   vtkScivisScalarBars(const vtkScivisScalarBars&) = delete;
   void operator=(const vtkScivisScalarBars&) = delete;
 
+  /**
+   * Draw @a bar the way every bar in this set is drawn.  Called when a bar is
+   * made, and for all of them when any of the properties above changes.
+   */
+  void ApplyStyle(vtkScalarBarActor* bar);
+  void ApplyStyleToAll();
+
   vtkWeakPointer<vtkScivisView> View;
   bool AutoVisibility;
   bool Draggable;
+  int TitleFontSize;
+  int LabelFontSize;
+  double TextColor[3];
+  int NumberOfLabels;
+  double BarWidth;
+  double BarHeight;
 
   class Internals;
   Internals* Implementation;

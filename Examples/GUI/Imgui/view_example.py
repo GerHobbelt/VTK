@@ -62,6 +62,8 @@ class GUIState:
     field_assoc = vtkDataObject.FIELD_ASSOCIATION_CELLS
     drag_start = None  # Screen coords (x, y) when drag starts
     selection_info = ""  # Text summary of last selection
+    screenshot_magnification = 1
+    screenshot_status = ""
     text_visible = False
     text_content = "ScivisView"
     text_pos = [20, 40]
@@ -105,7 +107,7 @@ rep_states = {
 
 
 def on_view_selection(caller, event):
-    """Observer for SelectionChangedEvent on the view.
+    """Observer for SelectionChangedEvent on the view's selector.
 
     Queries each representation's AnnotationLink to get per-actor
     selection counts, which works for both surface and frustum modes.
@@ -161,6 +163,25 @@ def custom_gui():
     imgui.begin_child("Sidebar", imgui.ImVec2(sidebar_width, avail.y), child_flags=imgui.ChildFlags_.borders)
 
     # Lighting section.
+    # Camera section.  Each button looks from a standard direction and frames
+    # the scene; the camera itself is view.GetCamera() for anything finer.
+    if imgui.collapsing_header("Camera", imgui.TreeNodeFlags_.default_open):
+        for label, look in [("-X", view.ViewPositiveX), ("+X", view.ViewNegativeX),
+                            ("-Y", view.ViewPositiveY), ("+Y", view.ViewNegativeY),
+                            ("-Z", view.ViewPositiveZ), ("+Z", view.ViewNegativeZ)]:
+            if imgui.button(label, imgui.ImVec2(38, 0)):
+                look()
+            imgui.same_line()
+        imgui.new_line()
+
+        if imgui.button("Isometric"):
+            view.ViewIsometric()
+        imgui.same_line()
+        if imgui.button("Reset"):
+            view.ResetCamera()
+
+    imgui.spacing()
+
     if imgui.collapsing_header("Lighting", imgui.TreeNodeFlags_.default_open):
         changed, state.use_light_kit = imgui.checkbox("Use Light Kit", state.use_light_kit)
         if changed:
@@ -226,6 +247,31 @@ def custom_gui():
         changed, state.show_axes = imgui.checkbox("Orientation Axes", state.show_axes)
         if changed:
             view.orientation_axes_visibility = state.show_axes
+
+    imgui.spacing()
+
+    # Export section.  Writing the scene out is the exporter's, reached as
+    # view.exporter; how large a capture comes out is a setting on it rather
+    # than an argument repeated at each call.
+    if imgui.collapsing_header("Export"):
+        changed, state.screenshot_magnification = imgui.slider_int(
+            "Magnification", state.screenshot_magnification, 1, 4
+        )
+        if changed:
+            view.exporter.magnification = state.screenshot_magnification
+
+        if imgui.button("Save Screenshot"):
+            name = "scivis_view.png"
+            ok = view.exporter.SaveScreenshot(name)
+            state.screenshot_status = f"wrote {name}" if ok else "could not write"
+        imgui.same_line()
+        if imgui.button("Export Scene"):
+            name = "scivis_view.gltf"
+            ok = view.exporter.ExportScene(name)
+            state.screenshot_status = f"wrote {name}" if ok else "could not write"
+
+        if state.screenshot_status:
+            imgui.text(state.screenshot_status)
 
     imgui.spacing()
 

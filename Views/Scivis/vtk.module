@@ -16,14 +16,18 @@ DEPENDS
   VTK::InteractionWidgets
   VTK::RenderingAnnotation
   VTK::RenderingCore
+  VTK::RenderingGridAxes
 PRIVATE_DEPENDS
   VTK::CommonColor
+  VTK::IOExport
+  VTK::IOImage
   VTK::FiltersExtraction
   VTK::InteractionStyle
   VTK::RenderingUI
   VTK::RenderingVolume
   VTK::RenderingVolumeOpenGL2
 TEST_DEPENDS
+  VTK::FiltersCore
   VTK::FiltersSources
   VTK::ImagingCore
   VTK::InteractionStyle
@@ -31,3 +35,6 @@ TEST_DEPENDS
   VTK::IOXML
   VTK::RenderingAnnotation
   VTK::TestingRendering
+TEST_OPTIONAL_DEPENDS
+  VTK::SerializationManager
+INCLUDE_MARSHAL

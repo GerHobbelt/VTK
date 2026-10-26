@@ -4,6 +4,7 @@
 #include "vtkScivisView.h"
 
 #include "vtkAxesActor.h"
+#include "vtkBoundingBox.h"
 #include "vtkCamera.h"
 #include "vtkCommand.h"
 #include "vtkCoordinate.h"
@@ -16,6 +17,7 @@
 #include "vtkLight.h"
 #include "vtkLightKit.h"
 #include "vtkLookupTableManager.h"
+#include "vtkMath.h"
 #include "vtkObjectFactory.h"
 #include "vtkOrientationMarkerWidget.h"
 #include "vtkProp.h"
@@ -26,6 +28,7 @@
 #include "vtkRendererCollection.h"
 #include "vtkScalarsToColors.h"
 #include "vtkScivisDataRepresentation.h"
+#include "vtkScivisExporter.h"
 #include "vtkScivisRepresentation.h"
 #include "vtkScivisScalarBars.h"
 #include "vtkScivisSelector.h"
@@ -33,6 +36,7 @@
 #include "vtkSelectionNode.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 VTK_ABI_NAMESPACE_BEGIN
@@ -103,6 +107,8 @@ vtkScivisView::vtkScivisView()
   // getter and does not move the view's modified time.
   this->LookupTableManager = vtkSmartPointer<vtkLookupTableManager>::New();
   this->ScalarBars->SetView(this);
+  this->HasSceneBounds = false;
+  std::fill(this->SceneBounds, this->SceneBounds + 6, 0.0);
   this->Observer->SetTarget(this);
 
   this->Renderer = vtkSmartPointer<vtkRenderer>::New();
@@ -146,15 +152,16 @@ vtkScivisView::vtkScivisView()
 
   // Selection lives in its own object; it needs to know which view it selects in.
   this->Selector->SetView(this);
+  this->Exporter->SetView(this);
 
   // Orientation axes marker
   vtkNew<vtkAxesActor> axes;
-  this->OrientationWidget->SetOrientationMarker(axes);
-  this->OrientationWidget->SetInteractor(this->GetInteractor());
-  this->OrientationWidget->SetDefaultRenderer(this->Renderer);
-  this->OrientationWidget->SetViewport(0.0, 0.0, 0.2, 0.2);
-  this->OrientationWidget->SetEnabled(1);
-  this->OrientationWidget->SetInteractive(false);
+  this->OrientationMarkerWidget->SetOrientationMarker(axes);
+  this->OrientationMarkerWidget->SetInteractor(this->GetInteractor());
+  this->OrientationMarkerWidget->SetDefaultRenderer(this->Renderer);
+  this->OrientationMarkerWidget->SetViewport(0.0, 0.0, 0.2, 0.2);
+  this->OrientationMarkerWidget->SetEnabled(1);
+  this->OrientationMarkerWidget->SetInteractive(false);
 }
 
 //------------------------------------------------------------------------------
@@ -168,13 +175,7 @@ vtkScivisView::~vtkScivisView()
   {
     this->LightKit->RemoveLightsFromRenderer(this->Renderer);
   }
-  // Only if it still has an interactor: vtkOrientationMarkerWidget reports an
-  // error when enabled or disabled without one, and a view whose window was
-  // replaced by one carrying no interactor has left it with none.
-  if (this->OrientationWidget->GetInteractor())
-  {
-    this->OrientationWidget->SetEnabled(0);
-  }
+  this->OrientationMarkerWidget->SetEnabled(0);
   delete this->Implementation;
 }
 
@@ -187,8 +188,9 @@ vtkMTimeType vtkScivisView::GetMTime()
   mTime = std::max(mTime, this->Renderer->GetMTime());
   mTime = std::max(mTime, this->GetRenderWindow()->GetMTime());
   mTime = std::max(mTime, this->LightKit->GetMTime());
-  mTime = std::max(mTime, this->OrientationWidget->GetMTime());
+  mTime = std::max(mTime, this->OrientationMarkerWidget->GetMTime());
   mTime = std::max(mTime, this->Selector->GetMTime());
+  mTime = std::max(mTime, this->Exporter->GetMTime());
   mTime = std::max(mTime, this->LookupTableManager->GetMTime());
   mTime = std::max(mTime, this->ScalarBars->GetMTime());
   return mTime;
@@ -213,6 +215,12 @@ double* vtkScivisView::GetBackground()
 }
 
 //------------------------------------------------------------------------------
+void vtkScivisView::GetBackground(double rgb[3])
+{
+  this->Renderer->GetBackground(rgb[0], rgb[1], rgb[2]);
+}
+
+//------------------------------------------------------------------------------
 void vtkScivisView::SetBackground2(double r, double g, double b)
 {
   double* current = this->GetBackground2();
@@ -228,6 +236,12 @@ void vtkScivisView::SetBackground2(double r, double g, double b)
 double* vtkScivisView::GetBackground2()
 {
   return this->Renderer->GetBackground2();
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::GetBackground2(double rgb[3])
+{
+  this->Renderer->GetBackground2(rgb[0], rgb[1], rgb[2]);
 }
 
 //------------------------------------------------------------------------------
@@ -266,6 +280,14 @@ int* vtkScivisView::GetWindowSize()
 }
 
 //------------------------------------------------------------------------------
+void vtkScivisView::GetWindowSize(int size[2])
+{
+  int* current = this->GetWindowSize();
+  size[0] = current[0];
+  size[1] = current[1];
+}
+
+//------------------------------------------------------------------------------
 void vtkScivisView::SetWindowTitle(const char* title)
 {
   const char* current = this->GetWindowTitle();
@@ -290,26 +312,26 @@ void vtkScivisView::SetOrientationAxesVisibility(bool val)
   {
     return;
   }
-  if (!this->OrientationWidget->GetInteractor())
+  if (!this->OrientationMarkerWidget->GetInteractor())
   {
     vtkErrorMacro("The orientation axes need an interactor; give the view a render window "
                   "that has one.");
     return;
   }
-  this->OrientationWidget->SetEnabled(val);
+  this->OrientationMarkerWidget->SetEnabled(val);
   this->Modified();
 }
 
 //------------------------------------------------------------------------------
 bool vtkScivisView::GetOrientationAxesVisibility()
 {
-  return this->OrientationWidget->GetEnabled() != 0;
+  return this->OrientationMarkerWidget->GetEnabled() != 0;
 }
 
 //------------------------------------------------------------------------------
 vtkOrientationMarkerWidget* vtkScivisView::GetOrientationMarkerWidget()
 {
-  return this->OrientationWidget;
+  return this->OrientationMarkerWidget;
 }
 
 //------------------------------------------------------------------------------
@@ -463,6 +485,89 @@ vtkScivisSelector* vtkScivisView::GetSelector()
 }
 
 //------------------------------------------------------------------------------
+vtkScivisExporter* vtkScivisView::GetExporter()
+{
+  return this->Exporter;
+}
+
+//------------------------------------------------------------------------------
+vtkCamera* vtkScivisView::GetCamera()
+{
+  return this->Renderer->GetActiveCamera();
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::SetViewDirection(double look[3], double up[3])
+{
+  this->SetViewDirection(look[0], look[1], look[2], up[0], up[1], up[2]);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::SetViewDirection(
+  double lookX, double lookY, double lookZ, double upX, double upY, double upZ)
+{
+  vtkCamera* camera = this->GetCamera();
+  // Put the camera at the origin looking along the direction asked for; framing
+  // then slides it back along that direction until the scene fits.
+  camera->SetPosition(0.0, 0.0, 0.0);
+  camera->SetFocalPoint(lookX, lookY, lookZ);
+  camera->SetViewUp(upX, upY, upZ);
+  this->ResetCamera();
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewPositiveX()
+{
+  this->SetViewDirection(1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewNegativeX()
+{
+  this->SetViewDirection(-1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewPositiveY()
+{
+  this->SetViewDirection(0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewNegativeY()
+{
+  this->SetViewDirection(0.0, -1.0, 0.0, 0.0, 0.0, 1.0);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewPositiveZ()
+{
+  this->SetViewDirection(0.0, 0.0, 1.0, 0.0, 1.0, 0.0);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewNegativeZ()
+{
+  this->SetViewDirection(0.0, 0.0, -1.0, 0.0, 1.0, 0.0);
+}
+
+//------------------------------------------------------------------------------
+void vtkScivisView::ViewIsometric()
+{
+  vtkCamera* camera = this->GetCamera();
+  camera->SetPosition(0.0, 0.0, 0.0);
+  camera->SetFocalPoint(0.0, 0.0, -1.0);
+  camera->SetViewUp(0.0, 1.0, 0.0);
+  // Turn 45 degrees about the up axis and rise until all three axes are equally
+  // foreshortened, which is asin(tan(30 degrees)), about 35.26 degrees.
+  const double elevation = vtkMath::DegreesFromRadians(std::asin(std::tan(vtkMath::Pi() / 6.0)));
+  camera->Azimuth(45.0);
+  camera->Elevation(elevation);
+  camera->OrthogonalizeViewUp();
+  this->ResetCamera();
+}
+
+//------------------------------------------------------------------------------
 void vtkScivisView::Start()
 {
   this->Render();
@@ -496,7 +601,8 @@ void vtkScivisView::PrintSelf(ostream& os, vtkIndent indent)
   os << indent << "FirstRender: " << this->FirstRender << "\n";
   os << indent << "ScalarBars:\n";
   this->ScalarBars->PrintSelf(os, indent.GetNextIndent());
-  os << indent << "OrientationAxesVisibility: " << this->OrientationWidget->GetEnabled() << "\n";
+  os << indent << "OrientationAxesVisibility: " << this->OrientationMarkerWidget->GetEnabled()
+     << "\n";
   os << indent << "UseLightKit: " << this->UseLightKitFlag << "\n";
   os << indent << "InteractionMode: " << this->InteractionMode << "\n";
 }
@@ -559,10 +665,10 @@ void vtkScivisView::SetRenderWindow(vtkRenderWindow* window)
   // The marker is switched off while the interactor it knows about is still
   // alive.  Left enabled, it is disabled for us as that interactor goes away
   // with the window, and complains about being disabled without one.
-  const bool markerWasEnabled = this->OrientationWidget->GetEnabled() != 0;
+  const bool markerWasEnabled = this->OrientationMarkerWidget->GetEnabled() != 0;
   if (markerWasEnabled)
   {
-    this->OrientationWidget->SetEnabled(0);
+    this->OrientationMarkerWidget->SetEnabled(0);
   }
 
   // The renderers belong to the view rather than to the window that happened to
@@ -590,10 +696,10 @@ void vtkScivisView::SetRenderWindow(vtkRenderWindow* window)
     }
     // The marker listens to an interactor rather than to a window, and the one
     // it was given when this view was built belongs to the window just left.
-    this->OrientationWidget->SetInteractor(interactor);
+    this->OrientationMarkerWidget->SetInteractor(interactor);
     if (markerWasEnabled)
     {
-      this->OrientationWidget->SetEnabled(1);
+      this->OrientationMarkerWidget->SetEnabled(1);
     }
   }
   this->Modified();
@@ -613,10 +719,10 @@ void vtkScivisView::SetInteractor(vtkRenderWindowInteractor* interactor)
     return;
   }
 
-  const bool markerEnabled = this->OrientationWidget->GetEnabled() != 0;
+  const bool markerEnabled = this->OrientationMarkerWidget->GetEnabled() != 0;
   if (markerEnabled)
   {
-    this->OrientationWidget->SetEnabled(0);
+    this->OrientationMarkerWidget->SetEnabled(0);
   }
 
   // Whatever style was installed belongs to the view rather than to the
@@ -632,10 +738,10 @@ void vtkScivisView::SetInteractor(vtkRenderWindowInteractor* interactor)
     }
     // The marker listens to an interactor, not to the view, so it has to be
     // told about the one that just replaced the old.
-    this->OrientationWidget->SetInteractor(current);
+    this->OrientationMarkerWidget->SetInteractor(current);
     if (markerEnabled)
     {
-      this->OrientationWidget->SetEnabled(1);
+      this->OrientationMarkerWidget->SetEnabled(1);
     }
   }
   this->Modified();
@@ -757,9 +863,50 @@ vtkScivisScalarBars* vtkScivisView::GetScalarBars()
 }
 
 //------------------------------------------------------------------------------
+bool vtkScivisView::GetSceneBounds(double bounds[6])
+{
+  vtkBoundingBox box;
+  for (int i = 0; i < this->GetNumberOfRepresentations(); ++i)
+  {
+    auto* rep = vtkScivisDataRepresentation::SafeDownCast(this->GetRepresentation(i));
+    if (!rep || !rep->GetVisibility())
+    {
+      continue;
+    }
+    double representationBounds[6];
+    if (rep->GetBounds(representationBounds) && vtkBoundingBox::IsValid(representationBounds))
+    {
+      box.AddBounds(representationBounds);
+    }
+  }
+  if (!box.IsValid())
+  {
+    return false;
+  }
+  box.GetBounds(bounds);
+  return true;
+}
+
+//------------------------------------------------------------------------------
 void vtkScivisView::PrepareForRendering()
 {
   this->Update();
+
+  // Bounds are worth reporting only once the representations are up to date,
+  // and only while there is still time for a listener to resize itself.
+  double bounds[6];
+  const bool valid = this->GetSceneBounds(bounds);
+  if (valid != this->HasSceneBounds ||
+    (valid && !std::equal(bounds, bounds + 6, this->SceneBounds)))
+  {
+    this->HasSceneBounds = valid;
+    if (valid)
+    {
+      std::copy(bounds, bounds + 6, this->SceneBounds);
+    }
+    this->InvokeEvent(vtkScivisView::BoundsChangedEvent, valid ? this->SceneBounds : nullptr);
+  }
+
   this->ScalarBars->Update();
 }
 

@@ -404,6 +404,16 @@ def _cell_quality(dataset, quality):
 
     return ans
 
+def _is_vtk_tensor_array(array):
+    """Whether *array* is a VTK array of 3x3 tensors in VTK's own layout.
+
+    VTK stores a tensor as 9 components, row-major, which is what
+    gradient() of a vector and strain() return. Only VTK arrays are read
+    this way; a plain 2-D ndarray keeps its meaning as one matrix.
+    """
+    return (hasattr(array, "GetNumberOfComponents")
+            and array.ndim == 2 and array.shape[1] == 9)
+
 def _matrix_math_filter(array, operation):
     from vtkmodules.vtkFiltersVerdict import vtkMatrixMathFilter
 
@@ -411,9 +421,11 @@ def _matrix_math_filter(array, operation):
         raise RuntimeError('Unknown quality measure [' + operation + ']'
                            ' Supported are [Determinant, Inverse, Eigenvalue, Eigenvector]')
 
-    if array.ndim != 3:
-        raise RuntimeError(operation + ' only works for an array of matrices(3D array).'
-                           ' Input shape ' + str(array.shape))
+    if _is_vtk_tensor_array(array):
+        pass  # already the 9-component layout vtkMatrixMathFilter reads
+    elif array.ndim != 3:
+        raise RuntimeError(operation + ' only works for an array of matrices(3D array)'
+                           ' or of 9-component tensors. Input shape ' + str(array.shape))
     elif array.shape[1] != array.shape[2]:
         raise RuntimeError(operation + ' requires an array of 2D square matrices.'
                            ' Input shape ' + str(array.shape))
@@ -425,12 +437,10 @@ def _matrix_math_filter(array, operation):
     if not arr.flags.contiguous:
         arr = arr.copy()
 
-    nrows = arr.shape[0]
-    ncols = arr.shape[1] * arr.shape[2]
-    arr = arr.reshape(nrows, ncols)
+    arr = arr.reshape(arr.shape[0], -1)
 
     ds = vtkImageData()
-    ds.SetDimensions(nrows, 1, 1)
+    ds.SetDimensions(arr.shape[0], 1, 1)
 
     varray = numpy_support.numpy_to_vtk(arr)
     varray.SetName('tensors')
@@ -571,12 +581,15 @@ def _inv(array):
     return _matrix_math_filter(array, "Inverse")
 
 def _trace(array):
+    arr = numpy.asarray(array)
+    if _is_vtk_tensor_array(array):
+        arr = arr.reshape(-1, 3, 3)
     ax1 = 0
     ax2 = 1
-    if array.ndim > 2:
+    if arr.ndim > 2:
         ax1 = 1
         ax2 = 2
-    result = numpy.trace(numpy.asarray(array), axis1=ax1, axis2=ax2)
+    result = numpy.trace(arr, axis1=ax1, axis2=ax2)
     return _to_vtk_array(result, array)
 
 def _curl(array, dataset=None):
@@ -932,10 +945,24 @@ def mean(array, axis=None, controller=None, size=None):
             return _mean(array, axis)
 
 def var(array, axis=None, controller=None):
-    """Composite + MPI aware variance."""
+    """Composite + MPI aware variance.
+    Example:
+        >>> import numpy as np
+        >>> arr = np.array([[1.0, 2.0, 3.0],
+        ...                 [4.0, 5.0, 6.0],
+        ...                 [7.0, 8.0, 9.0]])
+        >>> var(arr, axis=0)
+        array([ 6, 6, 6])
+    """
     if axis is None or axis == 0:
         size = array_count(array, axis, controller)
-        tmp = array - mean(array, axis, controller, size)
+        center = mean(array, axis, controller, size)
+        if axis == 0 and center is not NoneArray:
+            # One mean per component, broadcast along the tuples. As a 1-D
+            # array it would be taken as one value per tuple by any block
+            # that happens to have as many tuples as components.
+            center = numpy.reshape(center, (1,) + numpy.shape(center))
+        tmp = array - center
         return sum(tmp * tmp, axis, controller) / size
     else:
         if isinstance(array, VTKPartitionedArray):
