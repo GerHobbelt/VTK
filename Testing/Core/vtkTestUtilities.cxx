@@ -1260,6 +1260,14 @@ bool TestFieldData(vtkFieldData* fd1, vtkFieldData* fd2, ArrayMapperT&& mapper,
     return false;
   }
 
+  if (fd1->GetNumberOfArrays() != fd2->GetNumberOfArrays())
+  {
+    vtkLog(ERROR,
+      "Mismatched number of arrays in " << fdName << ", " << fd1->GetNumberOfArrays()
+                                        << " != " << fd2->GetNumberOfArrays() << ".");
+    return false;
+  }
+
   ArrayMapperT& mapperR = mapper;
   for (int id = 0; id < fd1->GetNumberOfArrays(); ++id)
   {
@@ -2052,6 +2060,12 @@ template <template <class...> class ImplT, class DataObjectT>
 bool DispatchDataObjectImpl(
   vtkCompositeDataSet* do1, vtkCompositeDataSet* do2, double toleranceFactor, bool& retVal)
 {
+  if (!do1 || !do2)
+  {
+    vtkLog(ERROR, "Dispatching nullptr data, something is wrong");
+    return false;
+  }
+
   if (auto pd1 = vtkPartitionedDataSet::SafeDownCast(do1))
   {
     if (auto pd2 = vtkPartitionedDataSet::SafeDownCast(do2))

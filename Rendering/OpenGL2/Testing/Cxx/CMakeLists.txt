@@ -11,6 +11,8 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(_vtk_test_cxx_wasm_enabled_in_browser ON)
 endif ()
 vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
+  TestArrayTextureBufferCacheGrowth.cxx,NO_DATA,NO_VALID,NO_SERDES
+  TestArrayTextureBufferCachePurge.cxx,NO_DATA,NO_VALID,NO_SERDES
   TestArrayTextureBufferCacheSharing.cxx,NO_DATA,NO_VALID,NO_SERDES
   TestArrayTextureBufferPartialUpload.cxx,NO_DATA,NO_VALID,NO_SERDES
   TestBatchOrderRendering.cxx
@@ -103,6 +105,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestSSAOPass.cxx
   TestSSAOPassMultiViewports.cxx
   TestSSAOPassWithRenderer.cxx
+  TestStencilMaskPass.cxx
   TestSurfaceInterpolationSwitch.cxx
   TestTessellationShader.cxx,NO_DATA,NO_SERDES
   TestTexture16Bits.cxx,NO_DATA
@@ -118,6 +121,7 @@ vtk_add_test_cxx(vtkRenderingOpenGL2CxxTests tests
   TestVBOPLYMapper.cxx
   TestVBOPointsLines.cxx
   TestWindowBlits.cxx,NO_SERDES
+  TestWindowDPI.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   UnitTestOpenGLUniforms.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   )
 

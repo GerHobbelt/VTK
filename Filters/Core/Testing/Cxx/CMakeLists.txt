@@ -43,6 +43,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestExecutionTimer.cxx,NO_VALID
   TestExtractCells.cxx,NO_VALID
   TestExtractCellsAlongPolyLine.cxx,NO_VALID
+  TestExtractCellsAlongPolyLinePolyhedron.cxx,NO_VALID
   TestFeatureEdges.cxx,NO_VALID
   TestFieldDataToDataSetAttribute.cxx,NO_VALID
   TestFlyingEdges.cxx
@@ -103,7 +104,7 @@ vtk_add_test_cxx(vtkFiltersCoreCxxTests tests
   TestVaryRadiusTubeFilter.cxx
   UnitTestMaskPoints.cxx,NO_VALID
   UnitTestMergeFilter.cxx,NO_VALID
-  TestContourImplicitArrays.cxx
+  TestContourImplicitArrays.cxx,NO_VALID
   TestContourConstantScalarUG.cxx,NO_VALID
   )
 

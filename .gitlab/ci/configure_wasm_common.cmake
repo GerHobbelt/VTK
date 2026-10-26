@@ -52,4 +52,17 @@ set(VTK_MODULE_ENABLE_VTK_xdmf3 NO CACHE STRING "") # no boost
 set(VTK_MODULE_ENABLE_VTK_vtkviskores NO CACHE STRING "") # no execinfo.h in viskores's loguru
 set(VTK_MODULE_ENABLE_VTK_conduit NO CACHE STRING "") # conduit
 
+# Run the in-tree unit tests in a browser when CI provides a wasm engine.
+# This must be set at configure time because the engine path is baked into the
+# generated test commands (see CMake/vtkModuleTesting.cmake). When unset, the
+# wasm tests are still built but registered as skipped.
+if (NOT "$ENV{VTK_TESTING_WASM_ENGINE}" STREQUAL "")
+  set(VTK_TESTING_WASM_ENGINE "$ENV{VTK_TESTING_WASM_ENGINE}" CACHE FILEPATH "")
+endif ()
+
+# Emit per-class JSON type manifests for serialization.
+# VTK_WRAP_SERIALIZATION is ON in configure_common.cmake, which is the
+# prerequisite for this cmake_dependent_option.
+set(VTK_BUILD_TYPES_JSON ON CACHE BOOL "")
+
 include("${CMAKE_CURRENT_LIST_DIR}/configure_common.cmake")

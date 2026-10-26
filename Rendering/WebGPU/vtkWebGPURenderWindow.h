@@ -166,6 +166,7 @@ public:
    * Get the Ids data from the last render.
    */
   vtkTypeUInt32* GetIdsData(int x1, int y1, int x2, int y2);
+  VTK_MAYSUSPEND
   void GetIdsData(int x1, int y1, int x2, int y2, vtkTypeUInt32Array* data);
   ///@}
 
@@ -201,8 +202,20 @@ public:
    */
   void ReleaseGraphicsResources(vtkWindow*) override;
 
+  ///@{
+  /**
+   * Set/Get the webgpu configuration instance.
+   *
+   * @note This property is excluded from marshalling because it describes a live
+   * device/adapter; replaying it into an initialized window would tear down and
+   * recreate the device.
+   */
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
+  VTK_MAYSUSPEND
   void SetWGPUConfiguration(vtkWebGPUConfiguration* config);
+  VTK_MARSHALEXCLUDE(VTK_MARSHAL_EXCLUDE_REASON_IS_INTERNAL)
   vtkGetSmartPointerMacro(WGPUConfiguration, vtkWebGPUConfiguration);
+  ///@}
 
   /**
    * Get a database of all WebGPU shader source codes in VTK.

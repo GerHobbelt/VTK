@@ -4,6 +4,7 @@
 #include "vtkAppendDataSets.h"
 #include "vtkCleanUnstructuredGrid.h"
 #include "vtkDataAssemblyUtilities.h"
+#include "vtkDataObject.h"
 #include "vtkDataObjectTree.h"
 #include "vtkDataSet.h"
 #include "vtkForceStaticMesh.h"
@@ -69,7 +70,7 @@ bool TestTemporalData(const std::string& tempDir, const std::string& dataRoot,
   HDFWriter->SetUseExternalTimeSteps(config.UseExternalTimeSteps);
   HDFWriter->SetUseExternalPartitions(config.UseExternalPartitions);
   HDFWriter->SetWriteAllTimeSteps(true);
-  HDFWriter->SetChunkSize(100);
+  HDFWriter->SetChunkSize(10);
   HDFWriter->SetCompressionLevel(4);
   HDFWriter->Write();
 
@@ -131,6 +132,10 @@ bool TestTemporalData(const std::string& tempDir, const std::string& dataRoot,
         appendParts->AddInputData(baselineData->GetPartition(iPiece));
       }
       appendParts->Update();
+
+      // Original object does not have a "Time" field
+      vtkDataObject* readerOutput = HDFReader->GetOutput();
+      readerOutput->GetFieldData()->RemoveArray("Time");
       if (!vtkTestUtilities::CompareDataObjects(appendParts->GetOutput(), HDFReader->GetOutput()))
       {
         vtkLog(ERROR, "data objects do not match");
@@ -496,8 +501,9 @@ int TestHDFWriterTemporal(int argc, char* argv[])
   }
 
   // Only test single file writes for structured data
-  for (const auto& baseName : { "temporal_image.vtkhdf", "temporal_rectilinear.vtkhdf",
-         "temporal_structured.vtkhdf", "structured_coords.vtkhdf" })
+  for (const auto& baseName :
+    { "temporal_image.vtkhdf", "temporal_2Dimage.vtkhdf", "temporal_1Dimage.vtkhdf",
+      "temporal_rectilinear.vtkhdf", "temporal_structured.vtkhdf", "structured_coords.vtkhdf" })
   {
     result &= TestTemporalData(tempDir, dataRoot, baseName, configs[0], -1);
   }

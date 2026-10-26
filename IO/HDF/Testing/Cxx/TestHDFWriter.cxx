@@ -251,10 +251,11 @@ bool TestUnstructuredGrid(const std::string& tempDir, const std::string& dataRoo
 }
 
 //----------------------------------------------------------------------------
-bool TestImageDataWriteRead(const std::string& tempDir)
+bool TestImageDataWriteRead(
+  const std::string& tempDir, const std::string& qualif, const std::array<int, 6>& extent)
 {
   vtkNew<vtkImageData> imageData;
-  imageData->SetExtent(0, 3, 0, 2, 0, 1);
+  imageData->SetExtent(extent[0], extent[1], extent[2], extent[3], extent[4], extent[5]);
   imageData->SetOrigin(1.0, 2.0, 3.0);
   imageData->SetSpacing(0.5, 1.0, 2.0);
 
@@ -269,6 +270,17 @@ bool TestImageDataWriteRead(const std::string& tempDir)
   }
   imageData->GetPointData()->SetScalars(scalars);
 
+  vtkIdType numCells = imageData->GetNumberOfCells();
+  vtkNew<vtkIntArray> cellScalars;
+  cellScalars->SetName("CellScalars");
+  cellScalars->SetNumberOfComponents(1);
+  cellScalars->SetNumberOfTuples(numCells);
+  for (int idx = 0; idx < numCells; ++idx)
+  {
+    cellScalars->SetValue(idx, idx * 2);
+  }
+  imageData->GetCellData()->SetScalars(cellScalars);
+
   vtkNew<vtkDoubleArray> vectors;
   vectors->SetName("PointVectors");
   vectors->SetNumberOfComponents(3);
@@ -280,7 +292,7 @@ bool TestImageDataWriteRead(const std::string& tempDir)
   }
   imageData->GetPointData()->SetVectors(vectors);
 
-  std::string filePath = tempDir + "/HDFWriter_imageData.vtkhdf";
+  std::string filePath = tempDir + "/HDFWriter_imageData_" + qualif + ".vtkhdf";
   return TestWriteAndRead(imageData, filePath);
 }
 
@@ -538,6 +550,23 @@ bool TestMultiBlock(const std::string& tempDir, const std::string& dataRoot)
   baseReader->SetFileName(basePath.c_str());
   baseReader->Update();
   vtkMultiBlockDataSet* baseData = vtkMultiBlockDataSet::SafeDownCast(baseReader->GetOutput());
+
+  // Append field data
+  vtkNew<vtkIntArray> fieldArray1;
+  fieldArray1->InsertNextTuple1(0.0);
+  fieldArray1->InsertNextTuple1(2.0);
+  fieldArray1->SetName("Field1");
+  baseData->GetBlock(0)->GetFieldData()->AddArray(fieldArray1);
+
+  vtkNew<vtkDoubleArray> fieldArray2;
+  fieldArray2->SetNumberOfComponents(2);
+  fieldArray2->InsertNextTuple2(3.0, 0.0);
+  fieldArray2->SetName("Field2");
+  vtkMultiBlockDataSet::SafeDownCast(baseData->GetBlock(1))
+    ->GetBlock(1)
+    ->GetFieldData()
+    ->AddArray(fieldArray2);
+
   if (baseData == nullptr)
   {
     std::cerr << "Can't read base data from: " << basePath << std::endl;
@@ -906,7 +935,14 @@ int TestHDFWriter(int argc, char* argv[])
   testPasses &= TestPDCCompositeHTG(tempDir);
   testPasses &= TestComplexPolyData(tempDir, dataRoot);
   testPasses &= TestUnstructuredGrid(tempDir, dataRoot);
-  testPasses &= TestImageDataWriteRead(tempDir);
+  testPasses &= TestImageDataWriteRead(tempDir, "3D", { 0, 3, 0, 2, -2, 2 });
+  testPasses &= TestImageDataWriteRead(tempDir, "3D_extent", { 2, 4, -1, 2, 0, 1 });
+  testPasses &= TestImageDataWriteRead(tempDir, "2D", { 0, 3, 0, 2, 0, 0 });
+  testPasses &= TestImageDataWriteRead(tempDir, "2D_flat", { 0, 1, 0, 0, -2, 0 });
+  testPasses &= TestImageDataWriteRead(tempDir, "2D_extent", { -1, -1, 2, 4, -3, 3 });
+  testPasses &= TestImageDataWriteRead(tempDir, "2D_YZ", { 0, 0, 0, 2, 0, 5 });
+  testPasses &= TestImageDataWriteRead(tempDir, "1D", { 0, 0, 0, 2, 0, 0 });
+  testPasses &= TestImageDataWriteRead(tempDir, "0D", { 0, 0, 0, 0, 0, 0 });
   testPasses &= TestRectilinearGridWriteRead(tempDir);
   testPasses &= TestStructuredGridWriteRead(tempDir);
   testPasses &= TestDataSetAttributes(tempDir);

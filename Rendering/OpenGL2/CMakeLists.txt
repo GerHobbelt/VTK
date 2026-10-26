@@ -4,7 +4,6 @@ set(classes
   vtkClearRGBPass
   vtkClearZPass
   vtkDataTransferHelper
-  vtkDefaultPass
   vtkDepthImageProcessingPass
   vtkDepthOfFieldPass
   vtkDepthPeelingPass
@@ -26,9 +25,7 @@ set(classes
   vtkHiddenLineRemovalPass
   vtkImageProcessingPass
   vtkLightingMapPass
-  vtkLightsPass
   vtkOSOpenGLRenderWindow
-  vtkOpaquePass
   vtkOpenGLActor
   vtkOpenGLArrayTextureBufferAdapter
   vtkOpenGLArrayTextureBufferCache
@@ -91,32 +88,28 @@ set(classes
   vtkOpenGLVertexBufferObjectGroup
   vtkOrderIndependentTranslucentPass
   vtkOutlineGlowPass
-  vtkOverlayPass
   vtkPBRIrradianceTexture
   vtkPBRLUTTexture
   vtkPBRPrefilterTexture
   vtkPanoramicProjectionPass
   vtkPixelBufferObject
   vtkPointFillPass
-  vtkRenderPassCollection
   vtkRenderStepsPass
   vtkRenderbuffer
   vtkSSAAPass
   vtkSSAOPass
-  vtkSequencePass
   vtkShader
   vtkShaderProgram
   vtkShadowMapBakerPass
   vtkShadowMapPass
   vtkSimpleMotionBlurPass
   vtkSobelGradientMagnitudePass
+  vtkStencilMaskPass
   vtkTextureObject
   vtkTextureUnitManager
   vtkToneMappingPass
   vtkTransformFeedback
-  vtkTranslucentPass
-  vtkValuePass
-  vtkVolumetricPass)
+  vtkValuePass)
 
 set(headers
   "${CMAKE_CURRENT_BINARY_DIR}/vtkOpenGLError.h"
@@ -183,6 +176,7 @@ set(shader_files
   glsl/vtkPolyDataFS.glsl
   glsl/vtkPolyDataVS.glsl
   glsl/vtkPolyDataEdgesGS.glsl
+  glsl/vtkPolyDataGS.glsl
   glsl/vtkPolyDataWideLineGS.glsl
   glsl/vtkSSAAPassFS.glsl
   glsl/vtkSimpleMotionBlurPassFS.glsl

@@ -35,12 +35,28 @@
 
 VTK_ABI_NAMESPACE_BEGIN
 
+const std::string& vtkHDFUtilities::VTKHDF_ROOT_PATH()
+{
+  static std::string root_path = "/VTKHDF";
+  return root_path;
+}
+
+const std::vector<std::string>& vtkHDFUtilities::POLY_DATA_TOPOS()
+{
+  static std::vector<std::string> topos{ "Vertices", "Lines", "Polygons", "Strips" };
+  return topos;
+}
+
 namespace
 {
-const std::map<int, std::string> ARRAY_OFFSET_GROUPS = {
-  { vtkDataObject::POINT, "PointDataOffsets" }, { vtkDataObject::CELL, "CellDataOffsets" },
-  { vtkDataObject::FIELD, "FieldDataOffsets" }, { vtkDataObject::ROW, "RowDataOffsets" }
-};
+const std::map<int, std::string>& ARRAY_OFFSET_GROUPS()
+{
+  static const std::map<int, std::string> array_offset_groups = {
+    { vtkDataObject::POINT, "PointDataOffsets" }, { vtkDataObject::CELL, "CellDataOffsets" },
+    { vtkDataObject::FIELD, "FieldDataOffsets" }, { vtkDataObject::ROW, "RowDataOffsets" }
+  };
+  return array_offset_groups;
+}
 
 // Scoped RAII to quiet/unquiet hdf5
 class ScopedH5EQuiet
@@ -336,7 +352,6 @@ bool vtkHDFUtilities::ReadDataSetType(hid_t groupID, int& dataSetType)
 {
   if (H5Aexists(groupID, "Type") <= 0)
   {
-    vtkDebugWithObjectMacro(nullptr, "Can't find the `Type` attribute.");
     return false;
   }
 
@@ -863,7 +878,10 @@ bool vtkHDFUtilities::RetrieveHDFInformation(hid_t& rootID, const std::string& r
     for (const auto& it : groupNames)
     {
       std::string path = rootName + it.second;
-      attributeDataGroup[it.first] = H5Gopen(rootID, path.c_str(), H5P_DEFAULT);
+      if (H5Lexists(rootID, path.c_str(), H5P_DEFAULT) > 0)
+      {
+        attributeDataGroup[it.first] = H5Gopen(rootID, path.c_str(), H5P_DEFAULT);
+      }
     }
   }
 
@@ -1156,7 +1174,7 @@ vtkIdType vtkHDFUtilities::GetArrayOffset(
     return -1;
   }
   std::string path = "Steps/";
-  path += ::ARRAY_OFFSET_GROUPS.at(attributeType);
+  path += ::ARRAY_OFFSET_GROUPS().at(attributeType);
   if (H5Lexists(group, path.c_str(), H5P_DEFAULT) <= 0)
   {
     return -1;
