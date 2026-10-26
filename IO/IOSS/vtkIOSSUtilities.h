@@ -109,6 +109,7 @@ public:
 
 private:
   std::ostringstream Stream;
+  std::ostream* OutputStream;
   std::ostream* DebugStream;
   std::ostream* WarningStream;
 };
@@ -121,7 +122,7 @@ using EntityNameType = std::pair<vtkTypeUInt64, std::string>;
  * This can be used with vtkArrayDispatch::DispatchByArray, etc. when dealing
  * with arrays read from Ioss.
  */
-using ArrayList = typename vtkTypeList::Unique<
+using ArrayList = vtkTypeList::Unique<
   vtkTypeList::Create<vtkDoubleArray, vtkTypeInt32Array, vtkTypeInt64Array>>::Result;
 
 /**

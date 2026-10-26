@@ -471,12 +471,11 @@ int vtkHDFReader::CanReadFileVersion(int major, int vtkNotUsed(minor))
 //------------------------------------------------------------------------------
 vtkTypeBool vtkHDFReader::CanReadFile(const char* filename)
 {
-  vtkNew<vtkFileResourceStream> stream;
-  if (!stream->Open(filename))
-  {
-    return 0;
-  }
-  return vtkHDFReader::CanReadFile(stream) ? 1 : 0;
+  vtkNew<vtkHDFReader> dummy;
+  vtkHDFReader::Implementation impl(dummy);
+  bool ret = impl.Open(filename, true);
+  impl.Close();
+  return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -1159,13 +1158,13 @@ bool vtkHDFReader::ReadAMRData(vtkOverlappingAMR* data, unsigned int maxLevel,
             vtkErrorMacro("Error reading array " << name);
             return false;
           }
-          if (!cacheArray)
-          {
-            array->SetName(name.c_str());
-            vtkDataSetAttributes* attributes = dataSet->GetAttributes(attributeType);
-            this->Impl->AttachDatasetAttributeToArray(attributeType, array, attributes);
-            attributes->AddArray(array);
-          }
+
+          // Static mesh is not implemented for AMR in the reader, so set array in all cases
+          // see https://gitlab.kitware.com/vtk/vtk/-/work_items/20129
+          array->SetName(name.c_str());
+          vtkDataSetAttributes* attributes = dataSet->GetAttributes(attributeType);
+          this->Impl->AttachDatasetAttributeToArray(attributeType, array, attributes);
+          attributes->AddArray(array);
         }
       }
     }
@@ -1783,6 +1782,11 @@ int vtkHDFReader::Read(vtkInformation* outInfo, vtkPartitionedDataSetCollection*
       continue;
     }
     std::string hdfPathName = vtkHDFUtilities::VTKHDF_ROOT_PATH + "/" + datasetName;
+    if (!this->Impl->HasAttribute(hdfPathName.c_str(), "Type"))
+    {
+      // Empty partition, ignore
+      continue;
+    }
     if (!this->Impl->RetrieveHDFInformation(hdfPathName))
     {
       return 0;

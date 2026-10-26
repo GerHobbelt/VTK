@@ -38,7 +38,7 @@ int TestAnariCompositePolyDataMapper(int argc, char* argv[])
 
   for (int i = 0; i < argc; i++)
   {
-    if (!strcmp(argv[i], "-trace"))
+    if (!strcmp(argv[i], "--trace"))
     {
       useDebugDevice = true;
       vtkLogger::SetStderrVerbosity(vtkLogger::Verbosity::VERBOSITY_INFO);
@@ -71,7 +71,6 @@ int TestAnariCompositePolyDataMapper(int argc, char* argv[])
   unsigned levelEnd = 1;
   int numLevels = sizeof(blocksPerLevel) / sizeof(blocksPerLevel[0]);
   int numLeaves = 0;
-  int numNodes = 0;
   vtkStdString blockName("Rolf");
   mapper->SetInputDataObject(data);
   for (int level = 1; level < numLevels; ++level)
@@ -80,7 +79,7 @@ int TestAnariCompositePolyDataMapper(int argc, char* argv[])
     for (unsigned parent = levelStart; parent < levelEnd; ++parent)
     {
       blocks[parent]->SetNumberOfBlocks(nblocks);
-      for (int block = 0; block < nblocks; ++block, ++numNodes)
+      for (int block = 0; block < nblocks; ++block)
       {
         if (level == numLevels - 1)
         {
@@ -126,7 +125,8 @@ int TestAnariCompositePolyDataMapper(int argc, char* argv[])
   vtkNew<vtkAnariPass> anariPass;
   ren->SetPass(anariPass);
 
-  SetParameterDefaults(anariPass, ren, useDebugDevice, "TestAnariCompositePolyDataMapper");
+  vtkAnariTestUtilities::SetParameterDefaults(
+    anariPass, ren, useDebugDevice, "TestAnariCompositePolyDataMapper");
 
   ren->ResetCamera();
   vtkNew<vtkTimerLog> timer;
