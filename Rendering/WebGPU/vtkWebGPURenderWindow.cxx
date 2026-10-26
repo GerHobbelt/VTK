@@ -8,6 +8,7 @@
 #include "Private/vtkWebGPUHelpersPrivate.h"
 #include "Private/vtkWebGPUImplExtensions.h"
 #include "Private/vtkWebGPUPipelineLayoutInternals.h"
+#include "Private/vtkWebGPUProcLoader.h"
 #include "Private/vtkWebGPURenderPassDescriptorInternals.h"
 #include "Private/vtkWebGPURenderPipelineDescriptorInternals.h"
 #include "vtkCollectionRange.h"
@@ -272,13 +273,20 @@ WGPUSurface vtkWebGPURenderWindow::CreateSurfaceFromHardwareWindow(WGPUInstance 
 }
 
 //------------------------------------------------------------------------------
+bool vtkWebGPURenderWindow::RendersOffScreenOnly()
+{
+  return !this->ShowWindow && this->UseOffScreenBuffers && this->CustomSurfaceDescriptor == nullptr;
+}
+
+//------------------------------------------------------------------------------
 void vtkWebGPURenderWindow::Initialize()
 {
-  if (this->CustomSurfaceDescriptor == nullptr)
+  const bool offScreenOnly = this->RendersOffScreenOnly();
+  if (this->CustomSurfaceDescriptor == nullptr && !offScreenOnly)
   {
     this->CreateAWindow();
   }
-  if (this->WGPUInit())
+  if (this->WGPUInit() && !offScreenOnly)
   {
     this->CreateSurface();
   }
@@ -286,7 +294,10 @@ void vtkWebGPURenderWindow::Initialize()
   this->CreateOffscreenColorAttachment();
   this->CreateIdsAttachment();
   this->CreateDepthStencilAttachment();
-  this->CreateColorCopyPipeline();
+  if (this->Surface != nullptr)
+  {
+    this->CreateColorCopyPipeline();
+  }
   this->InitializeRendererComputePipelines();
 
   this->Initialized = true;
@@ -607,6 +618,13 @@ void vtkWebGPURenderWindow::ConfigureSurface()
 {
   vtkDebugMacro(<< __func__ << '(' << this->Size[0] << ',' << this->Size[1] << ')');
   vtkWebGPUCheckUnconfigured(this);
+  if (this->Surface == nullptr)
+  {
+    // Nothing to present to. The attachments still take their size from here.
+    this->SurfaceConfiguredSize[0] = this->Size[0];
+    this->SurfaceConfiguredSize[1] = this->Size[1];
+    return;
+  }
   // Configure the surface.
   WGPUSurfaceCapabilities capabilities = WGPU_SURFACE_CAPABILITIES_INIT;
   wgpuSurfaceGetCapabilities(this->Surface, this->GetAdapter(), &capabilities);
@@ -883,8 +901,18 @@ void vtkWebGPURenderWindow::CreateColorCopyPipeline()
   WGPUBindGroupLayout colorCopyBgl = bgl;
   vtkWebGPU::PipelineLayout pipelineLayout = vtkWebGPU::PipelineLayout::Acquire(
     vtkWebGPUPipelineLayoutInternals::MakeBasicPipelineLayout(device, &colorCopyBgl));
-  wgpuPipelineLayoutSetLabel(
-    pipelineLayout, WGPUStringView{ "FSQ Color Copy pipeline layout", WGPU_STRLEN });
+  // Labels are debugging aids and wgpu-native leaves every wgpu*SetLabel body as
+  // `unimplemented!()`, which panics and aborts rather than returning an error.
+  // The symbol is exported, so it has to be skipped by implementation, not by
+  // whether it resolves.
+  if (vtkWebGPUProcLoader* loader = vtkWebGPUProcLoader::GetInstance())
+  {
+    if (loader->GetImplementation() != vtkWebGPUProcLoader::WgpuNative)
+    {
+      wgpuPipelineLayoutSetLabel(
+        pipelineLayout, WGPUStringView{ "FSQ Color Copy pipeline layout", WGPU_STRLEN });
+    }
+  }
 
   vtkWebGPU::ReleaseAndNull(this->ColorCopyRenderPipeline.BindGroup, wgpuBindGroupRelease);
   this->ColorCopyRenderPipeline.BindGroup = vtkWebGPUBindGroupInternals::MakeBindGroup(device, bgl,
@@ -1296,9 +1324,12 @@ void vtkWebGPURenderWindow::RenderOffscreenTexture()
   }
   WGPUSurfaceTexture surfaceTexture = WGPU_SURFACE_TEXTURE_INIT;
   wgpuSurfaceGetCurrentTexture(this->Surface, &surfaceTexture);
-  // The surface hands back an owned reference each frame; adopt it so it is not
-  // leaked once this function returns.
-  vtkWebGPU::Texture currentTexture = vtkWebGPU::Texture::Acquire(surfaceTexture.texture);
+  // The surface hands back an owned reference each frame. Adopt it into the
+  // member so it stays alive until Frame() has submitted and presented the work
+  // that draws into it; a stale one from a frame that never reached Frame() is
+  // dropped here.
+  vtkWebGPU::ReleaseAndNull(this->SurfaceTexture, wgpuTextureRelease);
+  this->SurfaceTexture = surfaceTexture.texture;
 
   // Early exit if surface did not give a texture
   if (surfaceTexture.texture == nullptr)
@@ -1443,7 +1474,10 @@ void vtkWebGPURenderWindow::Start()
     this->CreateOffscreenColorAttachment();
     this->CreateDepthStencilAttachment();
     this->CreateIdsAttachment();
-    this->CreateColorCopyPipeline();
+    if (this->Surface != nullptr)
+    {
+      this->CreateColorCopyPipeline();
+    }
     this->RecreateComputeRenderTextures();
   }
 
@@ -1455,11 +1489,6 @@ void vtkWebGPURenderWindow::Frame()
 {
   vtkDebugMacro(<< __func__);
   vtkWebGPUCheckUnconfigured(this);
-  if (this->Surface == nullptr)
-  {
-    vtkErrorMacro(<< "Cannot render frame because the surface is null!");
-    return;
-  }
   this->Superclass::Frame();
 
   WGPUCommandBufferDescriptor cmdBufDesc = WGPU_COMMAND_BUFFER_DESCRIPTOR_INIT;
@@ -1479,22 +1508,31 @@ void vtkWebGPURenderWindow::Frame()
   this->PostRenderComputePipelines();
   this->PostRasterizationRender();
 
-  // New command encoder for the FSQ pass
-  this->CreateCommandEncoder();
-  this->RenderOffscreenTexture();
+  // The full-screen-quad pass copies the offscreen attachment to the surface. Without a surface
+  // the attachment is already the final image, and GetPixelData() reads it from there.
+  if (this->Surface != nullptr)
+  {
+    // New command encoder for the FSQ pass
+    this->CreateCommandEncoder();
+    this->RenderOffscreenTexture();
 
-  // Flushing the FSQ render pass
-  vtkWebGPU::CommandBuffer fsqCmdBufferWrapper =
-    vtkWebGPU::CommandBuffer::Acquire(wgpuCommandEncoderFinish(this->CommandEncoder, &cmdBufDesc));
-  WGPUCommandBuffer cmdBuffer = fsqCmdBufferWrapper;
+    // Flushing the FSQ render pass
+    vtkWebGPU::CommandBuffer fsqCmdBufferWrapper = vtkWebGPU::CommandBuffer::Acquire(
+      wgpuCommandEncoderFinish(this->CommandEncoder, &cmdBufDesc));
+    WGPUCommandBuffer cmdBuffer = fsqCmdBufferWrapper;
 
-  vtkWebGPU::ReleaseAndNull(this->CommandEncoder, wgpuCommandEncoderRelease);
-  this->FlushCommandBuffers(1, &cmdBuffer);
+    vtkWebGPU::ReleaseAndNull(this->CommandEncoder, wgpuCommandEncoderRelease);
+    this->FlushCommandBuffers(1, &cmdBuffer);
 
-  // On web, html5 `requestAnimateFrame` takes care of presentation.
+    // On web, html5 `requestAnimateFrame` takes care of presentation.
 #ifndef __EMSCRIPTEN__
-  wgpuSurfacePresent(this->Surface);
+    wgpuSurfacePresent(this->Surface);
 #endif
+  }
+
+  // The frame's work has been submitted, so the reference the surface handed out
+  // in RenderOffscreenTexture() can go.
+  vtkWebGPU::ReleaseAndNull(this->SurfaceTexture, wgpuTextureRelease);
 
   // Clean up staging buffer for SetPixelData.
   if (this->StagingPixelData.Buffer != nullptr)
@@ -2252,6 +2290,7 @@ void vtkWebGPURenderWindow::ReleaseGraphicsResources(vtkWindow* w)
   this->DestroyIdsAttachment();
   this->DestroyDepthStencilAttachment();
   this->DestroyOffscreenColorAttachment();
+  vtkWebGPU::ReleaseAndNull(this->SurfaceTexture, wgpuTextureRelease);
   this->UnconfigureSurface();
   vtkWebGPU::ReleaseAndNull(this->Surface, wgpuSurfaceRelease);
 }
@@ -2424,6 +2463,7 @@ void vtkWebGPURenderWindow::SyncWithHardware()
       this->HardwareWindow->SetSize(renderWindowSize);
     }
   }
+  this->HardwareWindow->SetShowWindow(this->GetShowWindow());
   this->HardwareWindow->SetCoverable(this->GetCoverable());
 }
 

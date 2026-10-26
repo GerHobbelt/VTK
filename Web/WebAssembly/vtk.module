@@ -12,6 +12,7 @@ PRIVATE_DEPENDS
 OPTIONAL_DEPENDS
   VTK::ChartsCore
   VTK::CommonColor
+  VTK::CommonComputationalGeometry
   VTK::CommonCore
   VTK::CommonDataModel
   VTK::CommonExecutionModel
@@ -24,10 +25,12 @@ OPTIONAL_DEPENDS
   VTK::ImagingCore
   VTK::InteractionStyle
   VTK::InteractionWidgets
+  VTK::IOXML
   VTK::RenderingAnnotation
   VTK::RenderingCore
   VTK::RenderingContext2D
   VTK::RenderingContextOpenGL2
+  VTK::RenderingFreeType
   VTK::RenderingGridAxes
   VTK::RenderingImage
   VTK::RenderingLabel

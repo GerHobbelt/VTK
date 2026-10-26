@@ -3,6 +3,7 @@
 
 #include "vtkAnariRenderWindow.h"
 
+#include "vtkLogger.h"
 #include "vtkObjectFactory.h"
 #include "vtkOverrideAttribute.h"
 #include "vtkRendererCollection.h"
@@ -52,6 +53,9 @@ vtkAnariRenderWindow::vtkAnariRenderWindow()
 }
 
 //------------------------------------------------------------------------------
+vtkAnariRenderWindow::~vtkAnariRenderWindow() = default;
+
+//------------------------------------------------------------------------------
 unsigned char* vtkAnariRenderWindow::GetPixelData(
   int x1, int y1, int x2, int y2, int vtkNotUsed(front), int vtkNotUsed(right))
 {
@@ -82,6 +86,16 @@ int vtkAnariRenderWindow::GetRGBACharPixelData(int x1, int y1, int x2, int y2,
 //------------------------------------------------------------------------------
 void vtkAnariRenderWindow::DoStereoRender()
 {
+  if (!this->AnariDevice->AnariInitialized())
+  {
+    if (!this->AnariDevice->SetupAnariDeviceFromLibrary(
+          "environment", "default", this->UseDebugDevice))
+    {
+      vtkLogF(ERROR, "Could not initialize ANARI device.");
+      return;
+    }
+  }
+
   // Assuming there is one renderer
   vtkRenderer* renderer = this->GetRenderers()->GetFirstRenderer();
 
@@ -91,26 +105,18 @@ void vtkAnariRenderWindow::DoStereoRender()
   }
 
   // Setup scene graph
+  if (!this->AnariSceneGraph)
   {
-    anari::Device device = this->AnariDevice->GetHandle();
+    vtkAnariSceneGraph* sceneGraph =
+      vtkAnariSceneGraph::SafeDownCast(this->AnariFactory->CreateNode(renderer));
+    this->AnariSceneGraph = vtkSmartPointer<vtkAnariSceneGraph>::Take(sceneGraph);
 
-    const bool rebuildSceneGraph =
-      !this->AnariSceneGraph || this->AnariSceneGraph->GetDeviceHandle() != device;
-    if (rebuildSceneGraph)
-    {
-      vtkAnariSceneGraph* sceneGraph =
-        vtkAnariSceneGraph::SafeDownCast(this->AnariFactory->CreateNode(renderer));
-      this->AnariSceneGraph = vtkSmartPointer<vtkAnariSceneGraph>::Take(sceneGraph);
-
-      this->AnariSceneGraph->SetAnariDevice(this->AnariDevice,
-        this->AnariDevice->GetAnariDeviceExtensions(),
-        this->AnariDevice->GetAnariDeviceExtensionStrings());
-      this->AnariSceneGraph->SetAnariRenderer(this->AnariRenderer->GetHandle());
-    }
-    else if (this->AnariRenderer->GetHandle() != this->AnariSceneGraph->GetRendererHandle())
-    {
-      this->AnariSceneGraph->SetAnariRenderer(this->AnariRenderer->GetHandle());
-    }
+    this->AnariSceneGraph->SetAnariDevice(this->AnariDevice);
+    this->AnariSceneGraph->SetAnariRenderer(this->AnariRenderer);
+  }
+  else if (this->AnariRenderer != this->AnariSceneGraph->GetAnariRenderer())
+  {
+    this->AnariSceneGraph->SetAnariRenderer(this->AnariRenderer);
   }
 
   // Setup frame

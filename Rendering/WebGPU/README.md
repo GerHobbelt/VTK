@@ -16,6 +16,8 @@ When both the `RenderingOpenGL2` and `RenderingWebGPU` libraries are linked, the
 
 - Git
 - tools for building VTK
+- A compiler C++ 20 compatible (eg: clang-19 or newer) required to compile Dawn. [VTK supports C++17 compilers].
+  *Not required if using pre-built dawn binaries*
 
 ### Desktop
 On desktop (Linux, macOS, and Windows), this module runs on Dawn's WebGPU
@@ -38,7 +40,7 @@ Here, `DAWN_INSTALL_DIR` should point to the directory where Dawn is installed (
 # Clone the repo and checkout the required version
 git clone https://github.com/google/dawn dawn && cd dawn
 git checkout v20260720.160313
-cmake -S . -B out/Debug -GNinja -DDAWN_FETCH_DEPENDENCIES=ON -DDAWN_ENABLE_INSTALL=ON
+cmake -S . -B out/Debug -GNinja -DDAWN_FETCH_DEPENDENCIES=ON -DDAWN_ENABLE_INSTALL=ON -DDAWN_BUILD_MONOLITHIC_LIBRARY=SHARED
 cmake --build out/Debug
 cmake --install out/Debug --prefix ${DAWN_INSTALL_DIR}
 ```
@@ -198,10 +200,10 @@ runtimes (Dawn, wgpu-native) or browser WebGPU via Emscripten.
 
 ```{note}
 This decoupling is not complete. When Dawn is found at configure time the module
-still links `dawn::webgpu_dawn` (see `VTK::WebGPUImpl` in `CMakeLists.txt`), and
-`vtkWebGPUConfiguration::Initialize()` fails if the proc table cannot load an
-implementation. Today the proc table is therefore an *additional* runtime
-requirement layered on the link-time dependency, not a replacement for it.
+links no implementation: the `wgpu*` names are redirected to a dispatch table
+that the proc table fills in, so the only requirement is that an implementation
+can be found at runtime. `vtkWebGPUConfiguration::Initialize()` fails with a
+diagnostic if none can be.
 ```
 
 On Emscripten there is no library to resolve: `--use-port=emdawnwebgpu` links the
@@ -226,9 +228,23 @@ The implementation consists of two layers:
    lazy initialization. Provides `IsLoaded()` and `Load()`, and is reached
    through `vtkWebGPUConfiguration::Initialize()`.
 
-VTK itself calls the WebGPU C API directly rather than through the table: the
-library is opened with global symbol visibility, so the `wgpu*` entry points
-resolve against it.
+VTK's sources call the WebGPU C API by its ordinary names. The build forces
+`Private/vtkWebGPUProcDispatch.h` into the module's own sources and its tests,
+and that header `#define`s each `wgpu*` name to the matching entry in a table of
+function pointers, filled in from `wgpuGetProcAddress` once the library is open.
+The forced include keeps the redirect off installed headers and out of anything
+a consumer compiles.
+
+`Private/vtkWebGPUProcDispatch.{h,cxx}` are generated. After updating
+`ThirdParty/webgpuheaders`, regenerate them and commit the result:
+
+```sh
+python3 Rendering/WebGPU/generate_proc_dispatch.py
+```
+
+Handles cannot take the entry points as template arguments any more - the
+address of a table entry is not a constant expression - so `vtkWebGPU::Handle`
+takes a traits type whose `AddRef`/`Release` call through the table instead.
 
 Initialization flow: `vtkWebGPUConfiguration::Initialize()` invokes
 `vtkWebGPUProcLoader::GetInstance()`, which loads the WebGPU implementation

@@ -1,10 +1,13 @@
 set(classes
   vtkBlockProperties
+  vtkLookupTableManager
   vtkScivisDataRepresentation
   vtkScivisRepresentation
+  vtkScivisScalarBars
   vtkScivisView
   vtkScivisSelector
   vtkSurfaceRepresentation
+  vtkTextOverlayRepresentation
   vtkVolumeRepresentation
   )
 

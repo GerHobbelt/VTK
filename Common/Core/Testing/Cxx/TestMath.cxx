@@ -7,6 +7,7 @@
 #include <array>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 #include <iostream>
 
@@ -45,6 +46,57 @@ bool fuzzyCompareNDWeak(const A& a, const A& b, int size)
     }
   }
   return true;
+}
+
+// This is used to validate the correctness of the implementation in vtkMath.
+// It is slower to compute but produces the same result.
+double alternateJacobiPolynomial(int nn, double alpha, double beta, double xx)
+{
+  // Option 1: Compute via the hypergeometric function.
+  double vv = std::tgamma(alpha + nn + 1.) / std::tgamma(alpha + beta + nn + 1.) /
+    static_cast<double>(vtkMath::Factorial(nn));
+  double ss = 0.;
+  for (int mm = 0; mm <= nn; ++mm)
+  {
+    double bb = static_cast<double>(vtkMath::Binomial(nn, mm)) *
+      std::tgamma(alpha + beta + mm + nn + 1.) / std::tgamma(alpha + mm + 1.) *
+      std::pow((xx - 1.) / 2., mm);
+    ss += bb;
+  }
+  return ss * vv;
+}
+
+static int TestJacobiPolynomial()
+{
+  std::cout << "Testing Jacobi polynomial evaluation.\n";
+  bool ok = true;
+  for (int nn = 0; nn < 4; ++nn)
+  {
+    for (double alpha = -0.9; alpha <= 1.; alpha += 0.05)
+    {
+      for (double beta = -0.9; beta <= 1.; beta += 0.05)
+      {
+        for (double xx = -1.; xx <= 1.; xx += 0.05)
+        {
+          double vv = vtkMath::JacobiPolynomial(nn, alpha, beta, xx);
+          double aa = alternateJacobiPolynomial(nn, alpha, beta, xx);
+          if (std::abs(vv - aa) > 1e-12)
+          {
+            ok = false;
+            std::cerr << "ERROR: Mismatch @ (" << nn << " " << alpha << " " << beta << " " << xx
+                      << " ):"
+                         " got "
+                      << vv << " expected " << aa << "\n";
+          }
+          // std::cout << nn << " " << xx << " " << alpha << " " << beta << " " << vv << "\n";
+        }
+        // std::cout << "\n";
+      }
+      // std::cout << "\n";
+    }
+    // std::cout << "\n";
+  }
+  return ok ? 1 : 0;
 }
 
 //=============================================================================
@@ -99,6 +151,7 @@ static int TestSpecialDoublesReal(double value, const char* name, bool inftest, 
 
 int TestMath(int, char*[])
 {
+  TestJacobiPolynomial();
   // Test ProjectVector float
   {
     std::cout << "Testing ProjectVector float" << std::endl;
@@ -374,6 +427,59 @@ int TestMath(int, char*[])
   if (testIntValue != 10)
   {
     vtkGenericWarningMacro("Binomial(5,3) = " << testIntValue << " != 10");
+    return 1;
+  }
+
+  // Check the lookup table against Pascal's rule, accumulated here so that the
+  // comparison does not go through the same table it is verifying.
+  {
+    std::vector<double> previousRow{ 1. };
+    for (int mm = 0; mm <= 55; ++mm)
+    {
+      std::vector<double> row(mm + 1, 1.);
+      for (int nn = 1; nn < mm; ++nn)
+      {
+        row[nn] = previousRow[nn - 1] + previousRow[nn];
+      }
+      for (int nn = 0; nn <= mm; ++nn)
+      {
+        if (vtkMath::DoubleBinomial(mm, nn) != row[nn])
+        {
+          vtkGenericWarningMacro("DoubleBinomial("
+            << mm << "," << nn << ") = " << vtkMath::DoubleBinomial(mm, nn) << " != " << row[nn]);
+          return 1;
+        }
+        if (vtkMath::Binomial(mm, nn) != static_cast<vtkTypeInt64>(row[nn]))
+        {
+          vtkGenericWarningMacro("Binomial("
+            << mm << "," << nn << ") = " << vtkMath::Binomial(mm, nn) << " != " << row[nn]);
+          return 1;
+        }
+      }
+      previousRow = row;
+    }
+  }
+
+  // The first row past the lookup table, where both fall back to an iterative
+  // computation. Requiring the exact integer here bounds the rounding error
+  // that computation may accumulate to less than half, since Binomial() rounds
+  // what DoubleBinomial() returns.
+  if (vtkMath::Binomial(56, 28) != 7648690600760440LL)
+  {
+    vtkGenericWarningMacro(
+      "Binomial(56,28) = " << vtkMath::Binomial(56, 28) << " != 7648690600760440");
+    return 1;
+  }
+
+  // Out-of-range arguments yield zero rather than reading outside the table.
+  // Binomial() has no range check of its own: it relies on rounding the zero
+  // DoubleBinomial() returns back down to zero.
+  if (vtkMath::DoubleBinomial(-1, 0) != 0. || vtkMath::DoubleBinomial(0, -1) != 0. ||
+    vtkMath::DoubleBinomial(3, 4) != 0. || vtkMath::DoubleBinomial(-3, -4) != 0. ||
+    vtkMath::Binomial(-1, 0) != 0 || vtkMath::Binomial(0, -1) != 0 ||
+    vtkMath::Binomial(3, 4) != 0 || vtkMath::Binomial(-3, -4) != 0)
+  {
+    vtkGenericWarningMacro("Binomial() did not return 0 for out-of-range arguments.");
     return 1;
   }
 

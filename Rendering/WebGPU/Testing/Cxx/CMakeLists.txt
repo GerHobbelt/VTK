@@ -26,15 +26,30 @@ vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   TestReportWebGPUCapabilities.cxx,NO_DATA,NO_VALID
   TestRenderWindowChangeDeviceLater.cxx,NO_DATA,NO_SERDES)
 
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # A browser always renders into its canvas, so there is no window to do without there.
+  vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
+    TestWebGPUHiddenWindow.cxx,NO_DATA,NO_VALID
+    TestWebGPUOffScreenRendering.cxx,NO_DATA,NO_VALID)
+endif ()
+
 vtk_add_test_cxx(vtkRenderingWebGPUCxxTests tests
   --verify
   TestComputeTriangulationVerifyPointIds,TestComputeTriangulation.cxx,NO_DATA,NO_VALID)
 
 vtk_test_cxx_executable(vtkRenderingWebGPUCxxTests tests)
 
-# Tests that call wgpu* C API functions directly need the WebGPU implementation library.
-if (TARGET VTK::WebGPUImpl)
-  target_link_libraries(vtkRenderingWebGPUCxxTests PRIVATE VTK::WebGPUImpl)
+# The tests call wgpu* directly, so they take the same redirect as the module.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  set(_vtk_webgpu_dispatch_header
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../Private/vtkWebGPUProcDispatch.h")
+  if (MSVC)
+    target_compile_options(vtkRenderingWebGPUCxxTests
+      PRIVATE "/FI${_vtk_webgpu_dispatch_header}")
+  else ()
+    target_compile_options(vtkRenderingWebGPUCxxTests
+      PRIVATE "-include${_vtk_webgpu_dispatch_header}")
+  endif ()
 endif ()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Emscripten")

@@ -93,12 +93,14 @@ set(cxx_tests
   TestHomogeneousTransformOfActor.cxx
   TestImageAndAnnotations.cxx,NO_DATA
   TestInteractorStyleImageProperty.cxx,NO_VALID
+  TestInteractorEventRecorder.cxx,NO_DATA,NO_VALID
   TestLightShallowClone.cxx,NO_DATA,NO_VALID
   TestLightKit.cxx
   TestLabeledContourMapper.cxx
   TestLabeledContourMapperNoLabels.cxx
   TestLabeledContourMapperWithActorMatrix.cxx
   TestLineRendering.cxx,NO_DATA
+  TestLODProp3D.cxx,NO_VALID
   TestManyActors.cxx,NO_VALID
   TestManyRenderWindows.cxx,NO_VALID,NO_RT,NO_DATA
   TestMapVectorsAsRGBColors.cxx
