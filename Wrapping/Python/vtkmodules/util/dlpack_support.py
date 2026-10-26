@@ -38,11 +38,11 @@ Host arrays work with plain VTK. Device arrays require VTK built with
 wrap device memory; importing a device tensor without it raises
 ``RuntimeError`` rather than silently copying to the host.
 
-Metal tensors are imported as host arrays. A shared-storage MTLBuffer on
-Apple Silicon is unified memory, so its pointer is host-readable and the
-wrap is still zero-copy; Viskores has no Metal device adapter, so there is
-nothing else it could be. Private-storage buffers have no host-readable
-pointer, report null, and are rejected. VTK never *exports* Metal memory,
+Metal tensors are rejected. The data pointer a Metal tensor carries is the
+``MTLBuffer`` object itself, not memory the host can read -- PyTorch's MPS
+tensors, for one, are private-storage buffers with no host-readable contents
+at all -- and Viskores has no Metal device adapter to hand it to instead.
+Copy the tensor to the CPU first. VTK never *exports* Metal memory either,
 because no VTK array can hold it.
 
 Context, device and streams
@@ -56,11 +56,21 @@ HIP do not need one -- the runtime keeps an implicitly shared primary
 context per device, so a pointer identifies itself and every consumer lands
 in the same place. Level Zero does not work that way: a USM pointer is only
 meaningful inside the ``ze_context_handle_t`` it was allocated from, and
-recovering that requires a context you already hold. So ``kDLOneAPI`` maps
-to the ``"level_zero"`` space and ``vtkmDataArrayFactory`` refuses it,
-naming the space, rather than treating the pointer as something it is not.
-Supporting Level Zero means finding somewhere for the context to travel
-first; it is not a matter of adding a device adapter.
+recovering that requires a context you already hold.
+
+So for ``kDLOneAPI`` the context travels once, out of band, instead of with
+every tensor. ``level_zero_handles()`` reports the driver, device and
+context of the SYCL queue Viskores runs on, and a producer that wants VTK
+to read its memory allocates *there*. Kokkos builds that queue in the SYCL
+platform's default context, which is also where a SYCL program allocates
+unless it creates a context of its own. On import the
+pointer is checked against that context and refused if the SYCL runtime
+does not know it as USM device or shared memory. The check separates device
+memory from host memory; it cannot prove which context a pointer came from,
+because drivers are not required to tell contexts apart and Intel's does
+not. Exported Level Zero tensors are in that context too. All of this
+needs VTK built with Viskores on Kokkos' SYCL backend; without it
+``kDLOneAPI`` tensors are refused, naming the space.
 
 **Device ordinal.** ``DLPackArray(array, device_id=...)`` is taken from the
 caller and reported verbatim by ``__dlpack_device__``. It is not derived
@@ -76,6 +86,7 @@ anything asynchronous produced the data.
 """
 
 import ctypes
+import sys
 
 from vtkmodules.vtkCommonCore import (
     VTK_CHAR,
@@ -99,6 +110,7 @@ __all__ = [
     "dlpack_to_vtk",
     "DLPackArray",
     "supported_device_types",
+    "level_zero_handles",
 ]
 
 # ---------------------------------------------------------------------
@@ -122,31 +134,28 @@ kDLFloat = 2
 
 # DLPack device type -> the memory-space name vtkMemoryDescriptor uses.
 #
-# Metal maps to "host", not to a space of its own. Viskores has no Metal
-# device adapter and vtkDataArray::MemorySpace has no Metal value, so nothing
-# in VTK could ever branch on one -- carrying it would be a label that implies
-# a capability that does not exist. A shared-storage MTLBuffer on Apple
-# Silicon is unified memory, so treating the pointer as host memory is not a
-# compromise, it is what it is. (Private-storage buffers have no host-readable
-# pointer at all; they report null and are rejected below.)
+# Metal is deliberately absent. A Metal tensor's data pointer is the
+# MTLBuffer object, not its contents, so reading it as host memory reads the
+# object's own bytes -- PyTorch's MPS tensors come back as garbage that way,
+# and they are private-storage buffers with no host-readable contents to find
+# instead. dlpack_to_vtk rejects them by name.
 _DEVICE_TO_SPACE = {
     kDLCPU: "host",
     kDLCUDAHost: "host",
     kDLROCMHost: "host",
-    kDLMetal: "host",
     kDLCUDA: "cuda",
     kDLCUDAManaged: "cuda",
     kDLROCM: "hip",
     kDLOneAPI: "level_zero",
 }
 
-# The spaces VTK can report on export. vtkDataArray::MemorySpace has exactly
-# three values, and vtkmDataArray derives its space from the device the data
-# sits on, so these are the only ones that can appear.
+# The spaces VTK can report on export. vtkmDataArray derives its space from
+# the device the data sits on, so these are the only ones that can appear.
 _SPACE_TO_DEVICE = {
     "host": kDLCPU,
     "cuda": kDLCUDA,
     "hip": kDLROCM,
+    "level_zero": kDLOneAPI,
 }
 
 
@@ -267,58 +276,120 @@ _PyCapsule_GetPointer.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
 # gives the deleter. Keying this table by anything the deleter cannot
 # recover means nothing is ever released and every export leaks -- device
 # memory included.
+#
+# The consumer decides when the deleter runs, and that can be during
+# interpreter shutdown, after this module's globals have been cleared:
+# importing torch is enough to have this module torn down before __main__,
+# so a tensor still referenced from a script is freed afterwards. The
+# consumer then reads the deleter out of the managed tensor and calls it.
+# So the table (which owns the managed tensors) and the callbacks must
+# outlive the module, and the callbacks must not look anything up in its
+# globals. They are made immortal, bind what they use when they are
+# created, and do nothing once the interpreter is finalizing: leaking an
+# export at exit is harmless, and calling back into a half torn-down module
+# is not.
 
-_pinned = {}
+_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
+
+
+def _immortal(obj):
+    """Leak one reference to *obj*, so it outlives interpreter teardown."""
+    ctypes.pythonapi.Py_IncRef(ctypes.py_object(obj))
+    return obj
+
+
+def _shutdown_safe(function):
+    """Wrap *function* as an immortal C callback that ignores null
+    pointers and does nothing once the interpreter is finalizing."""
+    is_finalizing = sys.is_finalizing
+
+    def callback(pointer):
+        if pointer and not is_finalizing():
+            function(pointer)
+
+    return _immortal(_CALLBACK(callback))
+
+
+_pinned = _immortal({})
 _next_key = 1  # 0 round-trips through c_void_p as None
 
 
-def _release(managed_ptr, struct=_DLManagedTensor):
-    """Drop what was pinned for the export at *managed_ptr*.
+def _releaser(struct):
+    """Return a function dropping what was pinned for an export.
 
     *struct* says which layout to read: manager_ctx sits at a different
     offset in the two.
     """
-    if not managed_ptr:
-        return
-    managed = ctypes.cast(managed_ptr, ctypes.POINTER(struct)).contents
-    _pinned.pop(managed.manager_ctx, None)
+    pinned, cast, pointer_type = _pinned, ctypes.cast, ctypes.POINTER(struct)
+
+    def release(managed_ptr):
+        pinned.pop(cast(managed_ptr, pointer_type).contents.manager_ctx, None)
+
+    return release
 
 
-@ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-def _tensor_deleter(managed_ptr):
-    """Called by the consumer when it is done with the tensor."""
-    _release(managed_ptr, _DLManagedTensor)
+_release = _releaser(_DLManagedTensor)
+_release_versioned = _releaser(_DLManagedTensorVersioned)
+
+# Called by the consumer when it is done with the tensor. The deleter is
+# handed only a pointer and cannot tell the layouts apart, so there is one
+# per layout.
+_tensor_deleter = _shutdown_safe(_release)
+_tensor_deleter_versioned = _shutdown_safe(_release_versioned)
 
 
-@ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-def _tensor_deleter_versioned(managed_ptr):
-    """As above for a v1.0 tensor: the deleter is handed only a pointer
-    and cannot tell the layouts apart, so there is one per layout."""
-    _release(managed_ptr, _DLManagedTensorVersioned)
-
-
-@ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-def _capsule_destructor(capsule_ptr):
-    """Release an export no consumer ever adopted.
+def _unadopted_releaser():
+    """Return a function releasing an export no consumer ever adopted.
 
     A consumer that takes the tensor renames the capsule to
     "used_dltensor" and takes over calling the deleter. A capsule
     collected still named "dltensor" was nobody's responsibility.
     """
-    if not capsule_ptr:
-        return
-    if _PyCapsule_IsValid(capsule_ptr, b"dltensor"):
-        _release(_PyCapsule_GetPointer(capsule_ptr, b"dltensor"), _DLManagedTensor)
-    elif _PyCapsule_IsValid(capsule_ptr, b"dltensor_versioned"):
-        _release(
-            _PyCapsule_GetPointer(capsule_ptr, b"dltensor_versioned"),
-            _DLManagedTensorVersioned,
-        )
+    is_valid, get_pointer = _PyCapsule_IsValid, _PyCapsule_GetPointer
+    release, release_versioned = _release, _release_versioned
+
+    def release_unadopted(capsule_ptr):
+        if is_valid(capsule_ptr, b"dltensor"):
+            release(get_pointer(capsule_ptr, b"dltensor"))
+        elif is_valid(capsule_ptr, b"dltensor_versioned"):
+            release_versioned(get_pointer(capsule_ptr, b"dltensor_versioned"))
+
+    return release_unadopted
+
+
+_capsule_destructor = _shutdown_safe(_unadopted_releaser())
 
 
 def supported_device_types():
     """DLPack device types this module can import, as a set of ints."""
     return set(_DEVICE_TO_SPACE)
+
+
+def level_zero_handles():
+    """The Level Zero handles VTK's device memory lives under, or ``None``.
+
+    Returns ``{"driver": int, "device": int, "context": int}`` -- the
+    ``ze_driver_handle_t``, ``ze_device_handle_t`` and ``ze_context_handle_t``
+    of the SYCL queue Viskores runs on -- when VTK was built with Viskores on
+    Kokkos' SYCL backend and that backend is running on a Level Zero device.
+    Otherwise ``None``.
+
+    A producer allocates in this context so that its ``kDLOneAPI`` tensors
+    are meaningful to VTK; see "Context" in the module documentation. The
+    handles belong to the SYCL runtime: use them, do not destroy them.
+    """
+    try:
+        from vtkmodules.vtkAcceleratorsVTKmCore import vtkmDataArrayFactory
+    except ImportError:
+        return None
+    context = vtkmDataArrayFactory.GetLevelZeroContextHandle()
+    if not context:
+        return None
+    return {
+        "driver": vtkmDataArrayFactory.GetLevelZeroDriverHandle(),
+        "device": vtkmDataArrayFactory.GetLevelZeroDeviceHandle(),
+        "context": context,
+    }
 
 
 # ---------------------------------------------------------------------
@@ -506,12 +577,15 @@ def dlpack_to_vtk(source, name=None):
                 "that. Copy the source first if you want a VTK array from it."
             )
 
-    if not tensor.data:
+    if tensor.device.device_type == kDLMetal:
         raise ValueError(
-            "the tensor has a null data pointer. A Metal buffer with private "
-            "storage reports this, and its memory cannot be read from the host; "
-            "use shared storage."
+            "Metal tensors cannot be wrapped: their data pointer is the MTLBuffer "
+            "object, not memory the host can read. Copy the tensor to the CPU "
+            "first (for PyTorch, tensor.cpu())."
         )
+
+    if not tensor.data:
+        raise ValueError("the tensor has a null data pointer")
 
     if tensor.ndim not in (1, 2):
         raise ValueError(

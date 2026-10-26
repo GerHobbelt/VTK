@@ -14,6 +14,7 @@ vtk_add_test_cxx(vtkCommonDataModelCxxTests tests
   TestBezier.cxx
   TestArrayListTemplate.cxx
   TestCellInflation.cxx
+  TestCellTypeTraits.cxx
   TestColor.cxx
   TestCoordinateFrame.cxx
   TestVector.cxx
@@ -92,6 +93,7 @@ vtk_add_test_cxx(vtkCommonDataModelCxxTests tests
   TestPolyhedron0.cxx
   TestPolyhedron1.cxx
   TestPolyhedron3.cxx
+  TestPolyhedronCellArray.cxx
   TestPolyhedronCombinatorialContouring.cxx
   TestPolyhedronConvexity.cxx
   TestPolyhedronConvexityMultipleCells.cxx
@@ -162,10 +164,12 @@ vtk_add_test_cxx(vtkCommonDataModelCxxTests data_tests
   TestPolyhedron2.cxx,NO_VALID
   TestPolyhedron4.cxx,NO_VALID,NO_OUTPUT
   TestPolyhedronConcaveCentroid.cxx,NO_VALID,NO_OUTPUT
+  TestPolyhedronFacePoints.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   TestPolyhedronVolume.cxx,NO_DATA,NO_VALID,NO_OUTPUT
   TestPolyhedronContouring.cxx,NO_VALID
   TestPolyhedronCutter.cxx,NO_VALID
   TestPolyhedronDecompose.cxx,NO_DATA
+  TestKdTreePointLocator2D.cxx,NO_DATA,NO_VALID
   TestSmoothErrorMetric.cxx
   TestStaticCellLocatorEdgeCases.cxx,NO_VALID
   TestQuadraticPolygonFilters.cxx

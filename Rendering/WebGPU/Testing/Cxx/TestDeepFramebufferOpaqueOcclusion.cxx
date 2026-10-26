@@ -4,11 +4,13 @@
 #include "vtkActor.h"
 #include "vtkCubeSource.h"
 #include "vtkImageData.h"
+#include "vtkLogger.h"
 #include "vtkNew.h"
 #include "vtkPointData.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkProperty.h"
 #include "vtkRenderWindow.h"
+#include "vtkRenderWindowInteractor.h"
 #include "vtkRenderer.h"
 #include "vtkSmartPointer.h"
 #include "vtkSphereSource.h"
@@ -18,7 +20,7 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <iostream>
+#include <string>
 #include <vector>
 
 namespace
@@ -60,13 +62,13 @@ vtkSmartPointer<vtkActor> MakeHiddenTranslucentSphere()
   return actor;
 }
 
-std::vector<unsigned char> Render(bool withHiddenSphere)
+std::vector<unsigned char> Render(bool withHiddenSphere, bool interactive = false)
 {
   vtkNew<vtkRenderer> renderer;
   auto* wgpuRenderer = vtkWebGPURenderer::SafeDownCast(renderer);
   if (wgpuRenderer == nullptr)
   {
-    std::cerr << "ERROR: renderer is not a vtkWebGPURenderer\n";
+    vtkLog(ERROR, "renderer is not a vtkWebGPURenderer");
     return {};
   }
   wgpuRenderer->UseDeepFramebufferTransparencyOn();
@@ -85,6 +87,13 @@ std::vector<unsigned char> Render(bool withHiddenSphere)
     renderer->AddActor(MakeHiddenTranslucentSphere());
   }
   window->Render();
+  if (interactive)
+  {
+    vtkNew<vtkRenderWindowInteractor> iren;
+    iren->SetRenderWindow(window);
+    iren->Initialize();
+    iren->Start();
+  }
 
   vtkNew<vtkWindowToImageFilter> capture;
   capture->SetInput(window);
@@ -94,7 +103,7 @@ std::vector<unsigned char> Render(bool withHiddenSphere)
     vtkUnsignedCharArray::SafeDownCast(capture->GetOutput()->GetPointData()->GetScalars());
   if (scalars == nullptr)
   {
-    std::cerr << "ERROR: no pixels captured\n";
+    vtkLog(ERROR, "no pixels captured");
     return {};
   }
   const vtkIdType n = scalars->GetNumberOfValues();
@@ -107,14 +116,29 @@ std::vector<unsigned char> Render(bool withHiddenSphere)
 }
 }
 
-int TestDeepFramebufferOpaqueOcclusion(int, char*[])
+int TestDeepFramebufferOpaqueOcclusion(int argc, char* argv[])
 {
+  bool interactive = false;
+  for (int i = 0; i < argc; ++i)
+  {
+    if (std::string(argv[i]) == "-I")
+    {
+      interactive = true;
+      break;
+    }
+  }
+
+  if (interactive)
+  {
+    Render(true, true);
+    return EXIT_SUCCESS;
+  }
   const std::vector<unsigned char> boxOnly = Render(false);
   const std::vector<unsigned char> boxAndSphere = Render(true);
 
   if (boxOnly.empty() || boxAndSphere.empty() || boxOnly.size() != boxAndSphere.size())
   {
-    std::cerr << "ERROR: could not capture both renders\n";
+    vtkLog(ERROR, "could not capture both renders");
     return EXIT_FAILURE;
   }
 
@@ -131,8 +155,9 @@ int TestDeepFramebufferOpaqueOcclusion(int, char*[])
   const std::size_t pixelCount = boxOnly.size() / 3;
   if (covered * 4 < pixelCount)
   {
-    std::cerr << "ERROR: the opaque box covers only " << covered << " of " << pixelCount
-              << " pixels; it is not occluding anything\n";
+    vtkLog(ERROR,
+      "the opaque box covers only " << covered << " of " << pixelCount
+                                    << " pixels; it is not occluding anything");
     return EXIT_FAILURE;
   }
 
@@ -149,15 +174,17 @@ int TestDeepFramebufferOpaqueOcclusion(int, char*[])
   }
   if (differing > 0)
   {
-    std::cerr << "ERROR: " << differing << " of " << boxOnly.size()
-              << " channel values changed when a fully hidden translucent sphere was added (worst "
-              << worst
-              << "); its fragments are reaching the fragment lists despite failing the depth "
-                 "test, and the resolve then draws them over the opaque geometry\n";
+    vtkLog(ERROR,
+      "" << differing << " of " << boxOnly.size()
+         << " channel values changed when a fully hidden translucent sphere was added (worst "
+         << worst
+         << "); its fragments are reaching the fragment lists despite failing the depth "
+            "test, and the resolve then draws them over the opaque geometry");
     return EXIT_FAILURE;
   }
 
-  std::cout << "geometry hidden behind opaque surfaces stays hidden over " << pixelCount
-            << " pixels, " << covered << " covered by the box\n";
+  vtkLog(INFO,
+    "geometry hidden behind opaque surfaces stays hidden over "
+      << pixelCount << " pixels, " << covered << " covered by the box");
   return EXIT_SUCCESS;
 }

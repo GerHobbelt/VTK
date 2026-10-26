@@ -162,6 +162,11 @@ public:
   void PrintSelf(ostream& os, vtkIndent indent) override;
   ///@}
 
+  /**
+   * The traits of the cell type, see vtkCellTypeTraits.
+   */
+  vtkCellTypeTraitsMembersMacro(VTK_POLYHEDRON);
+
   ///@{
   /**
    * See vtkCell3D API for description of these methods.
@@ -209,7 +214,7 @@ public:
   /**
    * See the vtkCell API for descriptions of these methods.
    */
-  int GetCellType() override { return VTK_POLYHEDRON; }
+  int GetCellType() override { return Traits::CellType; }
 
   /**
    * This cell requires that it be initialized prior to access.
@@ -454,6 +459,13 @@ protected:
   // Filled with the SetFaces method.
   // These faces are numbered in global id space
   vtkNew<vtkCellArray> GlobalFaces;
+
+  /**
+   * Face points as mesh (global) point ids, matching the GlobalFaces
+   * representation. GetFacePoints() returns cell-local ids per vtkCell3D's
+   * contract; this exists for the internal consumers that need global ids.
+   */
+  vtkIdType GetGlobalFacePoints(vtkIdType faceId, const vtkIdType*& pts);
 
   // If edges are needed. Note that the edge numbering is in canonical space.
   int EdgesGenerated = 0;           // true/false

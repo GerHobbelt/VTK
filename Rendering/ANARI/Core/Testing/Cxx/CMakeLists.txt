@@ -1,6 +1,7 @@
 set(tests_with_baseline
   TestAnariActorVisibility
   TestAnariAmbient
+  TestAnariBackgroundAfterSubtype
   TestAnariCameraInside
   TestAnariCameraInsideSmallSpacing
   TestAnariCellData
@@ -20,6 +21,7 @@ set(tests_with_baseline
   TestAnariPBRMaterialsCoat
   TestAnariPerspectiveParallel
   TestAnariPolyDataTexture
+  TestAnariPolyDataTemporal
   TestAnariPositionalLights
   TestAnariRendererType
   TestAnariRenderMesh

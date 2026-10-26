@@ -111,14 +111,15 @@ bool computeVortexCriteria(const double s[9], const double omega[9], double vort
       const double& omega_ij = omega[3 * i + j];
       S(i, j) = s_ij;
       Omega(i, j) = omega_ij;
-      J(i, j) = (s_ij + omega_ij) / 2.;
+      J(i, j) = s_ij + omega_ij;
     }
   }
 
   // The Q-criterion is defined as
   // Q = \frac{1}{2} \left[ | \Omega |^2 - | S |^2 \right] > 0
+  // where | \cdot | is the Frobenius norm.
   double& Q = vortexCriteria[0];
-  Q = (Omega.operatorNorm() - S.operatorNorm()) / 2.;
+  Q = (Omega.squaredNorm() - S.squaredNorm()) / 2.;
   if (Q <= 0.)
   {
     return false;
@@ -437,7 +438,10 @@ int vtkVortexCore::RequestData(
   if (this->HigherOrderMethod)
   {
     // Compute the gradient of the Jacobian
-    vtkSmartPointer<vtkDoubleArray> jacobianPrime;
+    // Not vtkDoubleArray: vtkGradientFilter's output follows the input type, so
+    // a float velocity field yields a float jacobian_prime. A strict downcast
+    // silently produced null here, which then reached the worker unchecked.
+    vtkSmartPointer<vtkDataArray> jacobianPrime;
     {
       vtkNew<vtkGradientFilter> gradientPrime;
       gradientPrime->SetInputData(dataset);
@@ -447,7 +451,7 @@ int vtkVortexCore::RequestData(
         0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "jacobian");
       gradientPrime->SetContainerAlgorithm(this);
       gradientPrime->Update();
-      jacobianPrime = vtkDoubleArray::SafeDownCast(
+      jacobianPrime = vtkDataArray::SafeDownCast(
         gradientPrime->GetOutput()->GetPointData()->GetAbstractArray("jacobian_prime"));
     }
 
@@ -458,6 +462,13 @@ int vtkVortexCore::RequestData(
       jerk->SetName("jerk");
       jerk->SetNumberOfComponents(3);
       jerk->SetNumberOfTuples(velocity->GetNumberOfTuples());
+
+      if (!jacobianPrime)
+      {
+        vtkErrorMacro("Could not compute the gradient of the Jacobian; the "
+                      "higher order method cannot proceed.");
+        return 0;
+      }
 
       MatrixVectorMultiplyWorker worker;
 

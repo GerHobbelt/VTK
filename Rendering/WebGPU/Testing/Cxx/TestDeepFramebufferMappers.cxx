@@ -6,6 +6,7 @@
 #include "vtkCompositePolyDataMapper.h"
 #include "vtkGlyph3DMapper.h"
 #include "vtkImageData.h"
+#include "vtkLogger.h"
 #include "vtkMultiBlockDataSet.h"
 #include "vtkNew.h"
 #include "vtkPointData.h"
@@ -13,6 +14,7 @@
 #include "vtkPolyData.h"
 #include "vtkProperty.h"
 #include "vtkRenderWindow.h"
+#include "vtkRenderWindowInteractor.h"
 #include "vtkRenderer.h"
 #include "vtkSmartPointer.h"
 #include "vtkSphereSource.h"
@@ -22,7 +24,6 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <iostream>
 #include <string>
 #include <vector>
 
@@ -88,7 +89,7 @@ vtkSmartPointer<vtkActor> MakeCompositeActor(double x, const double rgb[3])
 }
 
 std::vector<unsigned char> RenderInOrder(
-  const std::vector<vtkSmartPointer<vtkActor>>& actorsIn, bool reversed)
+  const std::vector<vtkSmartPointer<vtkActor>>& actorsIn, bool reversed, bool interactive = false)
 {
   std::vector<vtkSmartPointer<vtkActor>> actors = actorsIn;
   if (reversed)
@@ -100,7 +101,7 @@ std::vector<unsigned char> RenderInOrder(
   auto* wgpuRenderer = vtkWebGPURenderer::SafeDownCast(renderer);
   if (wgpuRenderer == nullptr)
   {
-    std::cerr << "ERROR: renderer is not a vtkWebGPURenderer\n";
+    vtkLog(ERROR, "renderer is not a vtkWebGPURenderer");
     return {};
   }
   wgpuRenderer->UseDeepFramebufferTransparencyOn();
@@ -116,6 +117,13 @@ std::vector<unsigned char> RenderInOrder(
   window->AddRenderer(renderer);
   renderer->ResetCamera();
   window->Render();
+  if (interactive)
+  {
+    vtkNew<vtkRenderWindowInteractor> iren;
+    iren->SetRenderWindow(window);
+    iren->Initialize();
+    iren->Start();
+  }
 
   vtkNew<vtkWindowToImageFilter> capture;
   capture->SetInput(window);
@@ -125,7 +133,7 @@ std::vector<unsigned char> RenderInOrder(
     vtkUnsignedCharArray::SafeDownCast(capture->GetOutput()->GetPointData()->GetScalars());
   if (scalars == nullptr)
   {
-    std::cerr << "ERROR: no pixels captured\n";
+    vtkLog(ERROR, "no pixels captured");
     return {};
   }
   const vtkIdType n = scalars->GetNumberOfValues();
@@ -143,7 +151,7 @@ bool OrderIndependent(const std::string& what, const std::vector<vtkSmartPointer
   const std::vector<unsigned char> reverse = RenderInOrder(actors, true);
   if (forward.empty() || reverse.empty() || forward.size() != reverse.size())
   {
-    std::cerr << "ERROR: " << what << ": could not capture both renders\n";
+    vtkLog(ERROR, "" << what << ": could not capture both renders");
     return false;
   }
 
@@ -160,8 +168,9 @@ bool OrderIndependent(const std::string& what, const std::vector<vtkSmartPointer
   const std::size_t pixelCount = forward.size() / 3;
   if (covered * 20 < pixelCount)
   {
-    std::cerr << "ERROR: " << what << ": only " << covered << " of " << pixelCount
-              << " pixels are covered by geometry\n";
+    vtkLog(ERROR,
+      "" << what << ": only " << covered << " of " << pixelCount
+         << " pixels are covered by geometry");
     return false;
   }
 
@@ -178,23 +187,43 @@ bool OrderIndependent(const std::string& what, const std::vector<vtkSmartPointer
   }
   if (differing > 0)
   {
-    std::cerr << "ERROR: " << what << ": " << differing << " of " << forward.size()
-              << " channel values differ between draw orders (worst " << worst
-              << "); this mapper's translucent fragments are not reaching the fragment lists\n";
+    vtkLog(ERROR,
+      "" << what << ": " << differing << " of " << forward.size()
+         << " channel values differ between draw orders (worst " << worst
+         << "); this mapper's translucent fragments are not reaching the fragment lists");
     return false;
   }
 
-  std::cout << what << ": order independent over " << pixelCount << " pixels, " << covered
-            << " covered by geometry\n";
+  vtkLog(INFO,
+    "" << what << ": order independent over " << pixelCount << " pixels, " << covered
+       << " covered by geometry");
   return true;
 }
 }
 
-int TestDeepFramebufferMappers(int, char*[])
+int TestDeepFramebufferMappers(int argc, char* argv[])
 {
+  bool interactive = false;
+  for (int i = 0; i < argc; ++i)
+  {
+    if (std::string(argv[i]) == "-I")
+    {
+      interactive = true;
+      break;
+    }
+  }
+
   const double red[3] = { 1.0, 0.0, 0.0 };
   const double green[3] = { 0.0, 1.0, 0.0 };
   const double blue[3] = { 0.0, 0.0, 1.0 };
+
+  if (interactive)
+  {
+    RenderInOrder(
+      { MakeGlyphActor(-0.4, red), MakeGlyphActor(0.0, green), MakeGlyphActor(0.4, blue) }, false,
+      true);
+    return EXIT_SUCCESS;
+  }
 
   bool ok = true;
 

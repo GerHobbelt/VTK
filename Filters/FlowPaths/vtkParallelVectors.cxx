@@ -21,9 +21,11 @@
 
 #include "vtk_eigen.h"
 #include VTK_EIGEN(Eigenvalues)
+#include VTK_EIGEN(LU)
 #include VTK_EIGEN(Geometry)
 
 #include <array>
+#include <cmath>
 #include <deque>
 
 //------------------------------------------------------------------------------
@@ -42,28 +44,6 @@ namespace
 bool fieldAlignmentPointForTriangle(const double v0[3], const double v1[3], const double v2[3],
   const double w0[3], const double w1[3], const double w2[3], double* st)
 {
-  // If the first field is zero across the entire face, the notion of parallel
-  // vector fields is not applicable.
-  if (std::abs(v0[0]) < VTK_DBL_EPSILON && std::abs(v0[1]) < VTK_DBL_EPSILON &&
-    std::abs(v0[2]) < VTK_DBL_EPSILON && std::abs(v1[0]) < VTK_DBL_EPSILON &&
-    std::abs(v1[1]) < VTK_DBL_EPSILON && std::abs(v1[2]) < VTK_DBL_EPSILON &&
-    std::abs(v2[0]) < VTK_DBL_EPSILON && std::abs(v2[1]) < VTK_DBL_EPSILON &&
-    std::abs(v2[2]) < VTK_DBL_EPSILON)
-  {
-    return false;
-  }
-
-  // If the second field is zero across the entire face, the notion of parallel
-  // vector fields is not applicable.
-  if (std::abs(w0[0]) < VTK_DBL_EPSILON && std::abs(w0[1]) < VTK_DBL_EPSILON &&
-    std::abs(w0[2]) < VTK_DBL_EPSILON && std::abs(w1[0]) < VTK_DBL_EPSILON &&
-    std::abs(w1[1]) < VTK_DBL_EPSILON && std::abs(w1[2]) < VTK_DBL_EPSILON &&
-    std::abs(w2[0]) < VTK_DBL_EPSILON && std::abs(w2[1]) < VTK_DBL_EPSILON &&
-    std::abs(w2[2]) < VTK_DBL_EPSILON)
-  {
-    return false;
-  }
-
   // A parametrized description of vector field v on the surface of a triangle
   // can be expressed as
   //
@@ -85,6 +65,13 @@ bool fieldAlignmentPointForTriangle(const double v0[3], const double v1[3], cons
     W(i, 2) = w0[i];
   }
 
+  // If either field is zero across the entire face, the notion of parallel
+  // vector fields is not applicable.
+  if (V.isZero(0.) || W.isZero(0.))
+  {
+    return false;
+  }
+
   // The two vector fields are parallel when
   //
   // \mathbf(V) \left[ s \; t \; 1 \right]^{^\intercal} =
@@ -95,14 +82,19 @@ bool fieldAlignmentPointForTriangle(const double v0[3], const double v1[3], cons
   // \mathbf{M} = \mathbf{W}^{-1} \mathbf{V}
   //
   // or, by symmetry arguments, $\mathbf{M} = \mathbf{V}^{-1} \mathbf{W}$.
+  //
+  // FullPivLU decides invertibility relative to its largest pivot, so the
+  // decision does not depend on the scale of the fields.
   Eigen::Matrix<double, 3, 3> M;
-  if (std::abs(V.determinant()) > VTK_DBL_EPSILON)
+  const Eigen::FullPivLU<Eigen::Matrix<double, 3, 3>> vLU(V);
+  const Eigen::FullPivLU<Eigen::Matrix<double, 3, 3>> wLU(W);
+  if (vLU.isInvertible())
   {
-    M = V.inverse() * W;
+    M = vLU.solve(W);
   }
-  else if (std::abs(W.determinant()) > VTK_DBL_EPSILON)
+  else if (wLU.isInvertible())
   {
-    M = W.inverse() * V;
+    M = wLU.solve(V);
   }
   else
   {
@@ -110,15 +102,14 @@ bool fieldAlignmentPointForTriangle(const double v0[3], const double v1[3], cons
   }
 
   Eigen::EigenSolver<Eigen::Matrix<double, 3, 3>> eigensolver(M);
-  Eigen::Matrix<std::complex<double>, 3, 3> eigenvectors = eigensolver.eigenvectors();
+  const auto eigenvectors = eigensolver.eigenvectors();
 
   for (int i = 0; i < 3; ++i)
   {
     const auto col = eigenvectors.col(i);
 
     // We are only interested in real solutions to the above equation.
-    if (std::abs(col[0].imag()) > VTK_DBL_EPSILON || std::abs(col[1].imag()) > VTK_DBL_EPSILON ||
-      std::abs(col[2].imag()) > VTK_DBL_EPSILON)
+    if (col.imag().norm() > VTK_DBL_EPSILON)
     {
       continue;
     }
@@ -130,25 +121,19 @@ bool fieldAlignmentPointForTriangle(const double v0[3], const double v1[3], cons
       continue;
     }
 
-    std::array<double, 3> eigenvector = { { col[0].real(), col[1].real(), col[2].real() } };
-
-    for (double& component : eigenvector)
-    {
-      component /= eigenvector[2];
-    }
+    const double s = col[0].real() / col[2].real();
+    const double t = col[1].real() / col[2].real();
 
     // Finally, we require that the computed point lie on the surface of the
     // triangle.
-    if (eigenvector[0] < -VTK_DBL_EPSILON || eigenvector[1] < -VTK_DBL_EPSILON ||
-      eigenvector[0] + eigenvector[1] > 1. + VTK_DBL_EPSILON)
+    if (!std::isfinite(s) || !std::isfinite(t) || s < -VTK_DBL_EPSILON || t < -VTK_DBL_EPSILON ||
+      s + t > 1. + VTK_DBL_EPSILON)
     {
       continue;
     }
 
-    for (int j = 0; j < 2; j++)
-    {
-      st[j] = eigenvector[j];
-    }
+    st[0] = s;
+    st[1] = t;
     return true;
   }
 
@@ -326,7 +311,13 @@ bool surfaceTessellationForCell(vtkCell3D* cell, std::vector<std::array<vtkIdTyp
   const vtkIdType* localPointIds;
   for (int face = 0; face < numberOfFaces; ++face)
   {
-    nTriangles += cell->GetFacePoints(face, localPointIds) - 2;
+    const vtkIdType nFacePoints = cell->GetFacePoints(face, localPointIds);
+    if (nFacePoints < 3)
+    {
+      // nTriangles is unsigned; a degenerate or unavailable face would wrap it.
+      return false;
+    }
+    nTriangles += nFacePoints - 2;
   }
   triangles.resize(nTriangles);
 
@@ -352,6 +343,11 @@ bool surfaceTessellationForCell(vtkCell3D* cell, std::vector<std::array<vtkIdTyp
       {
         std::array<vtkIdType, 4> perimeter = { { pointIds[localPointIds[0]],
           pointIds[localPointIds[1]], pointIds[localPointIds[2]], pointIds[localPointIds[3]] } };
+        // vtkVoxel lists face points in vtkPixel order, which is not a perimeter.
+        if (cell->GetCellType() == VTK_VOXEL)
+        {
+          std::swap(perimeter[2], perimeter[3]);
+        }
 
         std::rotate(
           perimeter.begin(), std::min_element(perimeter.begin(), perimeter.end()), perimeter.end());
@@ -373,9 +369,15 @@ bool surfaceTessellationForCell(vtkCell3D* cell, std::vector<std::array<vtkIdTyp
           polygon->GetPointIds()->SetId(i, i);
         }
 
+        // A face whose vertices include collinear ones -- hanging nodes along an
+        // edge, which polyhedral meshes at refinement boundaries are full of --
+        // legitimately triangulates into fewer than nPoints - 2 triangles while
+        // still covering the face. Use the count ear-cut actually produced;
+        // assuming nPoints - 2 reads past the end of outTris.
         polygon->TriangulateLocalIds(0, outTris);
+        const vtkIdType nTris = outTris->GetNumberOfIds() / 3;
 
-        for (vtkIdType i = 0; i < nPoints - 2; ++i)
+        for (vtkIdType i = 0; i < nTris; ++i)
         {
           triangles[triId++] = { { pointIds[localPointIds[outTris->GetId(3 * i)]],
             pointIds[localPointIds[outTris->GetId(3 * i + 1)]],
@@ -384,6 +386,10 @@ bool surfaceTessellationForCell(vtkCell3D* cell, std::vector<std::array<vtkIdTyp
       }
     }
   }
+
+  // nTriangles was an upper bound (nPoints - 2 per face); collinear vertices
+  // mean fewer are produced.
+  triangles.resize(triId);
   return true;
 }
 }

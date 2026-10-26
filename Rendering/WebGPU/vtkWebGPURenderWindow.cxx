@@ -46,6 +46,7 @@
 
 #include "CopyDepthTextureToBuffer.h"
 
+#include <future> // for std::async
 #include <sstream>
 
 #if defined(__EMSCRIPTEN__)
@@ -275,17 +276,56 @@ WGPUSurface vtkWebGPURenderWindow::CreateSurfaceFromHardwareWindow(WGPUInstance 
 //------------------------------------------------------------------------------
 bool vtkWebGPURenderWindow::RendersOffScreenOnly()
 {
-  return !this->ShowWindow && this->UseOffScreenBuffers && this->CustomSurfaceDescriptor == nullptr;
+  // An external presentation target exists whether or not we render into it, so
+  // skipping the surface would only leave it blank.
+  if (this->CustomSurfaceDescriptor != nullptr)
+  {
+    return false;
+  }
+  if (this->HardwareWindow != nullptr && this->HardwareWindow->IsExternallyOwned())
+  {
+    return false;
+  }
+  return !this->ShowWindow && this->UseOffScreenBuffers;
 }
 
 //------------------------------------------------------------------------------
 void vtkWebGPURenderWindow::Initialize()
 {
+  // Instantiating the hardware window acquires no OS resources and lets the
+  // decision below ask it what kind of view it is. Released again when it turns
+  // out nothing will be presented.
+  const bool hadHardwareWindow = this->HardwareWindow != nullptr;
+  if (this->CustomSurfaceDescriptor == nullptr && !hadHardwareWindow)
+  {
+    this->SetHardwareWindow(vtk::TakeSmartPointer(vtkHardwareWindow::New()));
+  }
   const bool offScreenOnly = this->RendersOffScreenOnly();
-  if (this->CustomSurfaceDescriptor == nullptr && !offScreenOnly)
+  if (offScreenOnly && !hadHardwareWindow)
+  {
+    this->SetHardwareWindow(nullptr);
+  }
+  const bool createWindow = this->CustomSurfaceDescriptor == nullptr && !offScreenOnly;
+#if !defined(__EMSCRIPTEN__)
+  // The library load does not need the window, so overlap the two. WGPUInit() joins
+  // this before its first call into the implementation.
+  std::future<void> implementationLoad;
+  if (createWindow)
+  {
+    implementationLoad = std::async(
+      std::launch::async, []() { static_cast<void>(vtkWebGPUProcLoader::GetInstance()); });
+  }
+#endif
+  if (createWindow)
   {
     this->CreateAWindow();
   }
+#if !defined(__EMSCRIPTEN__)
+  if (implementationLoad.valid())
+  {
+    implementationLoad.wait();
+  }
+#endif
   if (this->WGPUInit() && !offScreenOnly)
   {
     this->CreateSurface();
@@ -518,6 +558,12 @@ WGPUTextureFormat vtkWebGPURenderWindow::GetPreferredSelectorIdsTextureFormat()
 }
 
 //------------------------------------------------------------------------------
+WGPUTextureFormat vtkWebGPURenderWindow::GetOffscreenColorTextureFormat()
+{
+  return this->OffscreenColorTextureFormat;
+}
+
+//------------------------------------------------------------------------------
 vtkSmartPointer<vtkWebGPUComputeRenderTexture>
 vtkWebGPURenderWindow::AcquireDepthBufferRenderTexture()
 {
@@ -558,7 +604,7 @@ vtkWebGPURenderWindow::AcquireFramebufferRenderTexture()
   int* dims = this->GetSize();
 
   texture->SetSize(dims[0], dims[1]);
-  texture->SetFormat(vtkWebGPUTextureDeviceResource::TextureFormat::BGRA8_UNORM);
+  texture->SetFormat(vtkWebGPUTextureDeviceResource::TextureFormat::RGBA8_UNORM);
   texture->SetSampleType(vtkWebGPUComputeTexture::TextureSampleType::FLOAT);
   texture->SetLabel("Framebuffer render texture");
   texture->SetType(vtkWebGPUComputeRenderTexture::RenderTextureType::COLOR_BUFFER);
@@ -768,7 +814,7 @@ void vtkWebGPURenderWindow::CreateOffscreenColorAttachment()
   textureDesc.mipLevelCount = 1;
   textureDesc.sampleCount = 1;
   textureDesc.dimension = WGPUTextureDimension_2D;
-  textureDesc.format = this->GetPreferredSurfaceTextureFormat();
+  textureDesc.format = this->GetOffscreenColorTextureFormat();
   textureDesc.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_TextureBinding |
     WGPUTextureUsage_CopySrc | WGPUTextureUsage_CopyDst | WGPUTextureUsage_StorageBinding;
   textureDesc.viewFormatCount = 0;
@@ -2401,10 +2447,10 @@ void vtkWebGPURenderWindow::CreateAWindow()
   if (!this->HardwareWindow)
   {
     this->SetHardwareWindow(vtk::TakeSmartPointer(vtkHardwareWindow::New()));
-    if (this->Interactor)
-    {
-      this->HardwareWindow->SetInteractor(this->Interactor);
-    }
+  }
+  if (this->Interactor)
+  {
+    this->HardwareWindow->SetInteractor(this->Interactor);
   }
   this->SyncWithHardware();
   this->HardwareWindow->Create();

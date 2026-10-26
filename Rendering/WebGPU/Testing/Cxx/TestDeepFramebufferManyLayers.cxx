@@ -3,12 +3,14 @@
 
 #include "vtkActor.h"
 #include "vtkImageData.h"
+#include "vtkLogger.h"
 #include "vtkNew.h"
 #include "vtkPlaneSource.h"
 #include "vtkPointData.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkProperty.h"
 #include "vtkRenderWindow.h"
+#include "vtkRenderWindowInteractor.h"
 #include "vtkRenderer.h"
 #include "vtkSmartPointer.h"
 #include "vtkUnsignedCharArray.h"
@@ -17,7 +19,7 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <iostream>
+#include <string>
 #include <vector>
 
 namespace
@@ -45,7 +47,7 @@ vtkSmartPointer<vtkActor> MakeQuad(int layer)
   return actor;
 }
 
-std::vector<unsigned char> RenderInOrder(bool reversed)
+std::vector<unsigned char> RenderInOrder(bool reversed, bool interactive = false)
 {
   std::vector<vtkSmartPointer<vtkActor>> actors;
   for (int layer = 0; layer < LayerCount; ++layer)
@@ -61,7 +63,7 @@ std::vector<unsigned char> RenderInOrder(bool reversed)
   auto* wgpuRenderer = vtkWebGPURenderer::SafeDownCast(renderer);
   if (wgpuRenderer == nullptr)
   {
-    std::cerr << "ERROR: renderer is not a vtkWebGPURenderer\n";
+    vtkLog(ERROR, "renderer is not a vtkWebGPURenderer");
     return {};
   }
   wgpuRenderer->UseDeepFramebufferTransparencyOn();
@@ -77,6 +79,13 @@ std::vector<unsigned char> RenderInOrder(bool reversed)
   window->AddRenderer(renderer);
   renderer->ResetCamera();
   window->Render();
+  if (interactive)
+  {
+    vtkNew<vtkRenderWindowInteractor> iren;
+    iren->SetRenderWindow(window);
+    iren->Initialize();
+    iren->Start();
+  }
 
   vtkNew<vtkWindowToImageFilter> capture;
   capture->SetInput(window);
@@ -86,7 +95,7 @@ std::vector<unsigned char> RenderInOrder(bool reversed)
     vtkUnsignedCharArray::SafeDownCast(capture->GetOutput()->GetPointData()->GetScalars());
   if (scalars == nullptr)
   {
-    std::cerr << "ERROR: no pixels captured\n";
+    vtkLog(ERROR, "no pixels captured");
     return {};
   }
   const vtkIdType n = scalars->GetNumberOfValues();
@@ -99,14 +108,29 @@ std::vector<unsigned char> RenderInOrder(bool reversed)
 }
 }
 
-int TestDeepFramebufferManyLayers(int, char*[])
+int TestDeepFramebufferManyLayers(int argc, char* argv[])
 {
+  bool interactive = false;
+  for (int i = 0; i < argc; ++i)
+  {
+    if (std::string(argv[i]) == "-I")
+    {
+      interactive = true;
+      break;
+    }
+  }
+
+  if (interactive)
+  {
+    RenderInOrder(false, true);
+    return EXIT_SUCCESS;
+  }
   const std::vector<unsigned char> forward = RenderInOrder(false);
   const std::vector<unsigned char> reverse = RenderInOrder(true);
 
   if (forward.empty() || reverse.empty() || forward.size() != reverse.size())
   {
-    std::cerr << "ERROR: could not capture both renders\n";
+    vtkLog(ERROR, "could not capture both renders");
     return EXIT_FAILURE;
   }
 
@@ -123,8 +147,9 @@ int TestDeepFramebufferManyLayers(int, char*[])
   const std::size_t pixelCount = forward.size() / 3;
   if (covered * 20 < pixelCount)
   {
-    std::cerr << "ERROR: only " << covered << " of " << pixelCount
-              << " pixels are covered by geometry; the stack did not render\n";
+    vtkLog(ERROR,
+      "only " << covered << " of " << pixelCount
+              << " pixels are covered by geometry; the stack did not render");
     return EXIT_FAILURE;
   }
 
@@ -141,13 +166,15 @@ int TestDeepFramebufferManyLayers(int, char*[])
   }
   if (differing > 0)
   {
-    std::cerr << "ERROR: " << differing << " of " << forward.size()
-              << " channel values differ between draw orders (worst " << worst
-              << "); the layers kept past the per-pixel limit depend on draw order\n";
+    vtkLog(ERROR,
+      "" << differing << " of " << forward.size()
+         << " channel values differ between draw orders (worst " << worst
+         << "); the layers kept past the per-pixel limit depend on draw order");
     return EXIT_FAILURE;
   }
 
-  std::cout << LayerCount << " layers per pixel resolved identically in both draw orders over "
-            << pixelCount << " pixels, " << covered << " covered by geometry\n";
+  vtkLog(INFO,
+    "" << LayerCount << " layers per pixel resolved identically in both draw orders over "
+       << pixelCount << " pixels, " << covered << " covered by geometry");
   return EXIT_SUCCESS;
 }

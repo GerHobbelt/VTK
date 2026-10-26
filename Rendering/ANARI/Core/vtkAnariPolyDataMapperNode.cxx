@@ -32,6 +32,7 @@
 #include "vtkStringFormatter.h"
 #include "vtkTexture.h"
 #include "vtkUnsignedCharArray.h"
+#include "vtkWeakPointer.h"
 
 #include <anari/anari_cpp.hpp>
 #include <anari/anari_cpp/ext/std.h>
@@ -315,6 +316,11 @@ public:
 
   vtkSmartPointer<vtkAnariDevice> AnariDevice{ nullptr };
 
+  // The actor outlives this node and the callback points back into the scene
+  // graph, so the observer has to come off again.
+  vtkWeakPointer<vtkActor> ObservedActor;
+  unsigned long ActorObserverTag{ 0 };
+
 private:
   static const std::set<std::string> PhysicallyBasedImpls;
 };
@@ -329,6 +335,12 @@ vtkAnariPolyDataMapperNodeInternals::vtkAnariPolyDataMapperNodeInternals(
 //----------------------------------------------------------------------------
 vtkAnariPolyDataMapperNodeInternals::~vtkAnariPolyDataMapperNodeInternals()
 {
+  if (this->ActorObserverTag != 0 && this->ObservedActor)
+  {
+    this->ObservedActor->RemoveObserver(this->ActorObserverTag);
+    this->ActorObserverTag = 0;
+  }
+
   this->ClearSurfaces();
 }
 
@@ -3072,7 +3084,7 @@ void vtkAnariPolyDataMapperNode::AnariRenderPoly(vtkAnariActorNode* const anariA
 void vtkAnariPolyDataMapperNode::Build(bool prepass)
 {
   vtkAnariProfiling startProfiling("VTKAPDMN::Build", vtkAnariProfiling::GREEN);
-  if (!prepass || !this->ActorWasModified())
+  if (!prepass)
   {
     return;
   }
@@ -3093,11 +3105,13 @@ void vtkAnariPolyDataMapperNode::Build(bool prepass)
   }
 
   auto* actor = GetVtkActor();
-  if (!actor->HasObserver(vtkCommand::ModifiedEvent))
+  if (this->Internal->ActorObserverTag == 0)
   {
+    // Keyed on our own tag: HasObserver() would report anyone's observer.
     vtkNew<PolyDataMapperCallback> cc;
     cc->RendererNode = this->RendererNode;
-    actor->AddObserver(vtkCommand::ModifiedEvent, cc);
+    this->Internal->ObservedActor = actor;
+    this->Internal->ActorObserverTag = actor->AddObserver(vtkCommand::ModifiedEvent, cc);
     cc->Execute(nullptr, vtkCommand::ModifiedEvent, nullptr);
   }
 }
@@ -3108,6 +3122,11 @@ void vtkAnariPolyDataMapperNode::Synchronize(bool prepass)
   vtkAnariProfiling startProfiling("VTKAPDMN::Synchronize", vtkAnariProfiling::GREEN);
 
   if (!prepass)
+  {
+    return;
+  }
+
+  if (!this->ActorWasModified())
   {
     return;
   }
@@ -3146,7 +3165,7 @@ void vtkAnariPolyDataMapperNode::Synchronize(bool prepass)
 
   if (!this->ActorWasModified() || !(this->PolyDataMTime < poly->GetMTime()))
   {
-    this->RenderTime = this->GetVtkActor()->GetMTime();
+    this->RenderTime = this->GetVtkActor()->GetRedrawMTime();
     this->PolyDataMTime = poly->GetMTime();
     return;
   }
@@ -3161,6 +3180,7 @@ void vtkAnariPolyDataMapperNode::Synchronize(bool prepass)
 
   this->AnariRenderPoly(
     this->GetAnariActorNode(), poly, property->GetColor(), property->GetOpacity(), materialName);
+  this->MapperMTime = this->GetVtkActor()->GetMapper()->GetMTime();
 }
 
 //----------------------------------------------------------------------------
@@ -3191,7 +3211,7 @@ vtkAnariActorNode* vtkAnariPolyDataMapperNode::GetAnariActorNode() const
 //----------------------------------------------------------------------------
 bool vtkAnariPolyDataMapperNode::ActorWasModified() const
 {
-  return this->RenderTime < this->GetVtkActor()->GetMTime();
+  return this->RenderTime < this->GetVtkActor()->GetRedrawMTime();
 }
 
 //----------------------------------------------------------------------------

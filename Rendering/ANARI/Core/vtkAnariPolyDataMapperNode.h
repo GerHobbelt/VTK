@@ -98,6 +98,7 @@ private:
     std::shared_ptr<vtkAnariPolyDataMapperInheritInterface> inheritInterface);
 
   vtkMTimeType PolyDataMTime = 0;
+  vtkMTimeType MapperMTime = 0;
 };
 
 VTK_ABI_NAMESPACE_END
